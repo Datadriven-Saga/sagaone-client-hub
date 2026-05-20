@@ -23,6 +23,11 @@ interface NovoLeadModalProps {
   onLeadCreated: () => void;
   onOpenContato: (contato: Contato) => void;
   profiles: { id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[];
+  /**
+   * ID da prospecção (evento) ativa no contexto onde o modal foi aberto (ex.: filtro do Kanban).
+   * Quando informado, o lead criado é vinculado a essa prospecção via edge `create-lead`.
+   */
+  activeProspeccaoId?: string;
 }
 
 type Step = 'phone' | 'form' | 'owner-message';
@@ -30,6 +35,7 @@ type Step = 'phone' | 'form' | 'owner-message';
 interface OwnerInfo {
   nome: string;
   contato: Contato;
+  prospeccaoTitulo?: string | null;
 }
 
 export const NovoLeadModal = ({
@@ -37,7 +43,8 @@ export const NovoLeadModal = ({
   onClose,
   onLeadCreated,
   onOpenContato,
-  profiles
+  profiles,
+  activeProspeccaoId,
 }: NovoLeadModalProps) => {
   const [step, setStep] = useState<Step>('phone');
   const [telefone, setTelefone] = useState("");
@@ -53,6 +60,7 @@ export const NovoLeadModal = ({
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [eventoEncerradoAviso, setEventoEncerradoAviso] = useState<string | null>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -64,6 +72,7 @@ export const NovoLeadModal = ({
       setEmail("");
       setOrigem("Outros");
       setObservacoes("");
+      setEventoEncerradoAviso(null);
     }
   }, [isOpen]);
 
@@ -125,19 +134,46 @@ export const NovoLeadModal = ({
             onClose();
             return;
           }
-          
-          // Lead pertence a outro usuário - mostrar mensagem
-          const ownerProfile = profiles.find(p => 
-            p.id === existingContato.responsavel_email ||
-            p.email === existingContato.responsavel_email ||
-            p.celular === existingContato.responsavel_email
+
+          // Lead pertence a outro usuário - checar se há evento ativo
+          const { data: eventoRow } = await supabase
+            .from('eventos_prospeccao')
+            .select('prospeccao_id, prospeccoes:prospeccao_id(id, titulo, encerrado_at, ativo)')
+            .eq('contato_id', existingContato.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const prospeccao = (eventoRow?.prospeccoes ?? null) as
+            | { id: string; titulo: string | null; encerrado_at: string | null; ativo: boolean | null }
+            | null;
+          const eventoEncerrado = !prospeccao || prospeccao.encerrado_at !== null || prospeccao.ativo === false;
+
+          if (!eventoEncerrado) {
+            // Bloqueia: lead em atendimento ativo por outro responsável
+            const ownerProfile = profiles.find(p =>
+              p.id === existingContato.responsavel_email ||
+              p.email === existingContato.responsavel_email ||
+              p.celular === existingContato.responsavel_email
+            );
+            setOwnerInfo({
+              nome: ownerProfile?.nome_completo || existingContato.responsavel_email || 'Outro vendedor',
+              contato: existingContato as Contato,
+              prospeccaoTitulo: prospeccao?.titulo ?? null,
+            });
+            setStep('owner-message');
+            return;
+          }
+
+          // Evento anterior já encerrado: permite criar/atribuir ao usuário atual no novo contexto
+          setEventoEncerradoAviso(
+            prospeccao?.titulo
+              ? `Este cliente esteve no evento encerrado "${prospeccao.titulo}". Será atribuído a você no contexto atual.`
+              : 'Este cliente já existia em evento encerrado. Será atribuído a você no contexto atual.'
           );
-          
-          setOwnerInfo({
-            nome: ownerProfile?.nome_completo || existingContato.responsavel_email || 'Outro vendedor',
-            contato: existingContato as Contato
-          });
-          setStep('owner-message');
+          setNome(existingContato.nome || '');
+          setEmail(existingContato.email || '');
+          setStep('form');
           return;
         }
         
@@ -197,20 +233,54 @@ export const NovoLeadModal = ({
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('contatos')
-        .insert({
+      const { data, error } = await supabase.functions.invoke('create-lead', {
+        body: {
           nome: nome.trim(),
           telefone: telefone.trim(),
           email: email.trim() || null,
-          origem: origem as any,
+          origem: origem,
           observacoes: observacoes.trim() || null,
           responsavel_email: user?.id,
           empresa_id: activeCompany.id,
-          status: 'Novo'
-        });
+          status: 'Atribuído',
+          ...(activeProspeccaoId ? { prospeccao_id: activeProspeccaoId } : {}),
+        },
+      });
 
-      if (error) throw error;
+      // supabase.functions.invoke devolve `error` quando status >= 400.
+      // Para 409 precisamos do payload original — tratamos como "lead em atendimento".
+      if (error) {
+        // Tenta extrair o corpo da resposta
+        const ctx: any = (error as any).context;
+        let parsed: any = null;
+        try {
+          if (ctx && typeof ctx.json === 'function') parsed = await ctx.json();
+          else if (ctx && typeof ctx.text === 'function') parsed = JSON.parse(await ctx.text());
+        } catch (_) { /* ignore */ }
+
+        if (ctx?.status === 409 && parsed?.lead_existente) {
+          const le = parsed.lead_existente;
+          const ownerProfile = profiles.find(p =>
+            p.id === le.responsavel_email ||
+            p.email === le.responsavel_email ||
+            p.celular === le.responsavel_email
+          );
+          setOwnerInfo({
+            nome: ownerProfile?.nome_completo || le.responsavel_email || 'Outro vendedor',
+            contato: {
+              id: le.contato_id,
+              nome: le.nome,
+              telefone: telefone,
+              status: le.status,
+            } as Contato,
+            prospeccaoTitulo: le.evento_ativo?.prospeccao_titulo ?? null,
+          });
+          setStep('owner-message');
+          return;
+        }
+
+        throw new Error(parsed?.error || error.message || 'Erro ao criar lead');
+      }
 
       toast({
         title: "Lead criado",
@@ -223,7 +293,7 @@ export const NovoLeadModal = ({
       console.error('Erro ao criar lead:', error);
       toast({
         title: "Erro",
-        description: "Erro ao criar lead. Tente novamente.",
+        description: error instanceof Error ? error.message : "Erro ao criar lead. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -284,6 +354,13 @@ export const NovoLeadModal = ({
                 <span className="font-medium">Telefone:</span> {telefone}
               </p>
             </div>
+
+            {eventoEncerradoAviso && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{eventoEncerradoAviso}</AlertDescription>
+              </Alert>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="nome">Nome do Cliente *</Label>
@@ -353,7 +430,9 @@ export const NovoLeadModal = ({
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Este cliente já está em atendimento pelo vendedor <strong>{ownerInfo.nome}</strong>.
+                Este lead já está sendo atendido por <strong>{ownerInfo.nome}</strong>
+                {ownerInfo.prospeccaoTitulo ? <> no evento <strong>{ownerInfo.prospeccaoTitulo}</strong></> : null}.
+                {" "}Solicite ao gerente a transferência.
               </AlertDescription>
             </Alert>
 
