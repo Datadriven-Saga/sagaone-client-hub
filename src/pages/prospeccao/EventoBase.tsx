@@ -1044,8 +1044,10 @@ export default function EventoBase() {
         let allContatos: any[] = [];
         let cursor: string | null = null;
         let hasMore = true;
+        let iteration = 0;
 
         while (hasMore) {
+          iteration++;
           const { data, error } = await supabase.rpc('export_evento_base', {
             p_prospeccao_id: eventoId!,
             p_empresa_id: activeCompany!.id,
@@ -1056,15 +1058,30 @@ export default function EventoBase() {
             p_limit: EXPORT_BATCH_SIZE,
           });
 
-          if (error) throw error;
+          if (error) {
+            console.error(`[export] iteração ${iteration} falhou:`, error);
+            throw error;
+          }
 
           const rows = data || [];
+          console.log(`[export] iteração ${iteration}: recebidas ${rows.length} linhas, total acumulado ${allContatos.length + rows.length}`);
           if (rows.length > 0) {
+            const prevCursor = cursor;
             allContatos = allContatos.concat(rows);
             cursor = rows[rows.length - 1].evento_id;
-            hasMore = rows.length === EXPORT_BATCH_SIZE;
+            if (!cursor || cursor === prevCursor) {
+              console.warn('[export] cursor não avançou, encerrando para evitar loop infinito');
+              hasMore = false;
+            } else {
+              hasMore = rows.length === EXPORT_BATCH_SIZE;
+            }
           } else {
             hasMore = false;
+          }
+
+          if (iteration > 200) {
+            console.warn('[export] limite de 200 iterações atingido');
+            break;
           }
         }
 
