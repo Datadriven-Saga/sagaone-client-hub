@@ -5802,31 +5802,57 @@ export type Database = {
             }[]
           }
       encrypt_mfa_secret: { Args: { plain_secret: string }; Returns: string }
-      export_evento_base: {
-        Args: {
-          p_cursor?: string
-          p_disparo?: string
-          p_empresa_id: string
-          p_limit?: number
-          p_prospeccao_id: string
-          p_search?: string
-          p_status?: string
-        }
-        Returns: {
-          contato_id: string
-          created_at: string
-          data_disparo_ia: string
-          email: string
-          evento_id: string
-          nome: string
-          origem: string
-          responsavel_email: string
-          status: string
-          telefone: string
-          updated_at: string
-          vendedor_nome: string
-        }[]
-      }
+      export_evento_base:
+        | {
+            Args: {
+              p_cursor?: string
+              p_disparo?: string
+              p_empresa_id: string
+              p_limit?: number
+              p_prospeccao_id: string
+              p_search?: string
+              p_status?: string
+            }
+            Returns: {
+              contato_id: string
+              created_at: string
+              data_disparo_ia: string
+              email: string
+              evento_id: string
+              nome: string
+              origem: string
+              responsavel_email: string
+              status: string
+              telefone: string
+              updated_at: string
+              vendedor_nome: string
+            }[]
+          }
+        | {
+            Args: {
+              p_cursor?: string
+              p_disparo?: string
+              p_empresa_id: string
+              p_limit?: number
+              p_prospeccao_id: string
+              p_search?: string
+              p_status?: string
+            }
+            Returns: {
+              contato_id: string
+              created_at: string
+              data_disparo_ia: string
+              email: string
+              evento_id: string
+              nome: string
+              origem: string
+              responsavel_email: string
+              status: string
+              telefone: string
+              updated_at: string
+              vendedor_nome: string
+            }[]
+          }
       generate_optout_dedupe_key: {
         Args: {
           canal_param?: Database["public"]["Enums"]["canal_optout"]
