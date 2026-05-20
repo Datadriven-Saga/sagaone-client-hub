@@ -1037,55 +1037,30 @@ export default function EventoBase() {
           }));
         }
       } else {
-        // Para outros canais, buscar de contatos
-        const EXPORT_BATCH_SIZE = 1000;
-        let allContatos: ContatoEvento[] = [];
-        let offset = 0;
+        // Para outros canais: RPC com paginação por cursor (keyset)
+        const EXPORT_BATCH_SIZE = 2000;
+        let allContatos: any[] = [];
+        let cursor: string | null = null;
         let hasMore = true;
 
         while (hasMore) {
-          let query = supabase
-            .from('contatos')
-            .select(`
-              id, nome, telefone, email, status, origem, 
-              created_at, updated_at, 
-              responsavel_email, vendedor_nome,
-              eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
-            `)
-            .eq('empresa_id', activeCompany!.id)
-            .eq('eventos_prospeccao.prospeccao_id', eventoId!);
-
-          if (searchTerm) {
-            query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-          }
-          if (statusFilter !== 'todos') {
-            query = query.eq('status', statusFilter as any);
-          }
-          if (disparoFilter === 'pendente') {
-            query = query.is('eventos_prospeccao.data_disparo_ia', null);
-          } else if (disparoFilter === 'disparado') {
-            query = query.not('eventos_prospeccao.data_disparo_ia', 'is', null);
-          }
-
-          query = query
-            .order('created_at', { ascending: false })
-            .range(offset, offset + EXPORT_BATCH_SIZE - 1);
-
-          const { data, error } = await query;
+          const { data, error } = await supabase.rpc('export_evento_base', {
+            p_prospeccao_id: eventoId!,
+            p_empresa_id: activeCompany!.id,
+            p_search: searchTerm || null,
+            p_status: statusFilter !== 'todos' ? statusFilter : null,
+            p_disparo: disparoFilter,
+            p_cursor: cursor,
+            p_limit: EXPORT_BATCH_SIZE,
+          });
 
           if (error) throw error;
 
-          if (data && data.length > 0) {
-            const cleanData = data.map(({ eventos_prospeccao, ...rest }) => {
-              const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
-              return {
-                ...rest,
-                data_disparo_ia: evento?.data_disparo_ia || null
-              };
-            }) as ContatoEvento[];
-            allContatos = [...allContatos, ...cleanData];
-            offset += EXPORT_BATCH_SIZE;
-            hasMore = data.length === EXPORT_BATCH_SIZE;
+          const rows = data || [];
+          if (rows.length > 0) {
+            allContatos = allContatos.concat(rows);
+            cursor = rows[rows.length - 1].evento_id;
+            hasMore = rows.length === EXPORT_BATCH_SIZE;
           } else {
             hasMore = false;
           }
