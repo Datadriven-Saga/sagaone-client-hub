@@ -1964,6 +1964,28 @@ export default function EventoBase() {
   return (
     <DashboardLayout title={`Base: ${prospeccao?.titulo || 'Evento'}`}>
       <div className="space-y-6">
+        {isConfirmacao && parentEvento && (
+          <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 flex items-center gap-3">
+            <CheckIcon className="h-5 w-5 text-primary shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">Evento de Confirmação</p>
+              <p className="text-muted-foreground">
+                Confirmação de presença vinculada a:{' '}
+                <button onClick={() => navigate(`/prospeccao/eventos/${parentEvento.id}/base`)} className="underline text-primary">
+                  {parentEvento.titulo}
+                </button>. Importação por planilha está desabilitada — use <strong>Sincronizar</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <CriarProspeccaoModal
+          isOpen={showCriarConfirmacao}
+          onOpenChange={setShowCriarConfirmacao}
+          parentEvento={prospeccao ? { id: prospeccao.id, titulo: prospeccao.titulo } : null}
+          onProspeccaoCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
+        />
+
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
           <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
@@ -2063,6 +2085,18 @@ export default function EventoBase() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
+            {isIAWhatsApp && !isConfirmacao && (
+              <Button variant="outline" size="sm" onClick={() => setShowCriarConfirmacao(true)} className="border-primary/40 text-primary hover:bg-primary/10">
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Confirmação
+              </Button>
+            )}
+            {isConfirmacao && (
+              <Button variant="default" size="sm" onClick={handleSincronizarConfirmacao} disabled={isSyncingConfirmacao}>
+                {isSyncingConfirmacao ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Sincronizar convidados do pai{novosConfirmacao !== null ? ` (${novosConfirmacao} novos)` : ''}
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={isExporting}>
