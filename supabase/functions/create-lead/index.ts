@@ -79,23 +79,32 @@ serve(async (req) => {
       userId = 'admin-api';
     } else if (token) {
       console.log('🔐 create-lead: Autenticação via JWT');
-      supabaseClient = createClient(
+      // Cliente anônimo apenas para validar o token explicitamente.
+      const authClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          auth: { persistSession: false },
-          global: { headers: authHeader ? { authorization: authHeader } : {} },
-        }
+        { auth: { persistSession: false } }
       );
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      const { data: userData, error: userError } = await authClient.auth.getUser(token);
       if (userError || !userData?.user) {
+        console.warn('❌ create-lead: token inválido/expirado', userError?.message);
         return new Response(
-          JSON.stringify({ error: 'Token inválido ou expirado' }),
+          JSON.stringify({ error: 'Token inválido ou expirado', code: 'INVALID_JWT' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       userId = userData.user.id;
+      console.log(`✅ create-lead: usuário autenticado ${userData.user.email} (${userId})`);
+      // Para as consultas seguintes, usamos service role — já validamos identidade
+      // e fazemos checagens de acesso/equipe manualmente abaixo. Evita falhas
+      // intermitentes de propagação de RLS via header em ambientes Edge.
+      supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { persistSession: false } }
+      );
     } else {
+      console.warn('❌ create-lead: requisição sem header Authorization');
       return new Response(
         JSON.stringify({ error: 'Autenticação necessária', uso: 'Header Authorization: Bearer <token>' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
