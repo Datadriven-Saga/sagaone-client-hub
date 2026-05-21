@@ -31,6 +31,11 @@ interface CriarProspeccaoModalProps {
   onOpenChange: (open: boolean) => void;
   onProspeccaoCriada: () => void;
   editingProspeccao?: any;
+  /**
+   * Quando definido, o modal abre travado em IA WhatsApp + Evento de Confirmação.
+   * O evento criado é vinculado ao pai via `evento_pai_id`.
+   */
+  parentEvento?: { id: string; titulo: string } | null;
 }
 
 // Tipos de evento disponíveis
@@ -52,7 +57,8 @@ const getStepsByType = (tipo: TipoEvento): string[] => {
   }
 };
 
-export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao }: CriarProspeccaoModalProps) => {
+export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao, parentEvento }: CriarProspeccaoModalProps) => {
+  const isConfirmacaoFlow = !!parentEvento && !editingProspeccao;
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
@@ -357,8 +363,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       const defaultDates = getDefaultDates();
       setDataInicio(defaultDates.inicio);
       setDataFim(defaultDates.fim);
+      // Fluxo de criação de Evento de Confirmação (a partir do botão na view de base do pai)
+      if (parentEvento) {
+        setTipoEvento('IA Whatsapp');
+        setCanal('Whatsapp');
+        setCanalQuarentena('whatsapp');
+        setEventoConfirmacao(true);
+        setTitulo(`Confirmação — ${parentEvento.titulo}`);
+      }
     }
-  }, [editingProspeccao, isOpen]);
+  }, [editingProspeccao, isOpen, parentEvento]);
 
   // Buscar tamanho da base quando editando
   useEffect(() => {
@@ -1404,7 +1418,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.qualificar_lead = qualificarLead;
         // Evento de Confirmação: bloqueado em edição, definido apenas na criação
         if (!editingProspeccao) {
-          (dadosProspeccao as any).evento_confirmacao = eventoConfirmacao;
+          // Só pode ser true via fluxo de criação a partir do evento pai
+          const isConfirmacao = !!parentEvento && eventoConfirmacao;
+          (dadosProspeccao as any).evento_confirmacao = isConfirmacao;
+          if (isConfirmacao && parentEvento) {
+            (dadosProspeccao as any).evento_pai_id = parentEvento.id;
+          }
         }
         // tipo_lead: bloqueado em edição, definido apenas na criação
         if (!editingProspeccao) {
@@ -3479,11 +3498,17 @@ ${localEvento}`;
                     id="evento_confirmacao"
                     checked={eventoConfirmacao}
                     onCheckedChange={setEventoConfirmacao}
-                    disabled={!!editingProspeccao}
+                    disabled={!!editingProspeccao || !isConfirmacaoFlow}
                   />
                 </div>
                 {editingProspeccao && (
                   <p className="text-xs text-muted-foreground -mt-1">Este campo não pode ser alterado após a criação do evento.</p>
+                )}
+                {!editingProspeccao && !isConfirmacaoFlow && (
+                  <p className="text-xs text-muted-foreground -mt-1">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
+                )}
+                {isConfirmacaoFlow && parentEvento && (
+                  <p className="text-xs text-primary -mt-1">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
                 )}
               </div>
             </div>

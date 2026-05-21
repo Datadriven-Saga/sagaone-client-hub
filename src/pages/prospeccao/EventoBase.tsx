@@ -25,6 +25,8 @@ import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
 import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
+import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
+import { CheckCircle2 as CheckIcon, Plus } from 'lucide-react';
 
 interface ContatoEvento {
   id: string;
@@ -71,6 +73,9 @@ interface Prospeccao {
   meta_confirmacoes?: number | null;
   meta_checkins?: number | null;
   event_id_pri?: string | null;
+  evento_confirmacao?: boolean | null;
+  evento_pai_id?: string | null;
+  empresa_id?: string | null;
 }
 
 type StatusFilter = 'todos' | string;
@@ -151,6 +156,83 @@ export default function EventoBase() {
   
   // Cache do telefone do agente Pri(Ligação) 
   const [telefonePriLigacao, setTelefonePriLigacao] = useState<string | null>(null);
+
+  // Confirmação: estado do evento pai + modal + sincronização
+  const [parentEvento, setParentEvento] = useState<{ id: string; titulo: string } | null>(null);
+  const [showCriarConfirmacao, setShowCriarConfirmacao] = useState(false);
+  const [isSyncingConfirmacao, setIsSyncingConfirmacao] = useState(false);
+  const [novosConfirmacao, setNovosConfirmacao] = useState<number | null>(null);
+
+  const isConfirmacao = (prospeccao as any)?.evento_confirmacao === true;
+
+  // Buscar dados do evento pai (quando este é um evento de confirmação)
+  useEffect(() => {
+    const fetchPai = async () => {
+      const paiId = (prospeccao as any)?.evento_pai_id;
+      if (!isConfirmacao || !paiId) { setParentEvento(null); return; }
+      const { data } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo')
+        .eq('id', paiId)
+        .maybeSingle();
+      if (data) setParentEvento({ id: data.id, titulo: data.titulo });
+    };
+    fetchPai();
+  }, [isConfirmacao, (prospeccao as any)?.evento_pai_id]);
+
+  // Contar novos convidados do pai ainda não vinculados ao filho
+  const fetchNovosConfirmacao = useCallback(async () => {
+    const paiId = (prospeccao as any)?.evento_pai_id;
+    const empresaId = (prospeccao as any)?.empresa_id;
+    if (!isConfirmacao || !paiId || !eventoId || !empresaId) return;
+    try {
+      const { data: jaVinculados } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id')
+        .eq('prospeccao_id', eventoId);
+      const setVinculados = new Set((jaVinculados || []).map((r: any) => r.contato_id));
+      const { data: convidadosPai } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id, contatos!inner(id, status, empresa_id)')
+        .eq('prospeccao_id', paiId)
+        .eq('contatos.empresa_id', empresaId)
+        .eq('contatos.status', 'Convidado' as any);
+      const distintos = new Set((convidadosPai || []).map((r: any) => r.contato_id));
+      let novos = 0;
+      distintos.forEach(id => { if (!setVinculados.has(id)) novos += 1; });
+      setNovosConfirmacao(novos);
+    } catch (err) {
+      console.warn('Falha ao contar novos convidados:', err);
+    }
+  }, [isConfirmacao, (prospeccao as any)?.evento_pai_id, (prospeccao as any)?.empresa_id, eventoId]);
+
+  useEffect(() => { fetchNovosConfirmacao(); }, [fetchNovosConfirmacao]);
+
+  const handleSincronizarConfirmacao = async () => {
+    if (!eventoId) return;
+    setIsSyncingConfirmacao(true);
+    try {
+      const { data, error } = await supabase.rpc('sync_leads_confirmacao' as any, {
+        p_evento_confirmacao_id: eventoId,
+      });
+      if (error) throw error;
+      const result: any = data || {};
+      if (result.error) {
+        toast({ title: 'Não foi possível sincronizar', description: result.error, variant: 'destructive' });
+      } else {
+        toast({
+          title: 'Sincronização concluída',
+          description: `${result.novos ?? 0} novos leads sincronizados, ${result.ja_vinculados ?? 0} já estavam vinculados.`,
+        });
+        await fetchNovosConfirmacao();
+        await fetchMetricas();
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao sincronizar', description: err?.message || String(err), variant: 'destructive' });
+    } finally {
+      setIsSyncingConfirmacao(false);
+    }
+  };
 
   // Helper: disparar webhook "evento alterado" quando template é reassociado
   const triggerEventoAlteradoWebhook = useCallback(async (prospeccaoData: any) => {
@@ -345,7 +427,7 @@ export default function EventoBase() {
 
       const { data, error } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados, evento_confirmacao, evento_pai_id, empresa_id')
         .eq('id', eventoId)
         .eq('empresa_id', activeCompany.id)
         .maybeSingle();
@@ -445,7 +527,7 @@ export default function EventoBase() {
       // Refresh prospeccao data
       const { data: refreshed } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados, evento_confirmacao, evento_pai_id, empresa_id')
         .eq('id', eventoId)
         .maybeSingle();
       
@@ -1882,6 +1964,28 @@ export default function EventoBase() {
   return (
     <DashboardLayout title={`Base: ${prospeccao?.titulo || 'Evento'}`}>
       <div className="space-y-6">
+        {isConfirmacao && parentEvento && (
+          <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 flex items-center gap-3">
+            <CheckIcon className="h-5 w-5 text-primary shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">Evento de Confirmação</p>
+              <p className="text-muted-foreground">
+                Confirmação de presença vinculada a:{' '}
+                <button onClick={() => navigate(`/prospeccao/eventos/${parentEvento.id}/base`)} className="underline text-primary">
+                  {parentEvento.titulo}
+                </button>. Importação por planilha está desabilitada — use <strong>Sincronizar</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <CriarProspeccaoModal
+          isOpen={showCriarConfirmacao}
+          onOpenChange={setShowCriarConfirmacao}
+          parentEvento={prospeccao ? { id: prospeccao.id, titulo: prospeccao.titulo } : null}
+          onProspeccaoCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
+        />
+
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
           <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
@@ -1981,6 +2085,18 @@ export default function EventoBase() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
+            {isIAWhatsApp && !isConfirmacao && (
+              <Button variant="outline" size="sm" onClick={() => setShowCriarConfirmacao(true)} className="border-primary/40 text-primary hover:bg-primary/10">
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Confirmação
+              </Button>
+            )}
+            {isConfirmacao && (
+              <Button variant="default" size="sm" onClick={handleSincronizarConfirmacao} disabled={isSyncingConfirmacao}>
+                {isSyncingConfirmacao ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Sincronizar convidados do pai{novosConfirmacao !== null ? ` (${novosConfirmacao} novos)` : ''}
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={isExporting}>

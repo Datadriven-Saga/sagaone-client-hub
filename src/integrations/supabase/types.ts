@@ -1991,6 +1991,7 @@ export type Database = {
           prospeccao_id: string | null
           proximo_contato: string | null
           resultado: string | null
+          sincronizado_de_evento_id: string | null
           tipo_evento:
             | Database["public"]["Enums"]["tipo_evento_prospeccao"]
             | null
@@ -2012,6 +2013,7 @@ export type Database = {
           prospeccao_id?: string | null
           proximo_contato?: string | null
           resultado?: string | null
+          sincronizado_de_evento_id?: string | null
           tipo_evento?:
             | Database["public"]["Enums"]["tipo_evento_prospeccao"]
             | null
@@ -2033,6 +2035,7 @@ export type Database = {
           prospeccao_id?: string | null
           proximo_contato?: string | null
           resultado?: string | null
+          sincronizado_de_evento_id?: string | null
           tipo_evento?:
             | Database["public"]["Enums"]["tipo_evento_prospeccao"]
             | null
@@ -2049,6 +2052,13 @@ export type Database = {
           {
             foreignKeyName: "eventos_prospeccao_prospeccao_id_fkey"
             columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_prospeccao_sincronizado_de_evento_id_fkey"
+            columns: ["sincronizado_de_evento_id"]
             isOneToOne: false
             referencedRelation: "prospeccoes"
             referencedColumns: ["id"]
@@ -4317,6 +4327,7 @@ export type Database = {
           encerrado_at: string | null
           event_id_pri: string | null
           evento_confirmacao: boolean
+          evento_pai_id: string | null
           evento_principal: boolean
           id: string
           imagem_divulgacao_url: string | null
@@ -4374,6 +4385,7 @@ export type Database = {
           encerrado_at?: string | null
           event_id_pri?: string | null
           evento_confirmacao?: boolean
+          evento_pai_id?: string | null
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
@@ -4431,6 +4443,7 @@ export type Database = {
           encerrado_at?: string | null
           event_id_pri?: string | null
           evento_confirmacao?: boolean
+          evento_pai_id?: string | null
           evento_principal?: boolean
           id?: string
           imagem_divulgacao_url?: string | null
@@ -4477,6 +4490,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccoes_evento_pai_id_fkey"
+            columns: ["evento_pai_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
             referencedColumns: ["id"]
           },
           {
@@ -6173,6 +6193,10 @@ export type Database = {
       set_user_active_company: {
         Args: { new_empresa_id: string }
         Returns: undefined
+      }
+      sync_leads_confirmacao: {
+        Args: { p_evento_confirmacao_id: string; p_filtro_status?: string[] }
+        Returns: Json
       }
       upsert_quarentena: {
         Args: {

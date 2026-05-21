@@ -168,9 +168,19 @@ Deno.serve(async (req: Request) => {
     if (log.prospeccao_id) {
       const { data: eventoCheck } = await supabaseAdmin
         .from('prospeccoes')
-        .select('snapshot_realizado, data_fim')
+        .select('snapshot_realizado, data_fim, evento_confirmacao')
         .eq('id', log.prospeccao_id)
         .single();
+      if (eventoCheck?.evento_confirmacao === true) {
+        await supabaseAdmin.from('import_logs').update({
+          status: 'error',
+          message: 'Eventos de confirmação não aceitam importação de planilha. Use o botão "Sincronizar" para trazer leads do evento pai.',
+        }).eq('id', import_log_id);
+        return new Response(JSON.stringify({ error: 'Evento de confirmação não aceita importação' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const dataFim = eventoCheck?.data_fim ? new Date(eventoCheck.data_fim) : null;
       const encerrado = eventoCheck?.snapshot_realizado === true ||
         (dataFim !== null && dataFim < new Date(new Date().toDateString()));

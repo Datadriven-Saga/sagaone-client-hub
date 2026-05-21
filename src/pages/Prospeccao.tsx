@@ -2635,6 +2635,9 @@ showAllEvents: true
                               <tr key={prospeccao.id} className="border-b hover:bg-muted/50 transition-colors">
                                 <td className="py-3 px-3">
                                   <span className="font-medium text-sm">{prospeccao.titulo}</span>
+                                  {(prospeccao as any).evento_confirmacao === true && (
+                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-100">Confirmação</span>
+                                  )}
                                 </td>
                                 <td className="py-3 px-3 text-sm text-muted-foreground">
                                   {prospeccao.data_inicio 
