@@ -2673,7 +2673,7 @@ showAllEvents: true
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded cursor-help">
-                                              {String(idPri).slice(0, 12)}…
+                                              {String(idPri).length > 12 ? `${String(idPri).slice(0, 12)}…` : String(idPri)}
                                             </span>
                                           </TooltipTrigger>
                                           <TooltipContent side="top">
