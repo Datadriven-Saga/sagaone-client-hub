@@ -2661,6 +2661,29 @@ showAllEvents: true
                                     {status}
                                   </span>
                                 </td>
+                                <td className="py-3 px-3">
+                                  {(() => {
+                                    const canalStr = String(prospeccao.canal).toLowerCase();
+                                    const isIAWhatsApp = canalStr === 'whatsapp';
+                                    if (!isIAWhatsApp) return <span className="text-sm text-muted-foreground">-</span>;
+                                    const idPri = (prospeccao as any).event_id_pri;
+                                    if (!idPri) return <span className="text-sm text-muted-foreground">-</span>;
+                                    return (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded cursor-help">
+                                              {String(idPri).slice(0, 12)}…
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">
+                                            <p className="text-xs font-mono">{String(idPri)}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  })()}
+                                </td>
                                 {/* Coluna de Ações */}
                                 <td className="py-3 px-3 text-right">
                                   {(() => {
