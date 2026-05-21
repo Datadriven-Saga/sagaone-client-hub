@@ -156,20 +156,35 @@ export const NovoLeadModal = ({
     return () => { cancelled = true; };
   }, [isOpen, activeCompany?.id, user?.id, activeProspeccaoId, canSeeAllEventos]);
 
-  // Garante sessão válida (refresh) antes de qualquer invoke
+  // Garante sessão válida (refresh proativo) antes de qualquer invoke
   const ensureSession = async (): Promise<boolean> => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data?.session) {
-      toast({
-        title: "Sessão expirada",
-        description: "Faça login novamente para continuar.",
-        variant: "destructive",
-      });
-      await supabase.auth.signOut();
-      navigate('/login');
-      return false;
+    const { data: sessData } = await supabase.auth.getSession();
+    const session = sessData?.session;
+
+    if (session) {
+      const expiresAt = (session.expires_at ?? 0) * 1000;
+      const secondsLeft = (expiresAt - Date.now()) / 1000;
+      // Se expira em menos de 2 min, força refresh
+      if (secondsLeft < 120) {
+        const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+        if (!refreshErr && refreshed?.session) return true;
+      } else {
+        return true;
+      }
     }
-    return true;
+
+    // Sem sessão ou refresh falhou — tenta um último refresh
+    const { data: lastTry } = await supabase.auth.refreshSession();
+    if (lastTry?.session) return true;
+
+    toast({
+      title: "Sessão expirada",
+      description: "Faça login novamente para continuar.",
+      variant: "destructive",
+    });
+    await supabase.auth.signOut();
+    navigate('/login');
+    return false;
   };
 
   const handleCheckPhone = async () => {
@@ -357,19 +372,29 @@ export const NovoLeadModal = ({
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-lead', {
-        body: {
-          nome: nome.trim(),
-          telefone: telefone.trim(),
-          email: email.trim() || null,
-          origem: origem,
-          observacoes: observacoes.trim() || null,
-          responsavel_email: user?.id,
-          empresa_id: activeCompany.id,
-          status: 'Atribuído',
-          prospeccao_id: selectedProspeccaoId,
-        },
-      });
+      const invokeBody = {
+        nome: nome.trim(),
+        telefone: telefone.trim(),
+        email: email.trim() || null,
+        origem: origem,
+        observacoes: observacoes.trim() || null,
+        responsavel_email: user?.id,
+        empresa_id: activeCompany.id,
+        status: 'Atribuído',
+        prospeccao_id: selectedProspeccaoId,
+      };
+
+      let { data, error } = await supabase.functions.invoke('create-lead', { body: invokeBody });
+
+      // Se 401, tenta refresh + 1 retry antes de tratar como sessão perdida
+      if (error && (error as any).context?.status === 401) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) {
+          const retry = await supabase.functions.invoke('create-lead', { body: invokeBody });
+          data = retry.data;
+          error = retry.error;
+        }
+      }
 
       // supabase.functions.invoke devolve `error` quando status >= 400.
       if (error) {
