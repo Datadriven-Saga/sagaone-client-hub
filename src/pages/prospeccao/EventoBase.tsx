@@ -157,6 +157,83 @@ export default function EventoBase() {
   // Cache do telefone do agente Pri(Ligação) 
   const [telefonePriLigacao, setTelefonePriLigacao] = useState<string | null>(null);
 
+  // Confirmação: estado do evento pai + modal + sincronização
+  const [parentEvento, setParentEvento] = useState<{ id: string; titulo: string } | null>(null);
+  const [showCriarConfirmacao, setShowCriarConfirmacao] = useState(false);
+  const [isSyncingConfirmacao, setIsSyncingConfirmacao] = useState(false);
+  const [novosConfirmacao, setNovosConfirmacao] = useState<number | null>(null);
+
+  const isConfirmacao = (prospeccao as any)?.evento_confirmacao === true;
+
+  // Buscar dados do evento pai (quando este é um evento de confirmação)
+  useEffect(() => {
+    const fetchPai = async () => {
+      const paiId = (prospeccao as any)?.evento_pai_id;
+      if (!isConfirmacao || !paiId) { setParentEvento(null); return; }
+      const { data } = await supabase
+        .from('prospeccoes')
+        .select('id, titulo')
+        .eq('id', paiId)
+        .maybeSingle();
+      if (data) setParentEvento({ id: data.id, titulo: data.titulo });
+    };
+    fetchPai();
+  }, [isConfirmacao, (prospeccao as any)?.evento_pai_id]);
+
+  // Contar novos convidados do pai ainda não vinculados ao filho
+  const fetchNovosConfirmacao = useCallback(async () => {
+    const paiId = (prospeccao as any)?.evento_pai_id;
+    const empresaId = (prospeccao as any)?.empresa_id;
+    if (!isConfirmacao || !paiId || !eventoId || !empresaId) return;
+    try {
+      const { data: jaVinculados } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id')
+        .eq('prospeccao_id', eventoId);
+      const setVinculados = new Set((jaVinculados || []).map((r: any) => r.contato_id));
+      const { data: convidadosPai } = await supabase
+        .from('eventos_prospeccao')
+        .select('contato_id, contatos!inner(id, status, empresa_id)')
+        .eq('prospeccao_id', paiId)
+        .eq('contatos.empresa_id', empresaId)
+        .eq('contatos.status', 'Convidado' as any);
+      const distintos = new Set((convidadosPai || []).map((r: any) => r.contato_id));
+      let novos = 0;
+      distintos.forEach(id => { if (!setVinculados.has(id)) novos += 1; });
+      setNovosConfirmacao(novos);
+    } catch (err) {
+      console.warn('Falha ao contar novos convidados:', err);
+    }
+  }, [isConfirmacao, (prospeccao as any)?.evento_pai_id, (prospeccao as any)?.empresa_id, eventoId]);
+
+  useEffect(() => { fetchNovosConfirmacao(); }, [fetchNovosConfirmacao]);
+
+  const handleSincronizarConfirmacao = async () => {
+    if (!eventoId) return;
+    setIsSyncingConfirmacao(true);
+    try {
+      const { data, error } = await supabase.rpc('sync_leads_confirmacao' as any, {
+        p_evento_confirmacao_id: eventoId,
+      });
+      if (error) throw error;
+      const result: any = data || {};
+      if (result.error) {
+        toast({ title: 'Não foi possível sincronizar', description: result.error, variant: 'destructive' });
+      } else {
+        toast({
+          title: 'Sincronização concluída',
+          description: `${result.novos ?? 0} novos leads sincronizados, ${result.ja_vinculados ?? 0} já estavam vinculados.`,
+        });
+        await fetchNovosConfirmacao();
+        await fetchMetricas();
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao sincronizar', description: err?.message || String(err), variant: 'destructive' });
+    } finally {
+      setIsSyncingConfirmacao(false);
+    }
+  };
+
   // Helper: disparar webhook "evento alterado" quando template é reassociado
   const triggerEventoAlteradoWebhook = useCallback(async (prospeccaoData: any) => {
     if (!activeCompany?.id) return;
