@@ -31,6 +31,11 @@ interface CriarProspeccaoModalProps {
   onOpenChange: (open: boolean) => void;
   onProspeccaoCriada: () => void;
   editingProspeccao?: any;
+  /**
+   * Quando definido, o modal abre travado em IA WhatsApp + Evento de Confirmação.
+   * O evento criado é vinculado ao pai via `evento_pai_id`.
+   */
+  parentEvento?: { id: string; titulo: string } | null;
 }
 
 // Tipos de evento disponíveis
@@ -52,7 +57,8 @@ const getStepsByType = (tipo: TipoEvento): string[] => {
   }
 };
 
-export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao }: CriarProspeccaoModalProps) => {
+export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada, editingProspeccao, parentEvento }: CriarProspeccaoModalProps) => {
+  const isConfirmacaoFlow = !!parentEvento && !editingProspeccao;
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
