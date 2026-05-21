@@ -2940,9 +2940,9 @@ ${localEvento}`;
                     setCanal('Ligação');
                   }
                 }}
-                disabled={!!editingProspeccao}
+                 disabled={!!editingProspeccao || isConfirmacaoFlow}
               >
-                <SelectTrigger disabled={!!editingProspeccao}>
+                <SelectTrigger disabled={!!editingProspeccao || isConfirmacaoFlow}>
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2960,6 +2960,9 @@ ${localEvento}`;
                   )}
                 </SelectContent>
               </Select>
+              {isConfirmacaoFlow && (
+                <p className="text-xs text-muted-foreground mt-1">Eventos de Confirmação são sempre <strong>IA Whatsapp</strong>.</p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
