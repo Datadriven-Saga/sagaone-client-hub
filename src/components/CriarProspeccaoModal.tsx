@@ -363,8 +363,16 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       const defaultDates = getDefaultDates();
       setDataInicio(defaultDates.inicio);
       setDataFim(defaultDates.fim);
+      // Fluxo de criação de Evento de Confirmação (a partir do botão na view de base do pai)
+      if (parentEvento) {
+        setTipoEvento('IA Whatsapp');
+        setCanal('Whatsapp');
+        setCanalQuarentena('whatsapp');
+        setEventoConfirmacao(true);
+        setTitulo(`Confirmação — ${parentEvento.titulo}`);
+      }
     }
-  }, [editingProspeccao, isOpen]);
+  }, [editingProspeccao, isOpen, parentEvento]);
 
   // Buscar tamanho da base quando editando
   useEffect(() => {
