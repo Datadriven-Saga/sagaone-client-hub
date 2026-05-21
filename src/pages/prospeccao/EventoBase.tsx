@@ -73,6 +73,9 @@ interface Prospeccao {
   meta_confirmacoes?: number | null;
   meta_checkins?: number | null;
   event_id_pri?: string | null;
+  evento_confirmacao?: boolean | null;
+  evento_pai_id?: string | null;
+  empresa_id?: string | null;
 }
 
 type StatusFilter = 'todos' | string;
@@ -347,7 +350,7 @@ export default function EventoBase() {
 
       const { data, error } = await supabase
         .from('prospeccoes')
-        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados')
+        .select('id, titulo, canal, data_inicio, data_fim, meta_convites, meta_confirmacoes, meta_checkins, event_id_pri, template_prospeccao_id, template_agendado_id, template_nao_agendado_id, disparos_pausados, evento_confirmacao, evento_pai_id, empresa_id')
         .eq('id', eventoId)
         .eq('empresa_id', activeCompany.id)
         .maybeSingle();
