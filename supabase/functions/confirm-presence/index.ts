@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
   const { data: contato, error: fetchError } = await supabase
     .from('contatos')
-    .select('id, nome, status, qr_token, empresa_id')
+    .select('id, nome, status, qr_token, empresa_id, responsavel_email')
     .eq('id', vinculo.contato_id)
     .maybeSingle()
 
@@ -171,6 +171,10 @@ Deno.serve(async (req) => {
       status_novo: 'Confirmado',
       origem: 'link_confirmacao',
       usuario_id: sentBy,
+      // Fallback: quando confirmation_sent_by é nulo (token gerado por default
+      // sem passar pelo fluxo "Enviar convite"), usa o responsável do contato
+      // para preencher email_vendedor no payload do MobiGestor.
+      email_vendedor: (contato as any).responsavel_email ?? null,
     })
     console.log('[confirm-presence] movimentacao-lead result', {
       contato_id: contato.id,
