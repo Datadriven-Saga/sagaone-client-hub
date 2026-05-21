@@ -5,7 +5,6 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { UserMenu } from "./UserMenu";
 import { FloatingActionButton } from "./FloatingActionButton";
-import { NovoLeadModal } from "./NovoLeadModal";
 import { ContatoModal } from "./ContatoModal";
 import { CheckinConfirmModal } from "./CheckinConfirmModal";
 import { RecepcaoModal } from "./RecepcaoModal";
@@ -28,7 +27,6 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
   const location = useLocation();
   const isHomePage = location.pathname === "/" || location.pathname === "/dashboard";
   const shouldShowBack = showBackButton !== undefined ? showBackButton : !isHomePage;
-  const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [pendingMultiCheckin, setPendingMultiCheckin] = useState<MultiCheckinData | null>(null);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
@@ -85,17 +83,8 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
     fetchProfiles();
   }, [activeCompany?.id]);
 
-  const handleNovoLead = () => {
-    setIsNovoLeadModalOpen(true);
-  };
-
   const handleNovoCheckin = () => {
     setIsRecepcaoModalOpen(true);
-  };
-
-  const handleNovaVenda = () => {
-    // Same flow as novo lead - user will complete sale in contact modal
-    setIsNovoLeadModalOpen(true);
   };
 
   const handleOpenContatoFromFab = (contato: Contato) => {
@@ -103,11 +92,6 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
       isOpen: true,
       contato: contato
     });
-  };
-
-  const handleLeadCreated = () => {
-    // Trigger refetch if needed - pages can handle their own data refresh
-    window.dispatchEvent(new CustomEvent('lead-created'));
   };
 
   // Handle search from RecepcaoModal — agora multi-prospecção ativa
@@ -173,20 +157,9 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           </main>
         </div>
 
-        {/* Global FAB */}
+        {/* Global FAB — apenas Check-in (Novo Lead/Venda ficam no Kanban de Atendimento) */}
         <FloatingActionButton
-          onNovoLead={handleNovoLead}
           onNovoCheckin={handleNovoCheckin}
-          onNovaVenda={handleNovaVenda}
-        />
-
-        {/* Global Modals */}
-        <NovoLeadModal
-          isOpen={isNovoLeadModalOpen}
-          onClose={() => setIsNovoLeadModalOpen(false)}
-          onLeadCreated={handleLeadCreated}
-          onOpenContato={handleOpenContatoFromFab}
-          profiles={profiles}
         />
 
         <RecepcaoModal
