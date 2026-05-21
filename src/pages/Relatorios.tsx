@@ -180,7 +180,7 @@ const Relatorios = () => {
         created_at,
         eventos_prospeccao(
           prospeccao_id,
-          prospeccao:prospeccoes(titulo)
+          prospeccao:prospeccoes!prospeccao_id(titulo)
         )
       `)
       .eq("empresa_id", activeCompany?.id);

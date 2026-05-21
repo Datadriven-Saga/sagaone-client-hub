@@ -242,7 +242,7 @@ export const NovoLeadModal = ({
           // Lead pertence a outro usuário - checar se há evento VIGENTE
           const { data: eventosVigentes } = await supabase
             .from('eventos_prospeccao')
-            .select('prospeccao_id, prospeccoes:prospeccao_id(id, titulo, encerrado_at, ativo)')
+            .select('prospeccao_id, prospeccoes:prospeccoes!prospeccao_id(id, titulo, encerrado_at, ativo)')
             .eq('contato_id', existingContato.id)
             .order('created_at', { ascending: false });
 
