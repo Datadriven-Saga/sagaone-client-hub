@@ -1169,9 +1169,18 @@ showAllEvents: true
               token = crypto.randomUUID();
               await supabase
                 .from('eventos_prospeccao')
-                .update({ confirmation_token: token })
+                .update({ confirmation_token: token, confirmation_sent_by: user?.id ?? null })
                 .eq('contato_id', itemId)
                 .eq('prospeccao_id', prospeccaoIdAlvo);
+            } else {
+              // Token já existe (default). Garante autoria mesmo se o usuário
+              // copiar o link diretamente do popup sem clicar em "Enviar".
+              await supabase
+                .from('eventos_prospeccao')
+                .update({ confirmation_sent_by: user?.id ?? null })
+                .eq('contato_id', itemId)
+                .eq('prospeccao_id', prospeccaoIdAlvo)
+                .is('confirmation_sent_by', null);
             }
 
             const { data: prospRow } = await supabase

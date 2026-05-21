@@ -424,10 +424,17 @@ export function ConviteTab({ contato, prospeccaoId, onStatusChange }: ConviteTab
           token = crypto.randomUUID();
           const { error } = await supabase
             .from('eventos_prospeccao')
-            .update({ confirmation_token: token })
+            .update({ confirmation_token: token, confirmation_sent_by: user?.id ?? null })
             .eq('contato_id', contato.id)
             .eq('prospeccao_id', prospeccaoId);
           if (error) throw error;
+        } else {
+          await supabase
+            .from('eventos_prospeccao')
+            .update({ confirmation_sent_by: user?.id ?? null })
+            .eq('contato_id', contato.id)
+            .eq('prospeccao_id', prospeccaoId)
+            .is('confirmation_sent_by', null);
         }
         setConfirmationToken(token);
       }
