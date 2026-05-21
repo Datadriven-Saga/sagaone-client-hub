@@ -230,69 +230,92 @@ serve(async (req) => {
       }
     }
 
-    // Mapear status recebido para enum válido
-    const statusMap: Record<string, string> = {
-      'novo': 'Novo',
-      'atribuido': 'Atribuído',
-      'em_espera': 'Em Espera',
-      'convidado': 'Convidado',
-      'agendado': 'Agendado',
-      'confirmado': 'Confirmado',
-      'checkin': 'Check-in',
-      'check-in': 'Check-in',
-      'venda': 'Venda',
-      'descartado': 'Descartado',
-      'opt_out': 'Opt Out',
-      'negociacao': 'Negociação',
-      'em_contato': 'Em Contato',
-      'qualificado': 'Qualificado',
-      'fechado': 'Fechado',
-      'perdido': 'Perdido',
-      'proposta': 'Proposta',
-    };
+    // Resolver canal de quarentena do evento (default: whatsapp), igual ao fluxo de importação
+    let canalQuarentena = 'whatsapp';
+    if (prospeccao_id) {
+      const { data: prospInfo } = await supabaseClient
+        .from('prospeccoes')
+        .select('canal_quarentena')
+        .eq('id', prospeccao_id)
+        .maybeSingle();
+      if (prospInfo?.canal_quarentena) canalQuarentena = prospInfo.canal_quarentena;
+    }
 
-    const statusFinal = status
-      ? (statusMap[status.toLowerCase()] || status)
-      : 'Novo';
+    // Cria/atualiza lead via MESMA RPC do importador (bulk_upsert_contatos com 1 item).
+    // Mantém regras de quarentena, opt-out, vínculo a evento e atribuição de responsável.
+    const payloadContato = [{
+      nome: nome.trim(),
+      telefone: telefoneNormalizado,
+      email: email?.trim() || null,
+      origem: origem || 'Outros',
+      observacoes: observacoes?.trim() || null,
+      responsavel_email: responsavel_email || null,
+      base_id: null,
+      codigo_proposta: null,
+    }];
 
-    // Criar contato + vínculo de forma atômica via RPC (evita lead órfão)
-    const { data: atomicResult, error: atomicError } = await supabaseClient.rpc('create_lead_atomic', {
+    const { data: bulkResult, error: bulkError } = await supabaseClient.rpc('bulk_upsert_contatos', {
+      p_contatos: payloadContato as any,
       p_empresa_id: empresa_id,
-      p_nome: nome.trim(),
-      p_telefone: telefoneNormalizado,
-      p_email: email?.trim() || null,
-      p_responsavel_email: responsavel_email || null,
-      p_status: statusFinal,
-      p_origem: origem || 'Outros',
-      p_observacoes: observacoes?.trim() || null,
       p_prospeccao_id: prospeccao_id || null,
+      p_canal: canalQuarentena,
+      p_force_status_novo: false,
     });
 
-    if (atomicError || !atomicResult) {
-      console.error('❌ Erro ao criar lead (RPC atômica):', atomicError);
+    if (bulkError || !bulkResult) {
+      console.error('❌ Erro em bulk_upsert_contatos:', bulkError);
       return new Response(
-        JSON.stringify({ error: 'Erro ao criar lead', detalhes: atomicError?.message }),
+        JSON.stringify({ error: 'Erro ao criar lead', detalhes: bulkError?.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const novoContato = {
-      id: (atomicResult as any).contato_id as string,
-      lead_id: (atomicResult as any).lead_id as number,
-      nome: nome.trim(),
-      telefone: telefoneNormalizado,
-      email: email?.trim() || null,
-      status: statusFinal,
-      empresa_id,
-      origem: origem || 'Outros',
-      responsavel_email: responsavel_email || null,
-      created_at: new Date().toISOString(),
-    };
+    const r = bulkResult as any;
+    console.log('📊 bulk_upsert_contatos resultado:', r);
 
-    console.log(`✅ Lead criado: ${novoContato.nome} (lead_id: ${novoContato.lead_id}, id: ${novoContato.id})`);
-    if ((atomicResult as any).evento_prospeccao_id) {
-      console.log(`   └─ Vinculado à prospecção: ${prospeccao_id}`);
+    if ((r.global_blocked ?? 0) > 0) {
+      return new Response(
+        JSON.stringify({ error: 'Este telefone está em opt-out global e não pode receber contato.', code: 'GLOBAL_OPT_OUT' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    if ((r.quarantined ?? 0) > 0) {
+      return new Response(
+        JSON.stringify({ error: 'Este telefone está em quarentena e não pode ser cadastrado agora.', code: 'QUARENTENA' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if ((r.errors ?? 0) > 0) {
+      const firstError = Array.isArray(r.error_details) && r.error_details[0]?.erro;
+      return new Response(
+        JSON.stringify({ error: 'Erro ao criar lead', detalhes: firstError || 'Erro desconhecido na RPC' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Recupera contato resultante (inserido ou já existente) para devolver lead_id/contato_id
+    const { data: contatoRow, error: contatoErr } = await supabaseClient
+      .from('contatos')
+      .select('id, lead_id, nome, telefone, email, status, empresa_id, origem, responsavel_email, created_at')
+      .eq('empresa_id', empresa_id)
+      .eq('telefone', telefoneNormalizado!)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (contatoErr || !contatoRow) {
+      console.error('❌ Lead criado mas não foi possível recuperá-lo:', contatoErr);
+      return new Response(
+        JSON.stringify({ error: 'Lead processado mas não foi possível recuperá-lo', detalhes: contatoErr?.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const novoContato = contatoRow as any;
+    console.log(`✅ Lead processado: ${novoContato.nome} (lead_id: ${novoContato.lead_id}, id: ${novoContato.id})`);
+    console.log(`   └─ inserted: ${r.inserted}, updated: ${r.updated}, linked: ${r.linked}, already_linked: ${r.already_linked}`);
 
     // Disparar gatilho de criação de lead
     try {
