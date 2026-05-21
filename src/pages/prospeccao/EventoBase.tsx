@@ -25,6 +25,8 @@ import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
 import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
+import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
+import { CheckCircle2 as CheckIcon, Plus } from 'lucide-react';
 
 interface ContatoEvento {
   id: string;
