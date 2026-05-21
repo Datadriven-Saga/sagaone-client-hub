@@ -370,15 +370,25 @@ export const NovoLeadModal = ({
     setIsSubmitting(true);
     setLoading(true);
 
-    // Refresh de sessão antes do invoke
-    const ok = await ensureSession();
-    if (!ok) {
-      setIsSubmitting(false);
-      setLoading(false);
-      return;
-    }
-
     try {
+      // Garante sessão e captura o access_token explicitamente
+      const ok = await ensureSession();
+      if (!ok) {
+        setIsSubmitting(false);
+        setLoading(false);
+        return;
+      }
+      const { data: sessData } = await supabase.auth.getSession();
+      let accessToken = sessData?.session?.access_token;
+      if (!accessToken) {
+        toast({
+          title: "Sessão expirada",
+          description: "Sua sessão expirou. Entre novamente e tente criar o lead de novo.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const invokeBody = {
         nome: nome.trim(),
         telefone: telefone.trim(),
@@ -391,29 +401,37 @@ export const NovoLeadModal = ({
         prospeccao_id: selectedProspeccaoId,
       };
 
-      let { data, error } = await supabase.functions.invoke('create-lead', { body: invokeBody });
+      // Chamada explícita por fetch (mais estável que functions.invoke)
+      const SUPABASE_URL = "https://karcxgnfiymlrkbzhewo.supabase.co";
+      const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthcmN4Z25maXltbHJrYnpoZXdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NzI0NTEsImV4cCI6MjA3MjM0ODQ1MX0.POIqU4VIszatnejZm6cLMa8ndmhkFjHiOnpUo8xahS8";
 
-      // Se 401, tenta refresh + 1 retry antes de tratar como sessão perdida
-      if (error && (error as any).context?.status === 401) {
+      const callEdge = async (tok: string) => {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/create-lead`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tok}`,
+            'apikey': ANON_KEY,
+          },
+          body: JSON.stringify(invokeBody),
+        });
+        let parsed: any = null;
+        try { parsed = await res.json(); } catch { /* ignore */ }
+        return { status: res.status, parsed };
+      };
+
+      let { status, parsed } = await callEdge(accessToken);
+
+      if (status === 401) {
         const { data: refreshed } = await supabase.auth.refreshSession();
-        if (refreshed?.session) {
-          const retry = await supabase.functions.invoke('create-lead', { body: invokeBody });
-          data = retry.data;
-          error = retry.error;
+        const newToken = refreshed?.session?.access_token;
+        if (newToken) {
+          accessToken = newToken;
+          ({ status, parsed } = await callEdge(newToken));
         }
       }
 
-      // supabase.functions.invoke devolve `error` quando status >= 400.
-      if (error) {
-        // Tenta extrair o corpo da resposta
-        const ctx: any = (error as any).context;
-        const status = ctx?.status;
-        let parsed: any = null;
-        try {
-          if (ctx && typeof ctx.json === 'function') parsed = await ctx.json();
-          else if (ctx && typeof ctx.text === 'function') parsed = JSON.parse(await ctx.text());
-        } catch (_) { /* ignore */ }
-
+      if (status >= 400) {
         if (status === 401) {
           console.warn('[NovoLeadModal] create-lead retornou 401 após retry');
           toast({
@@ -445,7 +463,7 @@ export const NovoLeadModal = ({
           return;
         }
 
-        throw new Error(parsed?.error || error.message || 'Erro ao criar lead');
+        throw new Error(parsed?.error || `Erro ao criar lead (status ${status})`);
       }
 
       toast({
