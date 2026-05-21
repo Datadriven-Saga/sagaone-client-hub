@@ -2200,6 +2200,75 @@ export type Database = {
         }
         Relationships: []
       }
+      eventos_prospeccao_backup_anotacoes_delta: {
+        Row: {
+          confirmation_expires_at: string | null
+          confirmation_sent_at: string | null
+          confirmation_sent_by: string | null
+          confirmation_token: string | null
+          confirmed_at: string | null
+          contato_id: string | null
+          created_at: string | null
+          data_disparo_ia: string | null
+          data_evento: string | null
+          descricao: string | null
+          id: string | null
+          observacoes: string | null
+          prospeccao_id: string | null
+          proximo_contato: string | null
+          resultado: string | null
+          sincronizado_de_evento_id: string | null
+          tipo_evento:
+            | Database["public"]["Enums"]["tipo_evento_prospeccao"]
+            | null
+          usuario_id: string | null
+        }
+        Insert: {
+          confirmation_expires_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
+          contato_id?: string | null
+          created_at?: string | null
+          data_disparo_ia?: string | null
+          data_evento?: string | null
+          descricao?: string | null
+          id?: string | null
+          observacoes?: string | null
+          prospeccao_id?: string | null
+          proximo_contato?: string | null
+          resultado?: string | null
+          sincronizado_de_evento_id?: string | null
+          tipo_evento?:
+            | Database["public"]["Enums"]["tipo_evento_prospeccao"]
+            | null
+          usuario_id?: string | null
+        }
+        Update: {
+          confirmation_expires_at?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_token?: string | null
+          confirmed_at?: string | null
+          contato_id?: string | null
+          created_at?: string | null
+          data_disparo_ia?: string | null
+          data_evento?: string | null
+          descricao?: string | null
+          id?: string | null
+          observacoes?: string | null
+          prospeccao_id?: string | null
+          proximo_contato?: string | null
+          resultado?: string | null
+          sincronizado_de_evento_id?: string | null
+          tipo_evento?:
+            | Database["public"]["Enums"]["tipo_evento_prospeccao"]
+            | null
+          usuario_id?: string | null
+        }
+        Relationships: []
+      }
       feature_flag_empresas: {
         Row: {
           created_at: string
