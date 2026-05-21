@@ -2973,6 +2973,7 @@ ${localEvento}`;
                   type="date"
                   value={dataInicio}
                   onChange={(e) => setDataInicio(e.target.value)}
+                  disabled={isConfirmacaoFlow}
                 />
               </div>
               <div>
@@ -2982,9 +2983,13 @@ ${localEvento}`;
                   type="date"
                   value={dataFim}
                   onChange={(e) => setDataFim(e.target.value)}
+                  disabled={isConfirmacaoFlow}
                 />
               </div>
             </div>
+            {isConfirmacaoFlow && (
+              <p className="text-xs text-muted-foreground -mt-2">Datas herdadas do evento pai.</p>
+            )}
 
             {/* Canal de Prospecção - apenas para Prospecção Mensal e Grande Evento */}
             {(tipoEvento === 'Prospecção Mensal' || tipoEvento === 'Grande Evento') && (
