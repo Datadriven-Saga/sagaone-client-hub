@@ -3523,9 +3523,9 @@ showAllEvents: true
       />
 
       <FloatingActionButton
-        onNovoLead={handleNovoLead}
+        onNovoLead={defaultTab === 'atendimento' && activeTab === 'kanban' ? handleNovoLead : undefined}
         onNovoCheckin={handleNovoCheckin}
-        onNovaVenda={handleNovaVenda}
+        onNovaVenda={defaultTab === 'atendimento' && activeTab === 'kanban' ? handleNovaVenda : undefined}
       />
 
       {/* Modal de Base do Evento */}
