@@ -150,6 +150,24 @@ export async function dispararMovimentacaoLeadKanban(
     return { success: false, error: "webhook_url_blocked", detail: urlCheck.error };
   }
 
+  // 6.1 Email do vendedor (resolvido a partir do usuario_id via auth.admin)
+  let emailVendedor: string | null = null;
+  if (dados.usuario_id) {
+    try {
+      const { data: userRes, error: userErr } = await (supabase as any).auth.admin.getUserById(
+        dados.usuario_id,
+      );
+      if (userErr) {
+        console.log("[movimentacao-lead] ℹ️ erro ao buscar email do vendedor:", userErr.message);
+      } else {
+        const email = userRes?.user?.email;
+        if (email && typeof email === "string") emailVendedor = email;
+      }
+    } catch (e) {
+      console.log("[movimentacao-lead] ℹ️ falha ao resolver email_vendedor:", (e as Error).message);
+    }
+  }
+
   // 7. Payload + dispatch
   const payload: Record<string, unknown> = {
     nome: contatoData.nome,
@@ -163,6 +181,7 @@ export async function dispararMovimentacaoLeadKanban(
     empresa_id: dados.empresa_id,
     prospeccao_id: dados.prospeccao_id,
     codigo_proposta: contatoData.codigo_proposta ?? null,
+    email_vendedor: emailVendedor,
   };
 
   console.log("[movimentacao-lead] 📤 dispatching", JSON.stringify(payload));
