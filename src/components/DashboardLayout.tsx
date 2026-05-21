@@ -108,10 +108,12 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           </main>
         </div>
 
-        {/* Global FAB — apenas Check-in (Novo Lead/Venda ficam no Kanban de Atendimento) */}
-        <FloatingActionButton
-          onNovoCheckin={handleNovoCheckin}
-        />
+        {/* Global FAB — apenas Check-in. No Kanban de Atendimento, o FAB próprio da página (com Novo Lead/Check-in/Venda) assume. */}
+        {location.pathname !== '/prospeccao/atendimento' && (
+          <FloatingActionButton
+            onNovoCheckin={handleNovoCheckin}
+          />
+        )}
 
         <RecepcaoModal
           isOpen={isRecepcaoModalOpen}
