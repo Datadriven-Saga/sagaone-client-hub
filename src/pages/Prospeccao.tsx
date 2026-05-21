@@ -3342,7 +3342,7 @@ showAllEvents: true
         onClose={handleCloseModal}
         contato={modalContato.contato}
         columnId={modalContato.columnId}
-        prospeccaoId={prospeccoes[0]?.id}
+        prospeccaoId={globalFilters.prospeccaoIds.length === 1 ? globalFilters.prospeccaoIds[0] : undefined}
         onStatusChange={handleModalStatusChange}
         onDelete={handleModalDelete}
         onAssignResponsible={handleModalAssignResponsible}

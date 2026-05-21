@@ -288,10 +288,9 @@ export function ContatoModal({
           if (contato) {
             // Buscar anotações do contato (todas as prospecções) para persistência
             const { data: eventos, error } = await supabase
-              .from('eventos_prospeccao')
-              .select('id, descricao, created_at, usuario_id, observacoes')
+              .from('contato_anotacoes')
+              .select('id, descricao, created_at, usuario_id')
               .eq('contato_id', contato.id)
-              .eq('tipo_evento', 'Anotação')
               .order('created_at', { ascending: false });
 
             if (!error && eventos) {
@@ -961,10 +960,9 @@ export function ContatoModal({
                     // Recarregar anotações após registro
                     const reloadAnotacoes = async () => {
                       const { data: eventos } = await supabase
-                        .from('eventos_prospeccao')
-                        .select('id, descricao, created_at, usuario_id, observacoes')
+                        .from('contato_anotacoes')
+                        .select('id, descricao, created_at, usuario_id')
                         .eq('contato_id', contato.id)
-                        .eq('tipo_evento', 'Anotação')
                         .order('created_at', { ascending: false });
 
                       if (eventos) {
