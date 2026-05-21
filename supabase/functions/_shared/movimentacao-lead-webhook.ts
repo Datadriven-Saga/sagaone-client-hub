@@ -17,6 +17,10 @@ export interface MovimentacaoLeadDados {
   lead_id?: number | string | null;
   usuario_id?: string | null;
   origem?: string | null;
+  // Override opcional: quando informado, usado como email_vendedor caso
+  // não seja possível resolver pelo usuario_id (ex.: confirmação via link
+  // público onde confirmation_sent_by é nulo).
+  email_vendedor?: string | null;
 }
 
 export interface MovimentacaoLeadResult {
@@ -166,6 +170,12 @@ export async function dispararMovimentacaoLeadKanban(
     } catch (e) {
       console.log("[movimentacao-lead] ℹ️ falha ao resolver email_vendedor:", (e as Error).message);
     }
+  }
+
+  // Fallback: usa email_vendedor explícito vindo da chamada (ex.: confirm-presence
+  // passa contatos.responsavel_email quando confirmation_sent_by é nulo).
+  if (!emailVendedor && dados.email_vendedor && typeof dados.email_vendedor === "string") {
+    emailVendedor = dados.email_vendedor;
   }
 
   // 7. Payload + dispatch
