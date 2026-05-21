@@ -35,7 +35,7 @@ interface CriarProspeccaoModalProps {
    * Quando definido, o modal abre travado em IA WhatsApp + Evento de Confirmação.
    * O evento criado é vinculado ao pai via `evento_pai_id`.
    */
-  parentEvento?: { id: string; titulo: string } | null;
+  parentEvento?: { id: string; titulo: string; data_inicio?: string | null; data_fim?: string | null } | null;
 }
 
 // Tipos de evento disponíveis
