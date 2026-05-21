@@ -2545,6 +2545,20 @@ showAllEvents: true
                             <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Meta Vendas</th>
                             <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Premiações</th>
                             <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help underline decoration-dotted">ID PRI</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <p className="text-xs">
+                                      Código do evento na PRI. Use no nome da campanha com o padrão <strong>[EVENTO][ID_PRI=XXX]</strong> para direcionar leads automaticamente para este evento. Sem esse código, os leads serão roteados para o evento mais recente da loja.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </th>
                             <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Ações</th>
                           </tr>
                         </thead>
@@ -2646,6 +2660,29 @@ showAllEvents: true
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
                                     {status}
                                   </span>
+                                </td>
+                                <td className="py-3 px-3">
+                                  {(() => {
+                                    const canalStr = String(prospeccao.canal).toLowerCase();
+                                    const isIAWhatsApp = canalStr === 'whatsapp';
+                                    if (!isIAWhatsApp) return <span className="text-sm text-muted-foreground">-</span>;
+                                    const idPri = (prospeccao as any).event_id_pri;
+                                    if (!idPri) return <span className="text-sm text-muted-foreground">-</span>;
+                                    return (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded cursor-help">
+                                              {String(idPri).slice(0, 12)}…
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">
+                                            <p className="text-xs font-mono">{String(idPri)}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  })()}
                                 </td>
                                 {/* Coluna de Ações */}
                                 <td className="py-3 px-3 text-right">
