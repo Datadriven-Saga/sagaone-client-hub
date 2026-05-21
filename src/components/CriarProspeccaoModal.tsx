@@ -1418,7 +1418,12 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         dadosProspeccao.qualificar_lead = qualificarLead;
         // Evento de Confirmação: bloqueado em edição, definido apenas na criação
         if (!editingProspeccao) {
-          (dadosProspeccao as any).evento_confirmacao = eventoConfirmacao;
+          // Só pode ser true via fluxo de criação a partir do evento pai
+          const isConfirmacao = !!parentEvento && eventoConfirmacao;
+          (dadosProspeccao as any).evento_confirmacao = isConfirmacao;
+          if (isConfirmacao && parentEvento) {
+            (dadosProspeccao as any).evento_pai_id = parentEvento.id;
+          }
         }
         // tipo_lead: bloqueado em edição, definido apenas na criação
         if (!editingProspeccao) {
@@ -3493,11 +3498,17 @@ ${localEvento}`;
                     id="evento_confirmacao"
                     checked={eventoConfirmacao}
                     onCheckedChange={setEventoConfirmacao}
-                    disabled={!!editingProspeccao}
+                    disabled={!!editingProspeccao || !isConfirmacaoFlow}
                   />
                 </div>
                 {editingProspeccao && (
                   <p className="text-xs text-muted-foreground -mt-1">Este campo não pode ser alterado após a criação do evento.</p>
+                )}
+                {!editingProspeccao && !isConfirmacaoFlow && (
+                  <p className="text-xs text-muted-foreground -mt-1">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
+                )}
+                {isConfirmacaoFlow && parentEvento && (
+                  <p className="text-xs text-primary -mt-1">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
                 )}
               </div>
             </div>
