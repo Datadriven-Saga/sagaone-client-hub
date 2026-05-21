@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useToast } from "@/components/ui/use-toast";
 import { Phone, ArrowRight, AlertCircle, UserCheck } from "lucide-react";
 import { Contato } from "@/hooks/useContatoData";
@@ -49,6 +51,7 @@ export const NovoLeadModal = ({
   const [step, setStep] = useState<Step>('phone');
   const [telefone, setTelefone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [ownerInfo, setOwnerInfo] = useState<OwnerInfo | null>(null);
   
   // Form fields
@@ -56,11 +59,19 @@ export const NovoLeadModal = ({
   const [email, setEmail] = useState("");
   const [origem, setOrigem] = useState<string>("Outros");
   const [observacoes, setObservacoes] = useState("");
-  
+
+  // Evento (prospecção) selecionado
+  const [eventosDisponiveis, setEventosDisponiveis] = useState<Array<{ id: string; titulo: string }>>([]);
+  const [selectedProspeccaoId, setSelectedProspeccaoId] = useState<string>("");
+  const [eventosLoading, setEventosLoading] = useState(false);
+
   const { activeCompany } = useCompany();
   const { user } = useAuth();
+  const { isAdmin, isGerente, isDiretor, isMasterRole, isTI } = useUserAccessType();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [eventoEncerradoAviso, setEventoEncerradoAviso] = useState<string | null>(null);
+  const canSeeAllEventos = isAdmin || isGerente || isDiretor || isMasterRole || isTI;
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -73,11 +84,92 @@ export const NovoLeadModal = ({
       setOrigem("Outros");
       setObservacoes("");
       setEventoEncerradoAviso(null);
+      setSelectedProspeccaoId("");
     }
   }, [isOpen]);
 
-  const normalizePhone = (phone: string): string => {
-    return phone.replace(/\D/g, '');
+  // Carrega eventos ativos visíveis ao usuário
+  useEffect(() => {
+    if (!isOpen || !activeCompany?.id || !user?.id) return;
+    let cancelled = false;
+
+    (async () => {
+      setEventosLoading(true);
+      try {
+        let eventos: Array<{ id: string; titulo: string }> = [];
+
+        if (canSeeAllEventos) {
+          const { data } = await supabase
+            .from('prospeccoes')
+            .select('id, titulo, ativo, encerrado_at')
+            .eq('empresa_id', activeCompany.id)
+            .eq('ativo', true)
+            .is('encerrado_at', null)
+            .order('created_at', { ascending: false });
+          eventos = (data || []).map(p => ({ id: p.id, titulo: p.titulo || 'Sem título' }));
+        } else {
+          // SDR/Vendedor: somente eventos onde participa da equipe
+          const { data } = await supabase
+            .from('prospeccao_equipe_membros')
+            .select(`
+              prospeccao_equipes!inner (
+                prospeccao_id,
+                prospeccoes!inner ( id, titulo, ativo, encerrado_at, empresa_id )
+              )
+            `)
+            .eq('user_id', user.id);
+
+          const map = new Map<string, { id: string; titulo: string }>();
+          for (const row of (data as any[]) || []) {
+            const p = row?.prospeccao_equipes?.prospeccoes;
+            if (
+              p &&
+              p.empresa_id === activeCompany.id &&
+              p.ativo === true &&
+              p.encerrado_at === null &&
+              !map.has(p.id)
+            ) {
+              map.set(p.id, { id: p.id, titulo: p.titulo || 'Sem título' });
+            }
+          }
+          eventos = Array.from(map.values());
+        }
+
+        if (cancelled) return;
+        setEventosDisponiveis(eventos);
+
+        // Pré-seleção
+        if (activeProspeccaoId && eventos.some(e => e.id === activeProspeccaoId)) {
+          setSelectedProspeccaoId(activeProspeccaoId);
+        } else if (eventos.length === 1) {
+          setSelectedProspeccaoId(eventos[0].id);
+        } else {
+          setSelectedProspeccaoId("");
+        }
+      } catch (err) {
+        console.error('Erro ao carregar eventos disponíveis:', err);
+      } finally {
+        if (!cancelled) setEventosLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isOpen, activeCompany?.id, user?.id, activeProspeccaoId, canSeeAllEventos]);
+
+  // Garante sessão válida (refresh) antes de qualquer invoke
+  const ensureSession = async (): Promise<boolean> => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data?.session) {
+      toast({
+        title: "Sessão expirada",
+        description: "Faça login novamente para continuar.",
+        variant: "destructive",
+      });
+      await supabase.auth.signOut();
+      navigate('/login');
+      return false;
+    }
+    return true;
   };
 
   const handleCheckPhone = async () => {
@@ -102,25 +194,37 @@ export const NovoLeadModal = ({
     setLoading(true);
 
     try {
-      const normalizedPhone = normalizePhone(telefone);
-      
-      // Buscar contato existente pelo telefone na mesma empresa
-      const { data: existingContatos, error } = await supabase
-        .from('contatos')
-        .select('*')
-        .eq('empresa_id', activeCompany.id);
-
-      if (error) throw error;
-
-      // Filtrar por telefone normalizado
-      const existingContato = existingContatos?.find(c => {
-        const contatoPhone = normalizePhone(c.telefone || '');
-        return contatoPhone === normalizedPhone || 
-               contatoPhone.endsWith(normalizedPhone) || 
-               normalizedPhone.endsWith(contatoPhone);
+      // Checagem server-side com normalização canônica
+      const { data: check, error: checkError } = await supabase.rpc('check_contato_by_telefone', {
+        p_empresa_id: activeCompany.id,
+        p_telefone: telefone,
       });
 
-      if (existingContato) {
+      if (checkError) throw checkError;
+
+      const checkResult = (check ?? {}) as {
+        exists?: boolean;
+        contato_id?: string;
+        nome?: string;
+        telefone?: string;
+        email?: string;
+        status?: string;
+        responsavel_email?: string | null;
+        lead_id?: number;
+      };
+
+      if (checkResult.exists && checkResult.contato_id) {
+        // Buscar dados completos para abrir no ContatoModal se necessário
+        const { data: existingContato } = await supabase
+          .from('contatos')
+          .select('*')
+          .eq('id', checkResult.contato_id)
+          .single();
+
+        if (!existingContato) {
+          setStep('form');
+          return;
+        }
         // Lead já existe - verificar responsável
         if (existingContato.responsavel_email) {
           // Verificar se o responsável é o próprio usuário
@@ -135,21 +239,18 @@ export const NovoLeadModal = ({
             return;
           }
 
-          // Lead pertence a outro usuário - checar se há evento ativo
-          const { data: eventoRow } = await supabase
+          // Lead pertence a outro usuário - checar se há evento VIGENTE
+          const { data: eventosVigentes } = await supabase
             .from('eventos_prospeccao')
             .select('prospeccao_id, prospeccoes:prospeccao_id(id, titulo, encerrado_at, ativo)')
             .eq('contato_id', existingContato.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .order('created_at', { ascending: false });
 
-          const prospeccao = (eventoRow?.prospeccoes ?? null) as
-            | { id: string; titulo: string | null; encerrado_at: string | null; ativo: boolean | null }
-            | null;
-          const eventoEncerrado = !prospeccao || prospeccao.encerrado_at !== null || prospeccao.ativo === false;
+          const vigente = (eventosVigentes || [])
+            .map(e => e.prospeccoes as { id: string; titulo: string | null; encerrado_at: string | null; ativo: boolean | null } | null)
+            .find(p => p && p.encerrado_at === null && p.ativo === true);
 
-          if (!eventoEncerrado) {
+          if (vigente) {
             // Bloqueia: lead em atendimento ativo por outro responsável
             const ownerProfile = profiles.find(p =>
               p.id === existingContato.responsavel_email ||
@@ -159,16 +260,19 @@ export const NovoLeadModal = ({
             setOwnerInfo({
               nome: ownerProfile?.nome_completo || existingContato.responsavel_email || 'Outro vendedor',
               contato: existingContato as Contato,
-              prospeccaoTitulo: prospeccao?.titulo ?? null,
+              prospeccaoTitulo: vigente.titulo ?? null,
             });
             setStep('owner-message');
             return;
           }
 
           // Evento anterior já encerrado: permite criar/atribuir ao usuário atual no novo contexto
+          const ultimo = (eventosVigentes || [])
+            .map(e => e.prospeccoes as { titulo: string | null } | null)
+            .find(Boolean);
           setEventoEncerradoAviso(
-            prospeccao?.titulo
-              ? `Este cliente esteve no evento encerrado "${prospeccao.titulo}". Será atribuído a você no contexto atual.`
+            ultimo?.titulo
+              ? `Este cliente esteve no evento encerrado "${ultimo.titulo}". Será atribuído a você no contexto atual.`
               : 'Este cliente já existia em evento encerrado. Será atribuído a você no contexto atual.'
           );
           setNome(existingContato.nome || '');
@@ -212,6 +316,8 @@ export const NovoLeadModal = ({
   };
 
   const handleCreateLead = async () => {
+    if (isSubmitting) return;
+
     if (!nome.trim()) {
       toast({
         title: "Nome obrigatório",
@@ -230,7 +336,25 @@ export const NovoLeadModal = ({
       return;
     }
 
+    if (!selectedProspeccaoId) {
+      toast({
+        title: "Evento obrigatório",
+        description: "Selecione o evento ao qual o lead será vinculado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     setLoading(true);
+
+    // Refresh de sessão antes do invoke
+    const ok = await ensureSession();
+    if (!ok) {
+      setIsSubmitting(false);
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke('create-lead', {
@@ -243,22 +367,33 @@ export const NovoLeadModal = ({
           responsavel_email: user?.id,
           empresa_id: activeCompany.id,
           status: 'Atribuído',
-          ...(activeProspeccaoId ? { prospeccao_id: activeProspeccaoId } : {}),
+          prospeccao_id: selectedProspeccaoId,
         },
       });
 
       // supabase.functions.invoke devolve `error` quando status >= 400.
-      // Para 409 precisamos do payload original — tratamos como "lead em atendimento".
       if (error) {
         // Tenta extrair o corpo da resposta
         const ctx: any = (error as any).context;
+        const status = ctx?.status;
         let parsed: any = null;
         try {
           if (ctx && typeof ctx.json === 'function') parsed = await ctx.json();
           else if (ctx && typeof ctx.text === 'function') parsed = JSON.parse(await ctx.text());
         } catch (_) { /* ignore */ }
 
-        if (ctx?.status === 409 && parsed?.lead_existente) {
+        if (status === 401) {
+          toast({
+            title: "Sessão expirada",
+            description: "Faça login novamente.",
+            variant: "destructive",
+          });
+          await supabase.auth.signOut();
+          navigate('/login');
+          return;
+        }
+
+        if (status === 409 && parsed?.lead_existente) {
           const le = parsed.lead_existente;
           const ownerProfile = profiles.find(p =>
             p.id === le.responsavel_email ||
@@ -297,6 +432,7 @@ export const NovoLeadModal = ({
         variant: "destructive"
       });
     } finally {
+      setIsSubmitting(false);
       setLoading(false);
     }
   };
@@ -363,6 +499,32 @@ export const NovoLeadModal = ({
             )}
 
             <div className="space-y-2">
+              <Label htmlFor="evento">Evento *</Label>
+              {eventosLoading ? (
+                <p className="text-xs text-muted-foreground">Carregando eventos...</p>
+              ) : eventosDisponiveis.length === 0 ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Você não está na equipe de nenhum evento ativo. Solicite ao gestor
+                    que te adicione a um evento antes de cadastrar leads.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Select value={selectedProspeccaoId} onValueChange={setSelectedProspeccaoId}>
+                  <SelectTrigger id="evento">
+                    <SelectValue placeholder="Selecione o evento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventosDisponiveis.map(e => (
+                      <SelectItem key={e.id} value={e.id}>{e.titulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="nome">Nome do Cliente *</Label>
               <Input
                 id="nome"
@@ -418,8 +580,11 @@ export const NovoLeadModal = ({
               <Button variant="outline" onClick={() => setStep('phone')}>
                 Voltar
               </Button>
-              <Button onClick={handleCreateLead} disabled={loading}>
-                {loading ? "Criando..." : "Criar Lead"}
+              <Button
+                onClick={handleCreateLead}
+                disabled={isSubmitting || loading || eventosDisponiveis.length === 0 || !selectedProspeccaoId}
+              >
+                {isSubmitting ? "Criando..." : "Criar Lead"}
               </Button>
             </div>
           </div>
