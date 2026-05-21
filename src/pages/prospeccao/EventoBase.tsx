@@ -2085,7 +2085,7 @@ export default function EventoBase() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            {isIAWhatsApp && !isConfirmacao && (
+            {!isConfirmacao && (
               <Button variant="outline" size="sm" onClick={() => setShowCriarConfirmacao(true)} className="border-primary/40 text-primary hover:bg-primary/10">
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Confirmação
