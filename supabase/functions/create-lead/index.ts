@@ -121,6 +121,58 @@ serve(async (req) => {
       );
     }
 
+    // --- Validações server-side (pular se for admin token) ---
+    if (!isAdminToken && userId) {
+      // 1. Empresa: usuário precisa ter acesso
+      const { data: acesso } = await supabaseClient
+        .from('user_empresas')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('empresa_id', empresa_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!acesso) {
+        return new Response(
+          JSON.stringify({ error: 'Sem acesso a esta empresa', code: 'FORBIDDEN' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    if (prospeccao_id) {
+      // 2. Prospecção: precisa existir e pertencer à mesma empresa
+      const { data: prosp } = await supabaseClient
+        .from('prospeccoes')
+        .select('id, empresa_id, ativo, encerrado_at')
+        .eq('id', prospeccao_id)
+        .maybeSingle();
+
+      if (!prosp || prosp.empresa_id !== empresa_id) {
+        return new Response(
+          JSON.stringify({ error: 'Evento não encontrado nesta empresa', code: 'INVALID_PROSPECCAO' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 3. Equipe: usuário precisa pertencer à equipe (exceto admin token)
+      if (!isAdminToken && userId) {
+        const { data: membros } = await supabaseClient
+          .from('prospeccao_equipe_membros')
+          .select('id, equipe_id, prospeccao_equipes!inner(prospeccao_id)')
+          .eq('user_id', userId)
+          .eq('prospeccao_equipes.prospeccao_id', prospeccao_id)
+          .limit(1);
+
+        if (!membros || membros.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'Você não pertence à equipe deste evento', code: 'NOT_IN_TEAM' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
     // Normalizar telefone (remover não-dígitos)
     const telefoneNormalizado = normalizePhoneCanonical(telefone);
 
@@ -203,48 +255,43 @@ serve(async (req) => {
       ? (statusMap[status.toLowerCase()] || status)
       : 'Novo';
 
-    // Criar o contato
-    const insertData: Record<string, unknown> = {
-      nome: nome.trim(),
-      telefone: telefoneNormalizado,
-      email: email?.trim() || null,
-      empresa_id,
-      origem: origem || 'Outros',
-      observacoes: observacoes?.trim() || null,
-      responsavel_email: responsavel_email || null,
-      status: statusFinal,
-    };
+    // Criar contato + vínculo de forma atômica via RPC (evita lead órfão)
+    const { data: atomicResult, error: atomicError } = await supabaseClient.rpc('create_lead_atomic', {
+      p_empresa_id: empresa_id,
+      p_nome: nome.trim(),
+      p_telefone: telefoneNormalizado,
+      p_email: email?.trim() || null,
+      p_responsavel_email: responsavel_email || null,
+      p_status: statusFinal,
+      p_origem: origem || 'Outros',
+      p_observacoes: observacoes?.trim() || null,
+      p_prospeccao_id: prospeccao_id || null,
+    });
 
-    const { data: novoContato, error: insertError } = await supabaseClient
-      .from('contatos')
-      .insert(insertData)
-      .select('id, lead_id, nome, telefone, email, status, empresa_id, origem, responsavel_email, created_at')
-      .single();
-
-    if (insertError) {
-      console.error('❌ Erro ao criar lead:', insertError);
+    if (atomicError || !atomicResult) {
+      console.error('❌ Erro ao criar lead (RPC atômica):', atomicError);
       return new Response(
-        JSON.stringify({ error: 'Erro ao criar lead', detalhes: insertError.message }),
+        JSON.stringify({ error: 'Erro ao criar lead', detalhes: atomicError?.message }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const novoContato = {
+      id: (atomicResult as any).contato_id as string,
+      lead_id: (atomicResult as any).lead_id as number,
+      nome: nome.trim(),
+      telefone: telefoneNormalizado,
+      email: email?.trim() || null,
+      status: statusFinal,
+      empresa_id,
+      origem: origem || 'Outros',
+      responsavel_email: responsavel_email || null,
+      created_at: new Date().toISOString(),
+    };
+
     console.log(`✅ Lead criado: ${novoContato.nome} (lead_id: ${novoContato.lead_id}, id: ${novoContato.id})`);
-
-    // Vincular à prospecção se fornecido
-    if (prospeccao_id && novoContato) {
-      const { error: vinculoError } = await supabaseClient
-        .from('eventos_prospeccao')
-        .insert({
-          contato_id: novoContato.id,
-          prospeccao_id,
-        });
-
-      if (vinculoError) {
-        console.error('⚠️ Lead criado mas erro ao vincular à prospecção:', vinculoError);
-      } else {
-        console.log(`   └─ Vinculado à prospecção: ${prospeccao_id}`);
-      }
+    if ((atomicResult as any).evento_prospeccao_id) {
+      console.log(`   └─ Vinculado à prospecção: ${prospeccao_id}`);
     }
 
     // Disparar gatilho de criação de lead
