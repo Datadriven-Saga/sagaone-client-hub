@@ -3382,7 +3382,11 @@ showAllEvents: true
       <NovoLeadModal
         isOpen={isNovoLeadModalOpen}
         onClose={() => setIsNovoLeadModalOpen(false)}
-        onLeadCreated={refetch}
+        onLeadCreated={async () => {
+          await refetch();
+          // Kanban usa fetch dedicado server-side; precisa recarregar para o lead novo aparecer
+          await fetchKanbanColumns(getKanbanFilters(), { silent: true });
+        }}
         onOpenContato={handleOpenContatoFromFab}
         profiles={profiles}
         activeProspeccaoId={
