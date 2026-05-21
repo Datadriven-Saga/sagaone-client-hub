@@ -2545,6 +2545,20 @@ showAllEvents: true
                             <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Meta Vendas</th>
                             <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Premiações</th>
                             <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Status</th>
+                            <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help underline decoration-dotted">ID PRI</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <p className="text-xs">
+                                      Código do evento na PRI. Use no nome da campanha com o padrão <strong>[EVENTO][ID_PRI=XXX]</strong> para direcionar leads automaticamente para este evento. Sem esse código, os leads serão roteados para o evento mais recente da loja.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </th>
                             <th className="text-right py-2 px-3 text-sm font-medium text-muted-foreground">Ações</th>
                           </tr>
                         </thead>
