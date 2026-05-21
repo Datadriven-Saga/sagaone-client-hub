@@ -116,8 +116,13 @@ export default function EventoBase() {
   const [contatos, setContatos] = useState<ContatoEvento[]>([]);
   // Estável entre renders para não disparar o effect de reset do CriarProspeccaoModal
   const parentEventoMemo = useMemo(
-    () => (prospeccao ? { id: prospeccao.id, titulo: prospeccao.titulo } : null),
-    [prospeccao?.id, prospeccao?.titulo]
+    () => (prospeccao ? {
+      id: prospeccao.id,
+      titulo: prospeccao.titulo,
+      data_inicio: prospeccao.data_inicio ?? null,
+      data_fim: prospeccao.data_fim ?? null,
+    } : null),
+    [prospeccao?.id, prospeccao?.titulo, prospeccao?.data_inicio, prospeccao?.data_fim]
   );
   const [loading, setLoading] = useState(true);
   const [loadingPage, setLoadingPage] = useState(false);

@@ -35,7 +35,7 @@ interface CriarProspeccaoModalProps {
    * Quando definido, o modal abre travado em IA WhatsApp + Evento de Confirmação.
    * O evento criado é vinculado ao pai via `evento_pai_id`.
    */
-  parentEvento?: { id: string; titulo: string } | null;
+  parentEvento?: { id: string; titulo: string; data_inicio?: string | null; data_fim?: string | null } | null;
 }
 
 // Tipos de evento disponíveis
@@ -370,6 +370,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         setCanalQuarentena('whatsapp');
         setEventoConfirmacao(true);
         setTitulo(`Confirmação — ${parentEvento.titulo}`);
+        // Herdar datas do evento pai
+        if (parentEvento.data_inicio) setDataInicio(parentEvento.data_inicio);
+        if (parentEvento.data_fim) setDataFim(parentEvento.data_fim);
       }
     }
   }, [editingProspeccao, isOpen, parentEvento]);
@@ -2937,9 +2940,9 @@ ${localEvento}`;
                     setCanal('Ligação');
                   }
                 }}
-                disabled={!!editingProspeccao}
+                 disabled={!!editingProspeccao || isConfirmacaoFlow}
               >
-                <SelectTrigger disabled={!!editingProspeccao}>
+                <SelectTrigger disabled={!!editingProspeccao || isConfirmacaoFlow}>
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2957,6 +2960,9 @@ ${localEvento}`;
                   )}
                 </SelectContent>
               </Select>
+              {isConfirmacaoFlow && (
+                <p className="text-xs text-muted-foreground mt-1">Eventos de Confirmação são sempre <strong>IA Whatsapp</strong>.</p>
+              )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -2967,6 +2973,7 @@ ${localEvento}`;
                   type="date"
                   value={dataInicio}
                   onChange={(e) => setDataInicio(e.target.value)}
+                  disabled={isConfirmacaoFlow}
                 />
               </div>
               <div>
@@ -2976,9 +2983,13 @@ ${localEvento}`;
                   type="date"
                   value={dataFim}
                   onChange={(e) => setDataFim(e.target.value)}
+                  disabled={isConfirmacaoFlow}
                 />
               </div>
             </div>
+            {isConfirmacaoFlow && (
+              <p className="text-xs text-muted-foreground -mt-2">Datas herdadas do evento pai.</p>
+            )}
 
             {/* Canal de Prospecção - apenas para Prospecção Mensal e Grande Evento */}
             {(tipoEvento === 'Prospecção Mensal' || tipoEvento === 'Grande Evento') && (
