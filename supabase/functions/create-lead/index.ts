@@ -198,7 +198,7 @@ serve(async (req) => {
 
         const { data: evento } = await supabaseClient
           .from('eventos_prospeccao')
-          .select('prospeccao_id, prospeccoes:prospeccao_id(id, titulo, encerrado_at, ativo)')
+          .select('prospeccao_id, prospeccoes:prospeccoes!prospeccao_id(id, titulo, encerrado_at, ativo)')
           .eq('contato_id', existente.id)
           .order('created_at', { ascending: false })
           .limit(1)
