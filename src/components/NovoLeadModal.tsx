@@ -156,34 +156,43 @@ export const NovoLeadModal = ({
     return () => { cancelled = true; };
   }, [isOpen, activeCompany?.id, user?.id, activeProspeccaoId, canSeeAllEventos]);
 
-  // Garante sessão válida (refresh proativo) antes de qualquer invoke
+  // Garante sessão válida antes do invoke sem derrubar o usuário por falha transitória de refresh.
   const ensureSession = async (): Promise<boolean> => {
     const { data: sessData } = await supabase.auth.getSession();
     const session = sessData?.session;
 
     if (session) {
       const expiresAt = (session.expires_at ?? 0) * 1000;
-      const secondsLeft = (expiresAt - Date.now()) / 1000;
-      // Se expira em menos de 2 min, força refresh
-      if (secondsLeft < 120) {
+      const msLeft = expiresAt - Date.now();
+      const secondsLeft = msLeft / 1000;
+
+      if (secondsLeft >= 120) {
+        return true;
+      }
+
+      if (secondsLeft > 0) {
         const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
         if (!refreshErr && refreshed?.session) return true;
-      } else {
+
+        console.warn('[NovoLeadModal] refreshSession falhou perto do vencimento; usando sessão atual ainda válida', {
+          secondsLeft,
+          refreshError: refreshErr?.message,
+        });
         return true;
       }
     }
 
-    // Sem sessão ou refresh falhou — tenta um último refresh
-    const { data: lastTry } = await supabase.auth.refreshSession();
+    const { data: lastTry, error: lastTryError } = await supabase.auth.refreshSession();
     if (lastTry?.session) return true;
 
+    console.warn('[NovoLeadModal] sem sessão válida para criar lead', {
+      refreshError: lastTryError?.message,
+    });
     toast({
       title: "Sessão expirada",
-      description: "Faça login novamente para continuar.",
+      description: "Sua sessão expirou. Entre novamente e tente criar o lead de novo.",
       variant: "destructive",
     });
-    await supabase.auth.signOut();
-    navigate('/login');
     return false;
   };
 
@@ -408,13 +417,12 @@ export const NovoLeadModal = ({
         } catch (_) { /* ignore */ }
 
         if (status === 401) {
+          console.warn('[NovoLeadModal] create-lead retornou 401 após retry');
           toast({
             title: "Sessão expirada",
-            description: "Faça login novamente.",
+            description: "Sua sessão expirou antes da criação do lead. Faça login novamente e tente de novo.",
             variant: "destructive",
           });
-          await supabase.auth.signOut();
-          navigate('/login');
           return;
         }
 
