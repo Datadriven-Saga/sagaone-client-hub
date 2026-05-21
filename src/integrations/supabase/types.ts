@@ -5752,6 +5752,10 @@ export type Database = {
         Returns: Json
       }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
+      check_contato_by_telefone: {
+        Args: { p_empresa_id: string; p_telefone: string }
+        Returns: Json
+      }
       check_global_opt_out: { Args: { p_telefone: string }; Returns: boolean }
       check_global_opt_out_bulk: {
         Args: { p_telefones: string[] }
@@ -5782,6 +5786,20 @@ export type Database = {
       count_vendedor_leads_pendentes: {
         Args: { user_id_param: string }
         Returns: number
+      }
+      create_lead_atomic: {
+        Args: {
+          p_email?: string
+          p_empresa_id: string
+          p_nome: string
+          p_observacoes?: string
+          p_origem?: string
+          p_prospeccao_id?: string
+          p_responsavel_email?: string
+          p_status?: string
+          p_telefone: string
+        }
+        Returns: Json
       }
       decrypt_mfa_secret: {
         Args: { encrypted_secret: string }
@@ -6135,6 +6153,7 @@ export type Database = {
         }[]
       }
       normalize_phone_br: { Args: { phone: string }; Returns: string }
+      normalize_phone_canonical: { Args: { p_raw: string }; Returns: string }
       normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
       phone_match_variants: { Args: { phone: string }; Returns: string[] }
       preview_importacao_conflitos: {
