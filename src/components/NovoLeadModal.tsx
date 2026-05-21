@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -68,7 +67,6 @@ export const NovoLeadModal = ({
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { isAdmin, isGerente, isDiretor, isMasterRole, isTI } = useUserAccessType();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [eventoEncerradoAviso, setEventoEncerradoAviso] = useState<string | null>(null);
   const canSeeAllEventos = isAdmin || isGerente || isDiretor || isMasterRole || isTI;
