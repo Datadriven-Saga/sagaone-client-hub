@@ -114,6 +114,11 @@ export default function EventoBase() {
   // Estados
   const [prospeccao, setProspeccao] = useState<Prospeccao | null>(null);
   const [contatos, setContatos] = useState<ContatoEvento[]>([]);
+  // Estável entre renders para não disparar o effect de reset do CriarProspeccaoModal
+  const parentEventoMemo = useMemo(
+    () => (prospeccao ? { id: prospeccao.id, titulo: prospeccao.titulo } : null),
+    [prospeccao?.id, prospeccao?.titulo]
+  );
   const [loading, setLoading] = useState(true);
   const [loadingPage, setLoadingPage] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -1982,7 +1987,7 @@ export default function EventoBase() {
         <CriarProspeccaoModal
           isOpen={showCriarConfirmacao}
           onOpenChange={setShowCriarConfirmacao}
-          parentEvento={prospeccao ? { id: prospeccao.id, titulo: prospeccao.titulo } : null}
+          parentEvento={parentEventoMemo}
           onProspeccaoCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
         />
 
