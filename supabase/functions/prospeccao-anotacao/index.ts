@@ -101,7 +101,7 @@ serve(async (req) => {
     if (isNumericLeadId) {
       const result = await supabaseAdmin
         .from('contatos')
-        .select('id, lead_id, nome')
+        .select('id, lead_id, nome, empresa_id')
         .eq('lead_id', parseInt(String(lead_id)))
         .single();
       contato = result.data;
@@ -109,7 +109,7 @@ serve(async (req) => {
     } else {
       const result = await supabaseAdmin
         .from('contatos')
-        .select('id, lead_id, nome')
+        .select('id, lead_id, nome, empresa_id')
         .eq('id', lead_id)
         .single();
       contato = result.data;
@@ -130,28 +130,18 @@ serve(async (req) => {
 
     console.log(`   └─ Contato encontrado: ${contato.nome} (id: ${contato.id})`);
 
-    let prospeccaoId = prospeccao_id_override;
-    
-    if (!prospeccaoId) {
-      const { data: eventoProspeccao } = await supabaseAdmin
-        .from('eventos_prospeccao')
-        .select('prospeccao_id')
-        .eq('contato_id', contato.id)
-        .limit(1)
-        .single();
-      prospeccaoId = eventoProspeccao?.prospeccao_id || null;
-    }
+    // prospeccao_id é metadado opcional de contexto (não força vínculo do contato ao evento)
+    const prospeccaoId = prospeccao_id_override || null;
 
-    // Inserir evento de prospecção (anotação) com usuario_id dedicado
+    // Inserir anotação na tabela dedicada (desacoplada de eventos_prospeccao)
     const { data: evento, error: eventoError } = await supabaseAdmin
-      .from('eventos_prospeccao')
+      .from('contato_anotacoes')
       .insert({
-        prospeccao_id: prospeccaoId,
         contato_id: contato.id,
-        tipo_evento: 'Anotação',
-        descricao: mensagem,
         usuario_id: userId,
-        data_evento: new Date().toISOString()
+        empresa_id: contato.empresa_id,
+        descricao: mensagem,
+        prospeccao_id: prospeccaoId,
       })
       .select()
       .single();
