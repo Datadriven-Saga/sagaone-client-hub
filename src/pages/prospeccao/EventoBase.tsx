@@ -1979,11 +1979,11 @@ export default function EventoBase() {
           </div>
         )}
 
-        <CriarProspeccaoModalConfirmacao
+        <CriarProspeccaoModal
           isOpen={showCriarConfirmacao}
           onOpenChange={setShowCriarConfirmacao}
-          prospeccao={prospeccao}
-          onCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
+          parentEvento={parentEventoMemo}
+          onProspeccaoCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
         />
 
         {/* Banner de template pausado pela Meta */}
