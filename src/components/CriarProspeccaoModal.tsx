@@ -370,6 +370,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         setCanalQuarentena('whatsapp');
         setEventoConfirmacao(true);
         setTitulo(`Confirmação — ${parentEvento.titulo}`);
+        // Herdar datas do evento pai
+        if (parentEvento.data_inicio) setDataInicio(parentEvento.data_inicio);
+        if (parentEvento.data_fim) setDataFim(parentEvento.data_fim);
       }
     }
   }, [editingProspeccao, isOpen, parentEvento]);
