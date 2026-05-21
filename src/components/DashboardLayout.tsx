@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState } from "react";
 import ActiveCampaignJobIndicator from "./ActiveCampaignJobIndicator";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -10,9 +10,6 @@ import { CheckinConfirmModal } from "./CheckinConfirmModal";
 import { RecepcaoModal } from "./RecepcaoModal";
 import { PanelLeft, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useCompany } from "@/contexts/CompanyContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { Contato } from "@/hooks/useContatoData";
 import { useRecepcaoData, MultiCheckinData } from "@/hooks/useRecepcaoData";
 
@@ -34,54 +31,8 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
     isOpen: boolean;
     contato: Contato | null;
   }>({ isOpen: false, contato: null });
-  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
-  
-  const { activeCompany } = useCompany();
-  const { user } = useAuth();
-  const { buscarContatoMultiAtivo, registrarCheckinMulti } = useRecepcaoData();
 
-  // Fetch profiles for NovoLeadModal
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      if (!activeCompany?.id) return;
-      
-      const { data: profilesData, error } = await supabase
-        .from('profiles')
-        .select('id, nome_completo, tipo_acesso, celular');
-      
-      if (error) {
-        console.error('Error fetching profiles:', error);
-        return;
-      }
-      
-      if (profilesData) {
-        const profilesWithEmail = profilesData.map(p => ({
-          ...p,
-          email: undefined as string | undefined
-        }));
-        
-        try {
-          const { data: usersData } = await supabase.functions.invoke('manage-users', {
-            body: { action: 'list_users' }
-          });
-          
-          if (usersData?.users) {
-            usersData.users.forEach((user: any) => {
-              const profileIndex = profilesWithEmail.findIndex(p => p.id === user.id);
-              if (profileIndex !== -1) {
-                profilesWithEmail[profileIndex].email = user.email;
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Error fetching users emails:', e);
-        }
-        
-        setProfiles(profilesWithEmail);
-      }
-    };
-    fetchProfiles();
-  }, [activeCompany?.id]);
+  const { buscarContatoMultiAtivo, registrarCheckinMulti } = useRecepcaoData();
 
   const handleNovoCheckin = () => {
     setIsRecepcaoModalOpen(true);
