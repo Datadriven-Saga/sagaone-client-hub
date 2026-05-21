@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface FloatingActionButtonProps {
-  onNovoLead: () => void;
-  onNovoCheckin: () => void;
-  onNovaVenda: () => void;
+  onNovoLead?: () => void;
+  onNovoCheckin?: () => void;
+  onNovaVenda?: () => void;
 }
 
 export const FloatingActionButton = ({
@@ -25,6 +25,9 @@ export const FloatingActionButton = ({
     setIsExpanded(false);
   };
 
+  const hasAnyAction = !!(onNovoLead || onNovoCheckin || onNovaVenda);
+  if (!hasAnyAction) return null;
+
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
       {/* Sub-buttons - aparecem quando expandido */}
@@ -32,29 +35,29 @@ export const FloatingActionButton = ({
         "flex flex-col gap-2 transition-all duration-300",
         isExpanded ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"
       )}>
-        <Button
+        {onNovaVenda && <Button
           onClick={() => handleAction(onNovaVenda)}
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg rounded-full px-4 h-10"
         >
           <ShoppingCart className="h-4 w-4" />
           <span className="text-sm font-medium">Nova Venda</span>
-        </Button>
+        </Button>}
         
-        <Button
+        {onNovoCheckin && <Button
           onClick={() => handleAction(onNovoCheckin)}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg rounded-full px-4 h-10"
         >
           <CheckCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Novo Check-in</span>
-        </Button>
+        </Button>}
         
-        <Button
+        {onNovoLead && <Button
           onClick={() => handleAction(onNovoLead)}
           className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white shadow-lg rounded-full px-4 h-10"
         >
           <UserPlus className="h-4 w-4" />
           <span className="text-sm font-medium">Novo Lead</span>
-        </Button>
+        </Button>}
       </div>
 
       {/* Main FAB button */}

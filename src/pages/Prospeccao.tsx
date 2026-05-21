@@ -3382,7 +3382,11 @@ showAllEvents: true
       <NovoLeadModal
         isOpen={isNovoLeadModalOpen}
         onClose={() => setIsNovoLeadModalOpen(false)}
-        onLeadCreated={refetch}
+        onLeadCreated={async () => {
+          await refetch();
+          // Kanban usa fetch dedicado server-side; precisa recarregar para o lead novo aparecer
+          await fetchKanbanColumns(getKanbanFilters(), { silent: true });
+        }}
         onOpenContato={handleOpenContatoFromFab}
         profiles={profiles}
         activeProspeccaoId={
@@ -3523,9 +3527,9 @@ showAllEvents: true
       />
 
       <FloatingActionButton
-        onNovoLead={handleNovoLead}
+        onNovoLead={defaultTab === 'atendimento' && activeTab === 'kanban' ? handleNovoLead : undefined}
         onNovoCheckin={handleNovoCheckin}
-        onNovaVenda={handleNovaVenda}
+        onNovaVenda={defaultTab === 'atendimento' && activeTab === 'kanban' ? handleNovaVenda : undefined}
       />
 
       {/* Modal de Base do Evento */}

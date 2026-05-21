@@ -1,19 +1,15 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState } from "react";
 import ActiveCampaignJobIndicator from "./ActiveCampaignJobIndicator";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { UserMenu } from "./UserMenu";
 import { FloatingActionButton } from "./FloatingActionButton";
-import { NovoLeadModal } from "./NovoLeadModal";
 import { ContatoModal } from "./ContatoModal";
 import { CheckinConfirmModal } from "./CheckinConfirmModal";
 import { RecepcaoModal } from "./RecepcaoModal";
 import { PanelLeft, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useCompany } from "@/contexts/CompanyContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { Contato } from "@/hooks/useContatoData";
 import { useRecepcaoData, MultiCheckinData } from "@/hooks/useRecepcaoData";
 
@@ -28,7 +24,6 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
   const location = useLocation();
   const isHomePage = location.pathname === "/" || location.pathname === "/dashboard";
   const shouldShowBack = showBackButton !== undefined ? showBackButton : !isHomePage;
-  const [isNovoLeadModalOpen, setIsNovoLeadModalOpen] = useState(false);
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [pendingMultiCheckin, setPendingMultiCheckin] = useState<MultiCheckinData | null>(null);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
@@ -36,66 +31,11 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
     isOpen: boolean;
     contato: Contato | null;
   }>({ isOpen: false, contato: null });
-  const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string }[]>([]);
-  
-  const { activeCompany } = useCompany();
-  const { user } = useAuth();
+
   const { buscarContatoMultiAtivo, registrarCheckinMulti } = useRecepcaoData();
-
-  // Fetch profiles for NovoLeadModal
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      if (!activeCompany?.id) return;
-      
-      const { data: profilesData, error } = await supabase
-        .from('profiles')
-        .select('id, nome_completo, tipo_acesso, celular');
-      
-      if (error) {
-        console.error('Error fetching profiles:', error);
-        return;
-      }
-      
-      if (profilesData) {
-        const profilesWithEmail = profilesData.map(p => ({
-          ...p,
-          email: undefined as string | undefined
-        }));
-        
-        try {
-          const { data: usersData } = await supabase.functions.invoke('manage-users', {
-            body: { action: 'list_users' }
-          });
-          
-          if (usersData?.users) {
-            usersData.users.forEach((user: any) => {
-              const profileIndex = profilesWithEmail.findIndex(p => p.id === user.id);
-              if (profileIndex !== -1) {
-                profilesWithEmail[profileIndex].email = user.email;
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Error fetching users emails:', e);
-        }
-        
-        setProfiles(profilesWithEmail);
-      }
-    };
-    fetchProfiles();
-  }, [activeCompany?.id]);
-
-  const handleNovoLead = () => {
-    setIsNovoLeadModalOpen(true);
-  };
 
   const handleNovoCheckin = () => {
     setIsRecepcaoModalOpen(true);
-  };
-
-  const handleNovaVenda = () => {
-    // Same flow as novo lead - user will complete sale in contact modal
-    setIsNovoLeadModalOpen(true);
   };
 
   const handleOpenContatoFromFab = (contato: Contato) => {
@@ -103,11 +43,6 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
       isOpen: true,
       contato: contato
     });
-  };
-
-  const handleLeadCreated = () => {
-    // Trigger refetch if needed - pages can handle their own data refresh
-    window.dispatchEvent(new CustomEvent('lead-created'));
   };
 
   // Handle search from RecepcaoModal — agora multi-prospecção ativa
@@ -173,20 +108,9 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           </main>
         </div>
 
-        {/* Global FAB */}
+        {/* Global FAB — apenas Check-in (Novo Lead/Venda ficam no Kanban de Atendimento) */}
         <FloatingActionButton
-          onNovoLead={handleNovoLead}
           onNovoCheckin={handleNovoCheckin}
-          onNovaVenda={handleNovaVenda}
-        />
-
-        {/* Global Modals */}
-        <NovoLeadModal
-          isOpen={isNovoLeadModalOpen}
-          onClose={() => setIsNovoLeadModalOpen(false)}
-          onLeadCreated={handleLeadCreated}
-          onOpenContato={handleOpenContatoFromFab}
-          profiles={profiles}
         />
 
         <RecepcaoModal
