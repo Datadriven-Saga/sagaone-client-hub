@@ -339,10 +339,11 @@ export const UploadPlanilha = ({
 
     try {
       // 1) Convert Excel to CSV if needed
-      let csvFile = file;
-      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      // Se já passou pela confirmação (csv já convertido), reutiliza.
+      let csvFile = confirmCsvFile ?? file;
+      const isExcel = csvFile.name.endsWith('.xlsx') || csvFile.name.endsWith('.xls');
       if (isExcel) {
-        csvFile = await convertExcelToCsv(file);
+        csvFile = await convertExcelToCsv(csvFile);
         console.log('📄 Excel convertido para CSV');
       }
 
@@ -418,6 +419,58 @@ export const UploadPlanilha = ({
         variant: 'destructive',
       });
     }
+  };
+
+  // Etapa de confirmação: parseia preview e abre modal antes de iniciar a importação
+  const prepareConfirmation = async () => {
+    if (!selectedCampanha) {
+      toast({ title: 'Selecione uma campanha', description: 'Escolha uma campanha para adicionar os contatos', variant: 'destructive' });
+      return;
+    }
+    if (!file) {
+      toast({ title: 'Selecione um arquivo', description: 'Escolha um arquivo CSV ou Excel para importar', variant: 'destructive' });
+      return;
+    }
+    if (!activeCompany?.id) return;
+
+    setPreparingConfirm(true);
+    try {
+      let csvFile = file;
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (isExcel) {
+        csvFile = await convertExcelToCsv(file);
+        setPhase('idle'); // convertExcelToCsv altera para 'converting'; voltamos a 'idle' para o modal
+      }
+
+      const text = await csvFile.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      const headers = lines.length > 0 ? parseCSVLineLight(lines[0]) : [];
+      const sample = lines.slice(1, 4).map(parseCSVLineLight);
+      const totalRows = Math.max(0, lines.length - 1);
+
+      setConfirmCsvFile(csvFile);
+      setConfirmPreview({ headers, sample, totalRows });
+      setShowConfirm(true);
+    } catch (e: any) {
+      console.error('prepareConfirmation error:', e);
+      toast({ title: 'Erro ao ler arquivo', description: e?.message || 'Não foi possível ler o arquivo', variant: 'destructive' });
+    } finally {
+      setPreparingConfirm(false);
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setShowConfirm(false);
+    setConfirmCsvFile(null);
+    setConfirmPreview(null);
+  };
+
+  const handleConfirmProceed = async () => {
+    setShowConfirm(false);
+    await handleImport();
+    // Limpa o csv já convertido após o disparo
+    setConfirmCsvFile(null);
+    setConfirmPreview(null);
   };
 
   const proceedUpload = async (
