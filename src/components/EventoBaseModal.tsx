@@ -6,14 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, Calendar, Clock, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
-import { Upload } from 'lucide-react';
 
 interface ContatoEvento {
   id: string;
