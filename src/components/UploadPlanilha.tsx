@@ -742,16 +742,22 @@ export const UploadPlanilha = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!isWorking) setIsOpen(open); }}>
-        <DialogTrigger asChild>
-          <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
-            <FileSpreadsheet size={18} />
-            <span className="text-sm">Upload de Planilha</span>
-          </Button>
-        </DialogTrigger>
+        {!hideTrigger && (
+          <DialogTrigger asChild>
+            <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+              <FileSpreadsheet size={18} />
+              <span className="text-sm">Upload de Planilha</span>
+            </Button>
+          </DialogTrigger>
+        )}
 
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle>Upload de Planilha de Contatos</DialogTitle>
+            <DialogTitle>
+              {lockedProspeccao
+                ? `Importar base — ${lockedProspeccao.titulo}`
+                : 'Upload de Planilha de Contatos'}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-2">
@@ -765,20 +771,32 @@ export const UploadPlanilha = ({
               </Card>
             )}
 
-            {/* Campaign selection */}
-            <Card className="p-4 bg-green-50 border-green-200">
-              <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
-              <Select value={selectedCampanha} onValueChange={setSelectedCampanha} disabled={isWorking}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Escolha uma campanha..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {prospeccoes.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Card>
+            {/* Campaign selection — escondido quando o evento já está travado */}
+            {lockedProspeccao ? (
+              <Card className="p-4 bg-green-50 border-green-200">
+                <Label className="text-green-800 font-medium">Evento de destino</Label>
+                <div className="mt-2 px-3 py-2 rounded-md bg-white border border-green-300 text-sm font-semibold text-green-900">
+                  {lockedProspeccao.titulo}
+                </div>
+                <p className="text-xs text-green-700 mt-1">
+                  Importação travada neste evento — não é possível alterar.
+                </p>
+              </Card>
+            ) : (
+              <Card className="p-4 bg-green-50 border-green-200">
+                <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
+                <Select value={selectedCampanha} onValueChange={setSelectedCampanha} disabled={isWorking}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Escolha uma campanha..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prospeccoes.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Card>
+            )}
 
             {/* Base name + Origin */}
             <div className="grid grid-cols-2 gap-4">
@@ -1016,8 +1034,8 @@ export const UploadPlanilha = ({
                 {phase === 'done' || phase === 'error' ? 'Fechar' : 'Cancelar'}
               </Button>
               {file && phase === 'idle' && (
-                <Button onClick={handleImport} disabled={checkingConflitos}>
-                  {checkingConflitos ? 'Verificando conflitos...' : 'Enviar e Processar'}
+                <Button onClick={prepareConfirmation} disabled={checkingConflitos || preparingConfirm}>
+                  {preparingConfirm ? 'Preparando...' : checkingConflitos ? 'Verificando conflitos...' : 'Enviar e Processar'}
                 </Button>
               )}
             </div>
