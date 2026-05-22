@@ -13,6 +13,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 
 interface ContatoEvento {
   id: string;
