@@ -43,6 +43,17 @@ export interface ImportResult {
 interface UploadPlanilhaProps {
   onImportComplete?: () => void;
   prospeccoes: Prospeccao[];
+  /**
+   * Quando definido, o seletor de campanha é ocultado e o evento é fixado.
+   * Usado pelo botão "Importar base" dentro do EventoBaseModal para evitar
+   * que o usuário escolha o evento errado.
+   */
+  lockedProspeccao?: { id: string; titulo: string };
+  /** Quando definido, controla o open/close externamente (modo controlado). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Quando true, não renderiza o botão trigger interno. */
+  hideTrigger?: boolean;
 }
 
 interface ImportLog {
@@ -129,12 +140,25 @@ async function extractPhonesFromCsvFile(csvFile: File): Promise<string[]> {
   return Array.from(phones);
 }
 
-export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilhaProps) => {
+export const UploadPlanilha = ({
+  onImportComplete,
+  prospeccoes,
+  lockedProspeccao,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+  hideTrigger,
+}: UploadPlanilhaProps) => {
   const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
   const isAdminOnly = tipoAcesso === 'Administrador';
   const isCRMOrMaster = tipoAcesso === 'CRM' || tipoAcesso === 'Master';
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const isOpen = isControlled ? !!openProp : internalOpen;
+  const setIsOpen = (v: boolean) => {
+    if (isControlled) onOpenChangeProp?.(v);
+    else setInternalOpen(v);
+  };
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [selectedOrigem, setSelectedOrigem] = useState<string>('');
   const [nomeBase, setNomeBase] = useState<string>('');
@@ -142,6 +166,17 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Confirmação antes de iniciar a importação
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmCsvFile, setConfirmCsvFile] = useState<File | null>(null);
+  const [confirmPreview, setConfirmPreview] = useState<{
+    headers: string[];
+    sample: string[][];
+    totalRows: number;
+  } | null>(null);
+  const [confirmCountdown, setConfirmCountdown] = useState(0);
+  const [preparingConfirm, setPreparingConfirm] = useState(false);
 
   // Import state
   const [phase, setPhase] = useState<ImportPhase>('idle');
@@ -167,6 +202,27 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [pendingOrigem, setPendingOrigem] = useState('');
 
   const isWorking = phase !== 'idle' && phase !== 'done' && phase !== 'error';
+
+  // Trava o evento quando vier via lockedProspeccao
+  useEffect(() => {
+    if (lockedProspeccao?.id) setSelectedCampanha(lockedProspeccao.id);
+  }, [lockedProspeccao?.id, isOpen]);
+
+  // Cronômetro de 2s para o botão de confirmar (anti duplo clique)
+  useEffect(() => {
+    if (!showConfirm) return;
+    setConfirmCountdown(2);
+    const interval = setInterval(() => {
+      setConfirmCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showConfirm]);
 
   // beforeunload protection
   useEffect(() => {
@@ -283,10 +339,11 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
 
     try {
       // 1) Convert Excel to CSV if needed
-      let csvFile = file;
-      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      // Se já passou pela confirmação (csv já convertido), reutiliza.
+      let csvFile = confirmCsvFile ?? file;
+      const isExcel = csvFile.name.endsWith('.xlsx') || csvFile.name.endsWith('.xls');
       if (isExcel) {
-        csvFile = await convertExcelToCsv(file);
+        csvFile = await convertExcelToCsv(csvFile);
         console.log('📄 Excel convertido para CSV');
       }
 
@@ -362,6 +419,58 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         variant: 'destructive',
       });
     }
+  };
+
+  // Etapa de confirmação: parseia preview e abre modal antes de iniciar a importação
+  const prepareConfirmation = async () => {
+    if (!selectedCampanha) {
+      toast({ title: 'Selecione uma campanha', description: 'Escolha uma campanha para adicionar os contatos', variant: 'destructive' });
+      return;
+    }
+    if (!file) {
+      toast({ title: 'Selecione um arquivo', description: 'Escolha um arquivo CSV ou Excel para importar', variant: 'destructive' });
+      return;
+    }
+    if (!activeCompany?.id) return;
+
+    setPreparingConfirm(true);
+    try {
+      let csvFile = file;
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      if (isExcel) {
+        csvFile = await convertExcelToCsv(file);
+        setPhase('idle'); // convertExcelToCsv altera para 'converting'; voltamos a 'idle' para o modal
+      }
+
+      const text = await csvFile.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      const headers = lines.length > 0 ? parseCSVLineLight(lines[0]) : [];
+      const sample = lines.slice(1, 4).map(parseCSVLineLight);
+      const totalRows = Math.max(0, lines.length - 1);
+
+      setConfirmCsvFile(csvFile);
+      setConfirmPreview({ headers, sample, totalRows });
+      setShowConfirm(true);
+    } catch (e: any) {
+      console.error('prepareConfirmation error:', e);
+      toast({ title: 'Erro ao ler arquivo', description: e?.message || 'Não foi possível ler o arquivo', variant: 'destructive' });
+    } finally {
+      setPreparingConfirm(false);
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setShowConfirm(false);
+    setConfirmCsvFile(null);
+    setConfirmPreview(null);
+  };
+
+  const handleConfirmProceed = async () => {
+    setShowConfirm(false);
+    await handleImport();
+    // Limpa o csv já convertido após o disparo
+    setConfirmCsvFile(null);
+    setConfirmPreview(null);
   };
 
   const proceedUpload = async (
@@ -633,16 +742,22 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => { if (!isWorking) setIsOpen(open); }}>
-        <DialogTrigger asChild>
-          <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
-            <FileSpreadsheet size={18} />
-            <span className="text-sm">Upload de Planilha</span>
-          </Button>
-        </DialogTrigger>
+        {!hideTrigger && (
+          <DialogTrigger asChild>
+            <Button variant="outline" className="p-3 h-auto flex items-center gap-2">
+              <FileSpreadsheet size={18} />
+              <span className="text-sm">Upload de Planilha</span>
+            </Button>
+          </DialogTrigger>
+        )}
 
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle>Upload de Planilha de Contatos</DialogTitle>
+            <DialogTitle>
+              {lockedProspeccao
+                ? `Importar base — ${lockedProspeccao.titulo}`
+                : 'Upload de Planilha de Contatos'}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-2">
@@ -656,20 +771,32 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
               </Card>
             )}
 
-            {/* Campaign selection */}
-            <Card className="p-4 bg-green-50 border-green-200">
-              <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
-              <Select value={selectedCampanha} onValueChange={setSelectedCampanha} disabled={isWorking}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Escolha uma campanha..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {prospeccoes.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Card>
+            {/* Campaign selection — escondido quando o evento já está travado */}
+            {lockedProspeccao ? (
+              <Card className="p-4 bg-green-50 border-green-200">
+                <Label className="text-green-800 font-medium">Evento de destino</Label>
+                <div className="mt-2 px-3 py-2 rounded-md bg-white border border-green-300 text-sm font-semibold text-green-900">
+                  {lockedProspeccao.titulo}
+                </div>
+                <p className="text-xs text-green-700 mt-1">
+                  Importação travada neste evento — não é possível alterar.
+                </p>
+              </Card>
+            ) : (
+              <Card className="p-4 bg-green-50 border-green-200">
+                <Label className="text-green-800 font-medium">Selecione a Campanha</Label>
+                <Select value={selectedCampanha} onValueChange={setSelectedCampanha} disabled={isWorking}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Escolha uma campanha..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prospeccoes.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Card>
+            )}
 
             {/* Base name + Origin */}
             <div className="grid grid-cols-2 gap-4">
@@ -907,8 +1034,8 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
                 {phase === 'done' || phase === 'error' ? 'Fechar' : 'Cancelar'}
               </Button>
               {file && phase === 'idle' && (
-                <Button onClick={handleImport} disabled={checkingConflitos}>
-                  {checkingConflitos ? 'Verificando conflitos...' : 'Enviar e Processar'}
+                <Button onClick={prepareConfirmation} disabled={checkingConflitos || preparingConfirm}>
+                  {preparingConfirm ? 'Preparando...' : checkingConflitos ? 'Verificando conflitos...' : 'Enviar e Processar'}
                 </Button>
               )}
             </div>
@@ -1141,6 +1268,103 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
         onCancel={handleMesmoEventoCancel}
         onConfirm={handleMesmoEventoConfirm}
       />
+
+      {/* Modal de confirmação antes de iniciar a importação */}
+      <Dialog open={showConfirm} onOpenChange={(o) => { if (!o) handleConfirmCancel(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Confirmar importação
+            </DialogTitle>
+          </DialogHeader>
+
+          {confirmPreview && (
+            <div className="space-y-4">
+              {/* Destino */}
+              <Card className="p-4 border-primary/30 bg-primary/5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Evento de destino</p>
+                <p className="text-lg font-bold text-foreground mt-1">
+                  {lockedProspeccao?.titulo
+                    || prospeccoes.find(p => p.id === selectedCampanha)?.titulo
+                    || '—'}
+                </p>
+                {activeCompany?.nome_empresa && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Empresa: <span className="font-medium text-foreground">{activeCompany.nome_empresa}</span>
+                  </p>
+                )}
+              </Card>
+
+              {/* Total + amostra */}
+              <Card className="p-4">
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-sm font-medium">Linhas detectadas no arquivo</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {confirmPreview.totalRows.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                {confirmPreview.sample.length > 0 && (
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="text-xs font-medium text-muted-foreground bg-muted/40 px-3 py-1.5">
+                      Amostra (3 primeiras linhas)
+                    </div>
+                    <ScrollArea className="max-h-48">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/20">
+                          <tr>
+                            {confirmPreview.headers.slice(0, 6).map((h, i) => (
+                              <th key={i} className="text-left px-2 py-1.5 font-semibold border-b">
+                                {h || `Coluna ${i + 1}`}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {confirmPreview.sample.map((row, r) => (
+                            <tr key={r} className="border-b last:border-0">
+                              {confirmPreview.headers.slice(0, 6).map((_, c) => (
+                                <td key={c} className="px-2 py-1.5 truncate max-w-[120px]">
+                                  {row[c] || '—'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  </div>
+                )}
+              </Card>
+
+              {/* Aviso */}
+              <Card className="p-3 border-amber-300 bg-amber-50">
+                <div className="flex gap-2 items-start">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    <strong>Esta ação é irreversível pela interface.</strong> Confirme o evento de destino antes de prosseguir — para reverter, é necessário acionar o suporte.
+                  </p>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={handleConfirmCancel}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmProceed}
+              disabled={confirmCountdown > 0}
+              className="min-w-[260px]"
+            >
+              {confirmCountdown > 0
+                ? `Aguarde ${confirmCountdown}s...`
+                : `Confirmar e importar ${(confirmPreview?.totalRows || 0).toLocaleString('pt-BR')} linha${confirmPreview?.totalRows === 1 ? '' : 's'}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
