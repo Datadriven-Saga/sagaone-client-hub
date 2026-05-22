@@ -13,6 +13,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 
 interface ContatoEvento {
   id: string;
@@ -83,6 +84,7 @@ export const EventoBaseModal = ({
   const PAGE_SIZE = 50;
   const { toast } = useToast();
   const { activeCompany } = useCompany();
+  const { canUploadBase } = useUserAccessType();
 
   // Buscar contatos vinculados ao evento com paginação server-side
   useEffect(() => {
@@ -363,15 +365,17 @@ export const EventoBaseModal = ({
               Exportar
             </Button>
 
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowImport(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Importar base
-            </Button>
+            {canUploadBase && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowImport(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Importar base
+              </Button>
+            )}
           </div>
         </div>
 
