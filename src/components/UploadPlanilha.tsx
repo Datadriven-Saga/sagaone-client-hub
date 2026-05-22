@@ -1289,9 +1289,9 @@ export const UploadPlanilha = ({
                     || prospeccoes.find(p => p.id === selectedCampanha)?.titulo
                     || '—'}
                 </p>
-                {activeCompany?.nome && (
+                {activeCompany?.nome_empresa && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    Empresa: <span className="font-medium text-foreground">{activeCompany.nome}</span>
+                    Empresa: <span className="font-medium text-foreground">{activeCompany.nome_empresa}</span>
                   </p>
                 )}
               </Card>
