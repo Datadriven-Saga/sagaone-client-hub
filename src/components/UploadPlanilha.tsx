@@ -1268,6 +1268,103 @@ export const UploadPlanilha = ({
         onCancel={handleMesmoEventoCancel}
         onConfirm={handleMesmoEventoConfirm}
       />
+
+      {/* Modal de confirmação antes de iniciar a importação */}
+      <Dialog open={showConfirm} onOpenChange={(o) => { if (!o) handleConfirmCancel(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Confirmar importação
+            </DialogTitle>
+          </DialogHeader>
+
+          {confirmPreview && (
+            <div className="space-y-4">
+              {/* Destino */}
+              <Card className="p-4 border-primary/30 bg-primary/5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Evento de destino</p>
+                <p className="text-lg font-bold text-foreground mt-1">
+                  {lockedProspeccao?.titulo
+                    || prospeccoes.find(p => p.id === selectedCampanha)?.titulo
+                    || '—'}
+                </p>
+                {activeCompany?.nome && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Empresa: <span className="font-medium text-foreground">{activeCompany.nome}</span>
+                  </p>
+                )}
+              </Card>
+
+              {/* Total + amostra */}
+              <Card className="p-4">
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-sm font-medium">Linhas detectadas no arquivo</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {confirmPreview.totalRows.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                {confirmPreview.sample.length > 0 && (
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="text-xs font-medium text-muted-foreground bg-muted/40 px-3 py-1.5">
+                      Amostra (3 primeiras linhas)
+                    </div>
+                    <ScrollArea className="max-h-48">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/20">
+                          <tr>
+                            {confirmPreview.headers.slice(0, 6).map((h, i) => (
+                              <th key={i} className="text-left px-2 py-1.5 font-semibold border-b">
+                                {h || `Coluna ${i + 1}`}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {confirmPreview.sample.map((row, r) => (
+                            <tr key={r} className="border-b last:border-0">
+                              {confirmPreview.headers.slice(0, 6).map((_, c) => (
+                                <td key={c} className="px-2 py-1.5 truncate max-w-[120px]">
+                                  {row[c] || '—'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  </div>
+                )}
+              </Card>
+
+              {/* Aviso */}
+              <Card className="p-3 border-amber-300 bg-amber-50">
+                <div className="flex gap-2 items-start">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    <strong>Esta ação é irreversível pela interface.</strong> Confirme o evento de destino antes de prosseguir — para reverter, é necessário acionar o suporte.
+                  </p>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={handleConfirmCancel}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmProceed}
+              disabled={confirmCountdown > 0}
+              className="min-w-[260px]"
+            >
+              {confirmCountdown > 0
+                ? `Aguarde ${confirmCountdown}s...`
+                : `Confirmar e importar ${(confirmPreview?.totalRows || 0).toLocaleString('pt-BR')} linha${confirmPreview?.totalRows === 1 ? '' : 's'}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
