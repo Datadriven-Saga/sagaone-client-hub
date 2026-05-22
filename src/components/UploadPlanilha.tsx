@@ -43,6 +43,17 @@ export interface ImportResult {
 interface UploadPlanilhaProps {
   onImportComplete?: () => void;
   prospeccoes: Prospeccao[];
+  /**
+   * Quando definido, o seletor de campanha é ocultado e o evento é fixado.
+   * Usado pelo botão "Importar base" dentro do EventoBaseModal para evitar
+   * que o usuário escolha o evento errado.
+   */
+  lockedProspeccao?: { id: string; titulo: string };
+  /** Quando definido, controla o open/close externamente (modo controlado). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Quando true, não renderiza o botão trigger interno. */
+  hideTrigger?: boolean;
 }
 
 interface ImportLog {
@@ -129,12 +140,25 @@ async function extractPhonesFromCsvFile(csvFile: File): Promise<string[]> {
   return Array.from(phones);
 }
 
-export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilhaProps) => {
+export const UploadPlanilha = ({
+  onImportComplete,
+  prospeccoes,
+  lockedProspeccao,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+  hideTrigger,
+}: UploadPlanilhaProps) => {
   const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
   const isAdminOnly = tipoAcesso === 'Administrador';
   const isCRMOrMaster = tipoAcesso === 'CRM' || tipoAcesso === 'Master';
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const isOpen = isControlled ? !!openProp : internalOpen;
+  const setIsOpen = (v: boolean) => {
+    if (isControlled) onOpenChangeProp?.(v);
+    else setInternalOpen(v);
+  };
   const [selectedCampanha, setSelectedCampanha] = useState<string>('');
   const [selectedOrigem, setSelectedOrigem] = useState<string>('');
   const [nomeBase, setNomeBase] = useState<string>('');
@@ -142,6 +166,17 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Confirmação antes de iniciar a importação
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmCsvFile, setConfirmCsvFile] = useState<File | null>(null);
+  const [confirmPreview, setConfirmPreview] = useState<{
+    headers: string[];
+    sample: string[][];
+    totalRows: number;
+  } | null>(null);
+  const [confirmCountdown, setConfirmCountdown] = useState(0);
+  const [preparingConfirm, setPreparingConfirm] = useState(false);
 
   // Import state
   const [phase, setPhase] = useState<ImportPhase>('idle');
@@ -167,6 +202,27 @@ export const UploadPlanilha = ({ onImportComplete, prospeccoes }: UploadPlanilha
   const [pendingOrigem, setPendingOrigem] = useState('');
 
   const isWorking = phase !== 'idle' && phase !== 'done' && phase !== 'error';
+
+  // Trava o evento quando vier via lockedProspeccao
+  useEffect(() => {
+    if (lockedProspeccao?.id) setSelectedCampanha(lockedProspeccao.id);
+  }, [lockedProspeccao?.id, isOpen]);
+
+  // Cronômetro de 2s para o botão de confirmar (anti duplo clique)
+  useEffect(() => {
+    if (!showConfirm) return;
+    setConfirmCountdown(2);
+    const interval = setInterval(() => {
+      setConfirmCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showConfirm]);
 
   // beforeunload protection
   useEffect(() => {
