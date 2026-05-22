@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { UploadPlanilha } from '@/components/UploadPlanilha';
+import { Upload } from 'lucide-react';
 
 interface ContatoEvento {
   id: string;
@@ -77,6 +79,8 @@ export const EventoBaseModal = ({
   const [disparoFilter, setDisparoFilter] = useState<DisparoFilter>('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [showImport, setShowImport] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const PAGE_SIZE = 50;
   const { toast } = useToast();
   const { activeCompany } = useCompany();
@@ -147,7 +151,7 @@ export const EventoBaseModal = ({
     };
 
     fetchContatos();
-  }, [isOpen, prospeccao?.id, activeCompany?.id, currentPage, toast]);
+  }, [isOpen, prospeccao?.id, activeCompany?.id, currentPage, toast, refreshKey]);
 
   // Reset página quando modal abre/fecha ou evento muda
   useEffect(() => {
@@ -359,6 +363,16 @@ export const EventoBaseModal = ({
               <Download className="mr-2 h-4 w-4" />
               Exportar
             </Button>
+
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowImport(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importar base
+            </Button>
           </div>
         </div>
 
@@ -481,6 +495,18 @@ export const EventoBaseModal = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* Importação travada neste evento — abre o UploadPlanilha em modo controlado */}
+      {prospeccao && (
+        <UploadPlanilha
+          prospeccoes={[]}
+          lockedProspeccao={{ id: prospeccao.id, titulo: prospeccao.titulo }}
+          open={showImport}
+          onOpenChange={setShowImport}
+          hideTrigger
+          onImportComplete={() => setRefreshKey(k => k + 1)}
+        />
+      )}
     </Dialog>
   );
 };
