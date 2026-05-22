@@ -84,6 +84,7 @@ export const EventoBaseModal = ({
   const PAGE_SIZE = 50;
   const { toast } = useToast();
   const { activeCompany } = useCompany();
+  const { canUploadBase } = useUserAccessType();
 
   // Buscar contatos vinculados ao evento com paginação server-side
   useEffect(() => {
