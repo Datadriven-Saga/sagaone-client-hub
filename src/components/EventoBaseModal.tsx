@@ -365,15 +365,17 @@ export const EventoBaseModal = ({
               Exportar
             </Button>
 
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowImport(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Importar base
-            </Button>
+            {canUploadBase && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowImport(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Importar base
+              </Button>
+            )}
           </div>
         </div>
 
