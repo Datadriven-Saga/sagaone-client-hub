@@ -26,6 +26,7 @@ import DispararProgressModal from '@/components/DispararProgressModal';
 import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
+import { UploadPlanilha } from '@/components/UploadPlanilha';
 import { CheckCircle2 as CheckIcon, Plus } from 'lucide-react';
 
 interface ContatoEvento {
