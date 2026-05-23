@@ -791,7 +791,7 @@ export const UploadPlanilha = ({
                     <SelectValue placeholder="Escolha uma campanha..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {prospeccoes.map((p) => (
+                    {prospeccoes.filter(p => !p.evento_confirmacao).map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.titulo}</SelectItem>
                     ))}
                   </SelectContent>
