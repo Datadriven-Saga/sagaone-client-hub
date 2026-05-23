@@ -23,6 +23,7 @@ interface Prospeccao {
   data_fim?: string | null;
   canal?: string;
   event_id_pri?: string | null;
+  evento_confirmacao?: boolean | null;
 }
 
 interface OrigemOption {
