@@ -1998,6 +1998,17 @@ export default function EventoBase() {
           onProspeccaoCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
         />
 
+        {prospeccao && (
+          <UploadPlanilha
+            prospeccoes={[]}
+            lockedProspeccao={{ id: prospeccao.id, titulo: prospeccao.titulo }}
+            open={showUpload}
+            onOpenChange={setShowUpload}
+            hideTrigger
+            onImportComplete={() => handleRefresh()}
+          />
+        )}
+
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
           <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
