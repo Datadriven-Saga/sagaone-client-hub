@@ -366,7 +366,7 @@ export const EventoBaseModal = ({
               Exportar
             </Button>
 
-            {canUploadBase && (
+            {canUploadBase && !prospeccao?.evento_confirmacao && (
               <Button
                 variant="default"
                 size="sm"
