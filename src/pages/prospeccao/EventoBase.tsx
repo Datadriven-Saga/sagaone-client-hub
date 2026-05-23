@@ -2093,6 +2093,17 @@ export default function EventoBase() {
                 </Tooltip>
               </TooltipProvider>
             )}
+            {permissions.canUploadBase && !isConfirmacao && prospeccao && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowUpload(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Adicionar clientes
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loadingPage || isSyncingContatos || isLoadingExternalMetrics}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />
               Atualizar
