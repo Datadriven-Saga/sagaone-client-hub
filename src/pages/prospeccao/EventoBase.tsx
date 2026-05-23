@@ -13,7 +13,7 @@ import {
   Download, Users, Search, Filter, Send, Loader2, CheckCircle, Phone, Mail, 
   Calendar, Clock, ArrowLeft, ChevronLeft, ChevronRight, RefreshCw, MessageCircle, 
   PhoneCall, Lock, RotateCcw, CalendarCheck, PhoneMissed, PhoneOutgoing, FileSpreadsheet, FileText,
-  AlertTriangle
+  AlertTriangle, Upload
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,7 @@ import DispararProgressModal from '@/components/DispararProgressModal';
 import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
+import { UploadPlanilha } from '@/components/UploadPlanilha';
 import { CheckCircle2 as CheckIcon, Plus } from 'lucide-react';
 
 interface ContatoEvento {
@@ -170,6 +171,7 @@ export default function EventoBase() {
   // Confirmação: estado do evento pai + modal + sincronização
   const [parentEvento, setParentEvento] = useState<{ id: string; titulo: string } | null>(null);
   const [showCriarConfirmacao, setShowCriarConfirmacao] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [isSyncingConfirmacao, setIsSyncingConfirmacao] = useState(false);
   const [novosConfirmacao, setNovosConfirmacao] = useState<number | null>(null);
 
@@ -1996,6 +1998,17 @@ export default function EventoBase() {
           onProspeccaoCriada={() => { setShowCriarConfirmacao(false); navigate('/prospeccao/eventos'); }}
         />
 
+        {prospeccao && (
+          <UploadPlanilha
+            prospeccoes={[]}
+            lockedProspeccao={{ id: prospeccao.id, titulo: prospeccao.titulo }}
+            open={showUpload}
+            onOpenChange={setShowUpload}
+            hideTrigger
+            onImportComplete={() => handleRefresh()}
+          />
+        )}
+
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
           <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
@@ -2090,6 +2103,17 @@ export default function EventoBase() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+            )}
+            {permissions.canUploadBase && !isConfirmacao && prospeccao && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowUpload(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Adicionar clientes
+              </Button>
             )}
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loadingPage || isSyncingContatos || isLoadingExternalMetrics}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loadingPage || isLoadingExternalMetrics ? 'animate-spin' : ''}`} />

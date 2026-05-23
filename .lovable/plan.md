@@ -1,17 +1,48 @@
-# Gate do botão "Importar base" no EventoBaseModal
+## Mudanças
 
-## Causa
+### 1. `src/components/EventoBaseModal.tsx`
+- Adicionar `evento_confirmacao?: boolean | null` na interface `Prospeccao`.
+- Esconder botão "Importar base" quando `prospeccao?.evento_confirmacao === true`:
+  ```tsx
+  {canUploadBase && !prospeccao?.evento_confirmacao && (...)}
+  ```
 
-O botão foi adicionado sempre visível em `EventoBaseModal.tsx` (linha 366-374), sem checar permissão. O `UploadPlanilha` original em `Prospeccao.tsx` já é gateado pelo hook `useUserAccessType` via `canUploadBase`.
+### 2. `src/components/UploadPlanilha.tsx`
+- Adicionar `evento_confirmacao?: boolean | null` na interface `Prospeccao` (linha 19).
+- Filtrar dropdown de campanha (linha 793) escondendo eventos de confirmação:
+  ```tsx
+  {prospeccoes.filter(p => !p.evento_confirmacao).map((p) => ( ... ))}
+  ```
 
-## Mudança
+### 3. `src/pages/prospeccao/EventoBase.tsx` — novo botão "Adicionar clientes"
+Adicionar à esquerda do botão "Atualizar" (antes da linha 2094), só quando:
+- `permissions.canUploadBase === true`
+- `!isConfirmacao` (eventos de confirmação herdam do pai)
 
-Em `src/components/EventoBaseModal.tsx`:
+Comportamento: abre o `UploadPlanilha` em modo `lockedProspeccao` travado no evento atual, recarregando a página/dados ao concluir (`handleRefresh`).
 
-1. Importar `useUserAccessType` e ler `canUploadBase`.
-2. Renderizar o botão "Importar base" apenas quando `canUploadBase === true`.
+```tsx
+{permissions.canUploadBase && !isConfirmacao && prospeccao && (
+  <>
+    <Button variant="default" size="sm" onClick={() => setShowUpload(true)}
+      className="bg-emerald-600 hover:bg-emerald-700 text-white">
+      <Upload className="h-4 w-4 mr-2" />
+      Adicionar clientes
+    </Button>
+    <UploadPlanilha
+      prospeccoes={[]}
+      lockedProspeccao={{ id: prospeccao.id, titulo: prospeccao.titulo }}
+      open={showUpload}
+      onOpenChange={setShowUpload}
+      hideTrigger
+      onImportComplete={() => handleRefresh()}
+    />
+  </>
+)}
+```
+
+Adicionar estado `showUpload` e import de `Upload` + `UploadPlanilha`.
 
 ## Fora de escopo
-
-- Não tocar em `UploadPlanilha` nem nas features de prevenção já implementadas.
-- Não criar nova permissão — reusar a existente (`canUploadBase`) garante paridade com o fluxo antigo.
+- `ImportarDoDataLake` e `BaseExistente`.
+- Sem migração de banco.

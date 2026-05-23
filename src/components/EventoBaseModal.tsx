@@ -38,6 +38,7 @@ interface Prospeccao {
   meta_convites?: number | null;
   meta_confirmacoes?: number | null;
   meta_checkins?: number | null;
+  evento_confirmacao?: boolean | null;
 }
 
 interface EventoBaseModalProps {
@@ -365,7 +366,7 @@ export const EventoBaseModal = ({
               Exportar
             </Button>
 
-            {canUploadBase && (
+            {canUploadBase && !prospeccao?.evento_confirmacao && (
               <Button
                 variant="default"
                 size="sm"
