@@ -38,6 +38,7 @@ interface Prospeccao {
   meta_convites?: number | null;
   meta_confirmacoes?: number | null;
   meta_checkins?: number | null;
+  evento_confirmacao?: boolean | null;
 }
 
 interface EventoBaseModalProps {
