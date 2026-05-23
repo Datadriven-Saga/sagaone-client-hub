@@ -171,6 +171,7 @@ export default function EventoBase() {
   // Confirmação: estado do evento pai + modal + sincronização
   const [parentEvento, setParentEvento] = useState<{ id: string; titulo: string } | null>(null);
   const [showCriarConfirmacao, setShowCriarConfirmacao] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [isSyncingConfirmacao, setIsSyncingConfirmacao] = useState(false);
   const [novosConfirmacao, setNovosConfirmacao] = useState<number | null>(null);
 
