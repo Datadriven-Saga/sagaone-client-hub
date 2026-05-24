@@ -27,6 +27,22 @@ serve(async (req) => {
       throw new Error("Secrets AWS_S3_* não configuradas");
     }
 
+    const body = await req.json().catch(() => ({}));
+    const action = String(body?.action ?? "");
+
+    if (action === "debug") {
+      return new Response(JSON.stringify({
+        region: REGION,
+        bucket: BUCKET,
+        access_key_id_len: ACCESS_KEY_ID.length,
+        access_key_id_preview: ACCESS_KEY_ID.slice(0, 4) + "..." + ACCESS_KEY_ID.slice(-4),
+        secret_len: SECRET_ACCESS_KEY.length,
+        secret_has_whitespace: /\s/.test(SECRET_ACCESS_KEY),
+        secret_first_char_code: SECRET_ACCESS_KEY.charCodeAt(0),
+        secret_last_char_code: SECRET_ACCESS_KEY.charCodeAt(SECRET_ACCESS_KEY.length - 1),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const aws = new AwsClient({
       accessKeyId: ACCESS_KEY_ID,
       secretAccessKey: SECRET_ACCESS_KEY,
@@ -35,9 +51,6 @@ serve(async (req) => {
     });
 
     const base = `https://${BUCKET}.s3.${REGION}.amazonaws.com`;
-
-    const body = await req.json().catch(() => ({}));
-    const action = String(body?.action ?? "");
 
     if (action === "list") {
       const params = new URLSearchParams({ "list-type": "2", prefix: PREFIX, "max-keys": "1000" });
