@@ -19,10 +19,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const REGION = Deno.env.get("AWS_S3_REGION");
-    const ACCESS_KEY_ID = Deno.env.get("AWS_S3_ACCESS_KEY_ID");
-    const SECRET_ACCESS_KEY = Deno.env.get("AWS_S3_SECRET_ACCESS_KEY");
-    const BUCKET = Deno.env.get("AWS_S3_BUCKET");
+    const REGION = Deno.env.get("AWS_S3_REGION")?.trim();
+    const ACCESS_KEY_ID = Deno.env.get("AWS_S3_ACCESS_KEY_ID")?.trim();
+    const SECRET_ACCESS_KEY = Deno.env.get("AWS_S3_SECRET_ACCESS_KEY")?.trim();
+    const BUCKET = Deno.env.get("AWS_S3_BUCKET")?.trim();
     if (!REGION || !ACCESS_KEY_ID || !SECRET_ACCESS_KEY || !BUCKET) {
       throw new Error("Secrets AWS_S3_* não configuradas");
     }
