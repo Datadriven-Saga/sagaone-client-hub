@@ -19,12 +19,28 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const REGION = Deno.env.get("AWS_S3_REGION");
-    const ACCESS_KEY_ID = Deno.env.get("AWS_S3_ACCESS_KEY_ID");
-    const SECRET_ACCESS_KEY = Deno.env.get("AWS_S3_SECRET_ACCESS_KEY");
-    const BUCKET = Deno.env.get("AWS_S3_BUCKET");
+    const REGION = Deno.env.get("AWS_S3_REGION")?.trim();
+    const ACCESS_KEY_ID = Deno.env.get("AWS_S3_ACCESS_KEY_ID")?.trim();
+    const SECRET_ACCESS_KEY = Deno.env.get("AWS_S3_SECRET_ACCESS_KEY")?.trim();
+    const BUCKET = Deno.env.get("AWS_S3_BUCKET")?.trim();
     if (!REGION || !ACCESS_KEY_ID || !SECRET_ACCESS_KEY || !BUCKET) {
       throw new Error("Secrets AWS_S3_* não configuradas");
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const action = String(body?.action ?? "");
+
+    if (action === "debug") {
+      return new Response(JSON.stringify({
+        region: REGION,
+        bucket: BUCKET,
+        access_key_id_len: ACCESS_KEY_ID.length,
+        access_key_id_preview: ACCESS_KEY_ID.slice(0, 4) + "..." + ACCESS_KEY_ID.slice(-4),
+        secret_len: SECRET_ACCESS_KEY.length,
+        secret_has_whitespace: /\s/.test(SECRET_ACCESS_KEY),
+        secret_first_char_code: SECRET_ACCESS_KEY.charCodeAt(0),
+        secret_last_char_code: SECRET_ACCESS_KEY.charCodeAt(SECRET_ACCESS_KEY.length - 1),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const aws = new AwsClient({
@@ -35,9 +51,6 @@ serve(async (req) => {
     });
 
     const base = `https://${BUCKET}.s3.${REGION}.amazonaws.com`;
-
-    const body = await req.json().catch(() => ({}));
-    const action = String(body?.action ?? "");
 
     if (action === "list") {
       const params = new URLSearchParams({ "list-type": "2", prefix: PREFIX, "max-keys": "1000" });
