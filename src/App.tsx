@@ -32,6 +32,7 @@ const MinhaConta = lazy(() => import("./pages/MinhaConta"));
 const Ajuda = lazy(() => import("./pages/Ajuda"));
 const AgentesIA = lazy(() => import("./pages/AgentesIA"));
 const PosVendas = lazy(() => import("./pages/pos-vendas/PosVendas"));
+const DePara = lazy(() => import("./pages/DePara"));
 const AlgoritmoEmConstrucao = lazy(() => import("./pages/algoritmos/EmConstrucao"));
 
 // Admin pages - lazy
@@ -111,6 +112,7 @@ const AppRoutes = () => {
         {/* Pós-Vendas (Paty) */}
         <Route path="/pos-vendas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/:tab" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
+        <Route path="/de-para" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><DePara /></PermissionProtectedRoute>} />
 
         {/* Algoritmos */}
         <Route path="/algoritmos/compra/avaliacao" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosCompra"><AlgoritmoEmConstrucao titulo="Avaliação de Compra" grupo="Compra" /></PermissionProtectedRoute>} />
