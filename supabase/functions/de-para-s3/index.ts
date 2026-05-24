@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,8 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const API_URL = "https://connector-gateway.lovable.dev";
-const GATEWAY_URL = `${API_URL}/aws_s3`;
 const PREFIX = "de-para/";
 
 function keyFor(name: string) {
@@ -16,40 +15,33 @@ function keyFor(name: string) {
   return `${PREFIX}${safe}.json`;
 }
 
-async function getSignedUrl(mode: "read" | "write", objectKey: string, apiKey: string, lovableKey: string) {
-  const res = await fetch(`${API_URL}/api/v1/sign_storage_url?provider=aws_s3&mode=${mode}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ object_path: objectKey }),
-  });
-  if (!res.ok) throw new Error(`Sign ${mode} falhou [${res.status}]: ${await res.text()}`);
-  return (await res.json()) as { url: string; method: string };
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const AWS_S3_API_KEY = Deno.env.get("AWS_S3_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
-    if (!AWS_S3_API_KEY) throw new Error("AWS_S3_API_KEY não configurada");
+    const REGION = Deno.env.get("AWS_S3_REGION");
+    const ACCESS_KEY_ID = Deno.env.get("AWS_S3_ACCESS_KEY_ID");
+    const SECRET_ACCESS_KEY = Deno.env.get("AWS_S3_SECRET_ACCESS_KEY");
+    const BUCKET = Deno.env.get("AWS_S3_BUCKET");
+    if (!REGION || !ACCESS_KEY_ID || !SECRET_ACCESS_KEY || !BUCKET) {
+      throw new Error("Secrets AWS_S3_* não configuradas");
+    }
+
+    const aws = new AwsClient({
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+      region: REGION,
+      service: "s3",
+    });
+
+    const base = `https://${BUCKET}.s3.${REGION}.amazonaws.com`;
 
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
 
     if (action === "list") {
       const params = new URLSearchParams({ "list-type": "2", prefix: PREFIX, "max-keys": "1000" });
-      const res = await fetch(`${GATEWAY_URL}/?${params}`, {
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "X-Connection-Api-Key": AWS_S3_API_KEY,
-        },
-      });
+      const res = await aws.fetch(`${base}/?${params}`);
       const xml = await res.text();
       if (!res.ok) throw new Error(`List falhou [${res.status}]: ${xml}`);
       const items: Array<{ name: string; key: string; size: number; lastModified: string }> = [];
@@ -72,15 +64,15 @@ serve(async (req) => {
     if (action === "get") {
       const name = String(body?.name ?? "");
       const key = keyFor(name);
-      const { url } = await getSignedUrl("read", key, AWS_S3_API_KEY, LOVABLE_API_KEY);
-      const r = await fetch(url);
+      const r = await aws.fetch(`${base}/${key}`);
       if (r.status === 404) {
+        await r.body?.cancel();
         return new Response(JSON.stringify({ data: null }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (!r.ok) throw new Error(`Download falhou [${r.status}]`);
       const text = await r.text();
+      if (!r.ok) throw new Error(`Download falhou [${r.status}]: ${text}`);
       let data: unknown;
       try { data = JSON.parse(text); } catch { data = { raw: text }; }
       return new Response(JSON.stringify({ data }), {
@@ -93,13 +85,25 @@ serve(async (req) => {
       const data = body?.data;
       if (!data || typeof data !== "object") throw new Error("Payload inválido");
       const key = keyFor(name);
-      const { url, method } = await getSignedUrl("write", key, AWS_S3_API_KEY, LOVABLE_API_KEY);
-      const r = await fetch(url, {
-        method: method || "PUT",
+      const payload = JSON.stringify({ ...data, _name: name, _savedAt: new Date().toISOString() });
+      const r = await aws.fetch(`${base}/${key}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, _name: name, _savedAt: new Date().toISOString() }),
+        body: payload,
       });
-      if (!r.ok) throw new Error(`Upload falhou [${r.status}]: ${await r.text()}`);
+      const txt = await r.text();
+      if (!r.ok) throw new Error(`Upload falhou [${r.status}]: ${txt}`);
+      return new Response(JSON.stringify({ ok: true, key }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete") {
+      const name = String(body?.name ?? "");
+      const key = keyFor(name);
+      const r = await aws.fetch(`${base}/${key}`, { method: "DELETE" });
+      const txt = await r.text();
+      if (!r.ok && r.status !== 404) throw new Error(`Delete falhou [${r.status}]: ${txt}`);
       return new Response(JSON.stringify({ ok: true, key }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
