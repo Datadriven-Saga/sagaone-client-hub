@@ -347,6 +347,28 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
+              {/* De-Para */}
+              {canSeePosVendas && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/de-para"
+                      onClick={closeMobileSidebar}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                        }`
+                      }
+                    >
+                      <GitMerge className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="font-medium">De-Para</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               {/* Carteira de Clientes e Relatórios */}
               {canSeeClientes && (
                 <SidebarMenuItem>
