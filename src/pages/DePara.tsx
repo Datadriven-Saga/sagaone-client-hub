@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Save, Trash2, ArrowLeft, FileText, RefreshCw, Loader2 } from "lucide-react";
+import { Plus, Save, Trash2, ArrowLeft, FileText, RefreshCw, Loader2, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -86,6 +86,19 @@ export default function DePara() {
   };
 
   if (editing !== null) {
+    const payload = {
+      name: name.trim(),
+      pairs: pairs.filter((p) => p.origem.trim() || p.destino.trim()),
+    };
+    const jsonPreview = JSON.stringify(payload, null, 2);
+    const copyJson = async () => {
+      try {
+        await navigator.clipboard.writeText(jsonPreview);
+        toast({ title: "JSON copiado" });
+      } catch {
+        toast({ title: "Falha ao copiar", variant: "destructive" });
+      }
+    };
     return (
       <DashboardLayout title="De-Para">
         <div className="space-y-4">
@@ -98,6 +111,7 @@ export default function DePara() {
               Salvar
             </Button>
           </div>
+        <div className="grid gap-4 md:grid-cols-[1fr_400px]">
           <Card>
             <CardHeader>
               <CardTitle>{editing ? "Editar De-Para" : "Novo De-Para"}</CardTitle>
@@ -149,6 +163,28 @@ export default function DePara() {
               </Button>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">Estrutura JSON</CardTitle>
+              <Button variant="outline" size="sm" onClick={copyJson}>
+                <Copy className="h-4 w-4 mr-2" /> Copiar
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Objeto gravado em <code>de-para/&lt;name&gt;.json</code>:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li><code>name</code> (string) — identificador do arquivo</li>
+                  <li><code>pairs[]</code> — lista de <code>{`{ origem, destino }`}</code></li>
+                </ul>
+              </div>
+              <pre className="font-mono text-xs bg-muted rounded-md p-3 max-h-[480px] overflow-auto whitespace-pre-wrap break-all">
+{jsonPreview}
+              </pre>
+            </CardContent>
+          </Card>
+        </div>
         </div>
       </DashboardLayout>
     );

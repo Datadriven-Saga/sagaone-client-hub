@@ -24,7 +24,8 @@ import {
   PackageCheck,
   GitMerge,
   Tag,
-  PackageOpen
+  PackageOpen,
+  Database
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -67,6 +68,10 @@ const performanceSubItems = [
 
 const agentesIASubItems = [
   { title: "Agentes", url: "/agentes-ia", icon: Bot },
+];
+
+const entraDadosSubItems = [
+  { title: "De-Para", url: "/de-para", icon: GitMerge },
 ];
 
 const algoritmosCompraItems = [
@@ -121,6 +126,9 @@ export function AppSidebar() {
   const [isAlgCompraOpen, setIsAlgCompraOpen] = useState(currentPath.startsWith('/algoritmos/compra'));
   const [isAlgVendaOpen, setIsAlgVendaOpen] = useState(currentPath.startsWith('/algoritmos/venda'));
   const [isAlgPosVendasOpen, setIsAlgPosVendasOpen] = useState(currentPath.startsWith('/algoritmos/pos-vendas'));
+  const [isEntraDadosOpen, setIsEntraDadosOpen] = useState(
+    currentPath.startsWith('/de-para') || currentPath.startsWith('/entra-dados')
+  );
 
   // Sidebar visibility driven by permission flags
   const canSeeAdministracao = p("canAccessAdministracao") || p("canViewAuthenticator");
@@ -347,27 +355,8 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* De-Para */}
-              {canSeePosVendas && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to="/de-para"
-                      onClick={closeMobileSidebar}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                        }`
-                      }
-                    >
-                      <GitMerge className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && <span className="font-medium">De-Para</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+              {/* Entra Dados (grupo) */}
+              {canSeePosVendas && renderCollapsibleMenu("Entra Dados", Database, isEntraDadosOpen, setIsEntraDadosOpen, entraDadosSubItems, '/entra-dados')}
 
               {/* Carteira de Clientes e Relatórios */}
               {canSeeClientes && (
