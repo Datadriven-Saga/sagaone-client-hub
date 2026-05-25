@@ -1,74 +1,70 @@
 ## Objetivo
 
-Criar um menu principal **Entra Dados** no sidebar, com o **De-Para** como primeiro item dentro dele, e enriquecer a tela `/de-para` para mostrar também a **estrutura do JSON** salvo no S3.
+Criar a página inicial do **Entra Dados** em `/entra-dados`, que servirá como hub para visualizar todas as bases, tabelas e de-paras mantidos pelo módulo. Nesta etapa, apenas o **visual** (mock de dados), sem backend nem novas tabelas.
 
-O "Entra Dados" será o ponto de entrada para futuras bases de dados mantidas pelo time (depara é só a primeira).
-
----
-
-## 1. Menu lateral
-
-Em `src/components/AppSidebar.tsx`:
-
-- Remover o item solto **De-Para** (linhas ~350–370).
-- Criar um grupo colapsável **Entra Dados** (ícone `Database` do lucide), no mesmo padrão visual dos outros grupos (Prospecção, Resultados, Agentes IA), usando `Collapsible` + `ChevronDown/Right`.
-- Subitem inicial:
-  - **De-Para** → `/de-para` (ícone `GitMerge`)
-- Manter a mesma regra de permissão atual (`canSeePosVendas`) por enquanto, para não mexer em controle de acesso nesta etapa.
-- Posicionar o grupo logo após **Pós-Vendas** (mesma vizinhança do item atual).
-- Abertura automática quando a rota ativa começar com `/de-para` (ou qualquer futura `/entra-dados/...`).
-
-Nenhuma rota nova precisa ser criada agora — `/de-para` continua valendo.
+Convenção definida: futuras tabelas exclusivas do módulo terão prefixo **`enda_`** (ex.: `enda_bases`, `enda_tabelas`). Nada será criado agora.
 
 ---
 
-## 2. Tela De-Para — visualização da estrutura do JSON
+## 1. Rota e navegação
 
-Em `src/pages/DePara.tsx`, no modo de edição (quando `editing !== null`), adicionar um painel lateral/abaixo do editor de pares mostrando a **estrutura real do JSON** que será gravado no S3.
+- Nova rota `/entra-dados` em `src/App.tsx`, apontando para `src/pages/EntraDados.tsx`.
+- Em `src/components/AppSidebar.tsx`:
+  - Adicionar o item **Visão Geral** (`/entra-dados`, ícone `LayoutDashboard`) como primeiro subitem do grupo "Entra Dados", antes do **De-Para**.
+  - Manter o grupo abrindo automaticamente nas rotas `/entra-dados` ou `/de-para` (já implementado).
 
-Layout proposto no modo edição:
+---
+
+## 2. Tela `EntraDados.tsx`
+
+Layout simples, alinhado ao padrão visual do projeto (mesmos `Card`, `Badge`, espaçamento das outras páginas como `DePara.tsx`).
 
 ```text
-+--------------------------------------------------+
-| Nome: [______________]   [Salvar] [Cancelar]     |
-+-------------------------+------------------------+
-| Pares (origem → destino)| Estrutura JSON         |
-| [tabela editável]       | <pre>{ ... }</pre>     |
-| [+ adicionar par]       | [Copiar JSON]          |
-+-------------------------+------------------------+
++--------------------------------------------------------+
+| Entra Dados                       [+ Nova base]        |
+| Hub de bases, tabelas e de-paras do time               |
++--------------------------------------------------------+
+| [KPI: Bases]  [KPI: Tabelas]  [KPI: De-Paras]          |
++--------------------------------------------------------+
+| Filtros: [busca]  [tipo: todos | base | tabela | depara]
++--------------------------------------------------------+
+| Cards/Grid de itens:                                   |
+|   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐   |
+|   │ icone + tipo │ │ icone + tipo │ │ icone + tipo │   |
+|   │ nome         │ │ nome         │ │ nome         │   |
+|   │ descricao    │ │ descricao    │ │ descricao    │   |
+|   │ badge ativo  │ │ badge ativo  │ │ badge ativo  │   |
+|   │ [Abrir]      │ │ [Abrir]      │ │ [Abrir]      │   |
+|   └──────────────┘ └──────────────┘ └──────────────┘   |
++--------------------------------------------------------+
 ```
 
 Detalhes:
 
-- Card "Estrutura JSON" ao lado direito (em telas md+) ou abaixo (mobile), usando `Card` + `<pre>` com `JSON.stringify(payload, null, 2)`.
-- O `payload` exibido é exatamente o objeto enviado ao S3:
-  ```json
-  { "name": "<nome>", "pairs": [ { "origem": "...", "destino": "..." } ] }
-  ```
-  (apenas pares com `origem` ou `destino` preenchidos, igual ao `cleaned` no `save`).
-- Atualização em tempo real conforme o usuário edita `name` / `pairs` (puro `useMemo`, sem chamadas extras).
-- Botão **Copiar JSON** usando `navigator.clipboard.writeText` + toast de confirmação.
-- Pequena legenda fixa acima do `<pre>` explicando o schema:
-  - `name` (string) — identificador do arquivo no S3 (`de-para/<name>.json`)
-  - `pairs[]` — lista de mapeamentos `{ origem, destino }`
-- Estilo monoespaçado (`font-mono text-xs`), com `max-h` e `overflow-auto` para JSONs maiores.
+- **Header**: título "Entra Dados" + subtítulo curto. Botão `+ Nova base` (apenas visual, abre toast "em breve").
+- **KPIs (3 cards)**: Bases, Tabelas, De-Paras — números vindos do mock.
+- **Filtros**: input de busca por nome + `Tabs` (Todos / Bases / Tabelas / De-Paras).
+- **Grid responsivo** (`grid md:grid-cols-2 lg:grid-cols-3 gap-4`) de cards com:
+  - Ícone por tipo (`Database` para base, `Table` para tabela, `GitMerge` para de-para).
+  - Nome, descrição curta, badge "Ativo".
+  - Botão **Abrir**: se for de-para → navega para `/de-para`; demais tipos → toast "em breve".
+- **Mock interno** no arquivo: um array de itens incluindo pelo menos um item real de de-para (estático, sem chamar a edge function ainda) e 2–3 placeholders de bases/tabelas para ilustrar.
 
-Nada muda no backend (`supabase/functions/de-para-s3/index.ts`) nem no formato de armazenamento.
+Sem chamadas à edge function, sem hooks novos, sem alterações em `DePara.tsx` ou na função `de-para-s3`.
 
 ---
 
 ## 3. Critérios de sucesso
 
-1. Sidebar mostra **Entra Dados** como grupo colapsável; ao expandir aparece **De-Para**.
-2. Item solto antigo de De-Para não existe mais.
-3. Ao entrar em `/de-para`, grupo "Entra Dados" abre automaticamente e o subitem fica destacado.
-4. Ao criar/editar um De-Para, o painel "Estrutura JSON" reflete em tempo real o objeto que será salvo no S3.
-5. Botão "Copiar JSON" copia o conteúdo formatado.
-6. Salvar/listar/excluir continuam funcionando exatamente como hoje.
+1. Rota `/entra-dados` existe e renderiza a nova página.
+2. Sidebar mostra **Visão Geral** dentro de **Entra Dados**, acima de **De-Para**.
+3. KPIs, filtros e grid de cards aparecem com dados mockados.
+4. Clicar em **Abrir** num card de de-para leva para `/de-para`.
+5. Nenhuma tabela nova no banco, nenhuma alteração em edge function.
 
 ---
 
 ## Observações
 
-- Não vou mexer em permissões, edge function, nem schema do S3 — só sidebar + UI da página.
-- Se você quiser, num passo futuro adicionamos um seletor de "tipo de base" dentro do Entra Dados (de-para, listas, dicionários etc.), mas isso fica fora deste plano para manter o escopo cirúrgico.
+- Quando formos para o passo de dados reais, criaremos as tabelas com prefixo `enda_` (ex.: `enda_bases`, `enda_tabelas`, `enda_deparas`) e um RPC/endpoint único para listar tudo agregando o S3 atual dos de-paras.
+- Mantém escopo cirúrgico: só UI + rota + 2 itens no sidebar.
