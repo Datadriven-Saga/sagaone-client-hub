@@ -1,70 +1,64 @@
-# Documento: Níveis do menu Entra Dados
+## Objetivo
 
-Vou gerar **um único arquivo markdown** em `/mnt/documents/entra-dados-niveis.md` (mais um diagrama Mermaid embutido), explicando em detalhe o menu Entra Dados e, de forma genérica, como os demais menus se comportam. Nada de código de aplicação é alterado.
+Gerar um documento markdown abrangente em `/mnt/documents/permissoes-niveis.md` que cubra **todos os módulos** do `PermissionRegistry`, seguindo a mesma premissa do `entra-dados-niveis.md`:
+
+Para cada módulo, explicar:
+1. **Nível de acesso** — quais flags do `PermissionRegistry` controlam, defaults por `tipo_acesso`, overrides via `departamento_permissoes`.
+2. **Nível de visualização** — onde aparece (sidebar, página, ações, botões), o que cada role enxerga.
+3. **Nível de existência (multi-tenant)** — como o módulo se comporta entre empresas/spaces: por empresa (`empresa_id` + RLS), global compartilhado, ou híbrido. Quais tabelas, quais políticas, como o `CompanyContext.activeCompany` afeta.
 
 ## Estrutura do documento
 
-### 1. Visão geral do menu Entra Dados
-- O que é hoje (rota `/entra-dados` + sub-rota `/de-para`, sidebar agrupada com ícone `Database`).
-- O que está mockado (lista de bases/tabelas) vs. o que é real (De-Para S3).
+1. **Visão geral do sistema de permissões**
+   - Fluxo: `auth` → `profiles.tipo_acesso` → `PermissionRegistry` (defaults) → `departamento_permissoes` (overrides) → `useUserAccessType` → `PermissionProtectedRoute` / checks na UI.
+   - Hierarquia de 12 níveis de `tipo_acesso` + regra Master = superadmin.
+   - Diagrama Mermaid do fluxo.
 
-### 2. Nível de ACESSO (quem pode entrar na rota)
-- Hoje: `PermissionProtectedRoute permissionKey="canAccessPosVendas"` — herda do mesmo flag de Pós-Vendas.
-- Default no `PermissionRegistry`: `canAccessPosVendas = isAdmin` (Admin, TI, Master).
-- Como mudar: criar flag dedicada `canAccessEntraDados` no `PermissionRegistry` + override por departamento em `departamento_permissoes`.
-- Tabela de papéis × acesso atual (Master/Admin/TI = sim; demais = não).
+2. **Modelos de existência multi-tenant (referência)**
+   - Modelo A — Global, Modelo B — Por empresa, Modelo C — Híbrido (resumo, com link ao doc Entra Dados).
+   - Como `EMPRESA ADMIN` (sandbox), `user_can_access_empresa()` e `prospeccao_equipe_membros` se encaixam.
 
-### 3. Nível de VISUALIZAÇÃO (o que cada papel vê dentro do menu)
-- Sidebar: item só renderiza se `canSeePosVendas` for true (já é o caso).
-- Página Visão Geral: KPIs, cards de bases/tabelas/de-paras — hoje todos veem o mesmo mock.
-- De-Para: lista lida do S3 via edge `de-para-s3` — independente de empresa (global no bucket).
-- Recomendações de granularidade futura: visualizar vs. criar vs. editar vs. excluir vs. administrar (mesma matriz já usada no Registry).
+3. **Catálogo por módulo** — uma seção por módulo do `PERMISSION_MODULES`, cada uma com tabela de flags + 3 níveis:
+   - Authenticator (MFA) — masterOnly, global restrito
+   - Controle de Agentes — por empresa
+   - Agentes IA / Instâncias — por empresa, com `agente_empresas`
+   - Templates (WhatsApp) — compartilhado via `id_meta`
+   - Eventos / Prospecção — por empresa, com equipes
+   - IA Ligação — por empresa, isolada por `crm_id` + telefone
+   - Disparos — por empresa, com aprovação
+   - Base / Contatos (inclui Pool/DataLake, Opt-Out Global) — misto: contatos por empresa, opt-out global
+   - Recepção — por empresa (QR scan)
+   - Convites / QR Codes — por evento/empresa
+   - Kanban / Atendimentos — por empresa + visibilidade SDR
+   - Prospecção — por empresa + `prospeccao_equipe_membros`
+   - Vendas — por empresa
+   - Usuários / Acessos — global restrito (Admin/TI/Master)
+   - Empresas / Lojas — global (sync de `user_empresas`)
+   - Financeiro / Relatórios — agregado cross-company para gestão
+   - Resultados — agregado cross-company
+   - Configurações — global com override `per_empresa`
+   - Personas / Gatilhos — por empresa
+   - Integrações / APIs — global restrito
+   - Navegação / Menus — perfil-only (não multi-tenant)
+   - Pós-Vendas (Paty) — por empresa
+   - Algoritmos — em construção
+   - Entra Dados (novo) — referência ao doc dedicado
 
-### 4. Nível de EXISTÊNCIA por empresa (multi-tenant / "spaces")
-Aqui está a decisão de arquitetura. Apresento três modelos com trade-offs, sem implementar nada:
+4. **Diagramas Mermaid**
+   - Fluxo permissão→UI
+   - Matriz módulo × modelo de existência
+   - Decisão "qual modelo escolher para um novo módulo"
 
-**A. Global (compartilhado entre todas as empresas)**
-- Tabelas `enda_*` sem `empresa_id`. De-paras no S3 sob `de-para/*.json` (modelo atual).
-- Prós: simples, uma única fonte de verdade, fácil de manter governança central.
-- Contras: qualquer empresa enxerga tudo; não permite customização por loja/marca; risco se uma empresa precisar de regras próprias.
+5. **Como adicionar um novo módulo** (checklist)
+   - Passos no `PermissionRegistry`, `getDefaultPermissions`, `useUserAccessType`, `PermissionProtectedRoute`, decisão de modelo multi-tenant, RLS.
 
-**B. Por empresa (isolado, padrão multi-tenant do projeto)**
-- Tabelas `enda_bases`, `enda_tabelas`, `enda_de_paras` com coluna `empresa_id uuid not null` + RLS via `user_can_access_empresa(empresa_id)` (já existe no projeto).
-- S3 com prefixo por empresa: `de-para/<empresa_id>/<nome>.json`.
-- Contexto ativo vem de `CompanyContext` (`activeCompany.id`) — mesmo padrão de Prospecção/Pós-Vendas.
-- Prós: alinhado ao restante do sistema, isolamento estrito, evita vazamento entre lojas.
-- Contras: duplicação de de-paras comuns; precisa de UI de "copiar de outra empresa"; EMPRESA ADMIN sandbox precisa ser tratada.
+## Detalhes técnicos
 
-**C. Híbrido (recomendado para discutir)**
-- Itens marcados como `escopo = 'global'` ficam visíveis a todas as empresas (read-only para não-Admin).
-- Itens `escopo = 'empresa'` ficam isolados por `empresa_id`.
-- Prós: de-paras "de referência" (ex.: marca → grupo) ficam globais; tabelas operacionais ficam por empresa.
-- Contras: regra de RLS mais complexa; UI precisa deixar o escopo claro; risco de Admin global sobrescrever sem querer.
+- Fontes lidas: `PermissionRegistry.ts`, `useUserAccessType.ts`, `PermissionProtectedRoute.ts`, memórias do projeto (`access-hierarchy-levels`, `prospeccao-equipe-membros`, `whatsapp-template-sharing`, `quarentena/*`, `mfa/*`, `sync-empresas-strategy`, `logica-contexto-empresa-ativa`, `relatorio-leads-convidados`).
+- Cada flag listada com: `key`, `action`, default por role (resumido), módulo, descrição. Onde aplicável: `hasValor`/`valorSchema` (ex: `canImportPool*` com `dias_max`).
+- Para o nível de existência, cada módulo recebe um rótulo: **Global**, **Por empresa**, **Híbrido**, **Compartilhado-Meta**, **Perfil-only**, com justificativa e referência à tabela/política RLS principal.
 
-Para cada modelo, o doc traz: schema sugerido, RLS sugerida, impacto no S3, e como Master/Admin/EMPRESA ADMIN se comportam.
+## Entregáveis
 
-### 5. Mapa visual (Mermaid embutido no .md)
-Diagrama mostrando:
-- Usuário → `useUserAccessType` → flag → `PermissionProtectedRoute` → rota.
-- `CompanyContext.activeCompany` → filtro de dados.
-- Tabelas `enda_*` (futuras) e bucket S3 → relação com `empresa_id`.
-- Como os 3 modelos (Global / Por empresa / Híbrido) mudam o fluxo.
-
-### 6. Como os outros menus se comportam (genérico, 1 parágrafo cada)
-- **Prospecção / Kanban / Eventos**: existência **por empresa** via `empresa_id` + `prospeccao_equipe_membros` para visibilidade fina (SDR/Vendedor).
-- **Pós-Vendas (Paty)**: existência **por empresa**, mesma flag `canAccessPosVendas`.
-- **Administração / MFA**: acesso **global restrito** (Master/Admin/TI), dados sensíveis com RLS estrita.
-- **Resultados / Relatórios**: leitura agregada cross-empresa para perfis gerenciais; demais filtrados por `user_empresas`.
-- **Quarentena / Opt-Out Global**: existência **global** intencional (bloqueio cross-marca por telefone).
-- **Configurações / Feature Flags**: flags globais com override `per_empresa` quando aplicável.
-
-### 7. Próximos passos sugeridos
-- Decidir o modelo (A/B/C) antes de criar qualquer tabela `enda_*`.
-- Criar flag dedicada `canAccessEntraDados` para desacoplar de Pós-Vendas.
-- Definir se EMPRESA ADMIN sandbox participa ou é excluída (padrão do projeto: excluída).
-
-## Entregável
-- `/mnt/documents/entra-dados-niveis.md` — documento completo com Mermaid embutido.
-- Tag `<presentation-artifact>` no chat para download.
-
-Nenhum arquivo do código do app é tocado.
+- `/mnt/documents/permissoes-niveis.md` (~15–25 KB)
+- Sem mudanças no código.
