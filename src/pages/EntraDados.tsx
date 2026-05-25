@@ -94,16 +94,13 @@ export default function EntraDados() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Entra Dados">
       <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Entra Dados</h1>
-            <p className="text-muted-foreground text-sm">
-              Hub de bases, tabelas e de-paras mantidos pelo time.
-            </p>
-          </div>
+          <p className="text-muted-foreground text-sm">
+            Hub de bases, tabelas e de-paras mantidos pelo time.
+          </p>
           <Button onClick={handleNovaBase} className="gap-2">
             <Plus className="h-4 w-4" /> Nova base
           </Button>
