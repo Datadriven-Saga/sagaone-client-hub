@@ -1,70 +1,70 @@
-## Objetivo
+# Documento: Níveis do menu Entra Dados
 
-Criar a página inicial do **Entra Dados** em `/entra-dados`, que servirá como hub para visualizar todas as bases, tabelas e de-paras mantidos pelo módulo. Nesta etapa, apenas o **visual** (mock de dados), sem backend nem novas tabelas.
+Vou gerar **um único arquivo markdown** em `/mnt/documents/entra-dados-niveis.md` (mais um diagrama Mermaid embutido), explicando em detalhe o menu Entra Dados e, de forma genérica, como os demais menus se comportam. Nada de código de aplicação é alterado.
 
-Convenção definida: futuras tabelas exclusivas do módulo terão prefixo **`enda_`** (ex.: `enda_bases`, `enda_tabelas`). Nada será criado agora.
+## Estrutura do documento
 
----
+### 1. Visão geral do menu Entra Dados
+- O que é hoje (rota `/entra-dados` + sub-rota `/de-para`, sidebar agrupada com ícone `Database`).
+- O que está mockado (lista de bases/tabelas) vs. o que é real (De-Para S3).
 
-## 1. Rota e navegação
+### 2. Nível de ACESSO (quem pode entrar na rota)
+- Hoje: `PermissionProtectedRoute permissionKey="canAccessPosVendas"` — herda do mesmo flag de Pós-Vendas.
+- Default no `PermissionRegistry`: `canAccessPosVendas = isAdmin` (Admin, TI, Master).
+- Como mudar: criar flag dedicada `canAccessEntraDados` no `PermissionRegistry` + override por departamento em `departamento_permissoes`.
+- Tabela de papéis × acesso atual (Master/Admin/TI = sim; demais = não).
 
-- Nova rota `/entra-dados` em `src/App.tsx`, apontando para `src/pages/EntraDados.tsx`.
-- Em `src/components/AppSidebar.tsx`:
-  - Adicionar o item **Visão Geral** (`/entra-dados`, ícone `LayoutDashboard`) como primeiro subitem do grupo "Entra Dados", antes do **De-Para**.
-  - Manter o grupo abrindo automaticamente nas rotas `/entra-dados` ou `/de-para` (já implementado).
+### 3. Nível de VISUALIZAÇÃO (o que cada papel vê dentro do menu)
+- Sidebar: item só renderiza se `canSeePosVendas` for true (já é o caso).
+- Página Visão Geral: KPIs, cards de bases/tabelas/de-paras — hoje todos veem o mesmo mock.
+- De-Para: lista lida do S3 via edge `de-para-s3` — independente de empresa (global no bucket).
+- Recomendações de granularidade futura: visualizar vs. criar vs. editar vs. excluir vs. administrar (mesma matriz já usada no Registry).
 
----
+### 4. Nível de EXISTÊNCIA por empresa (multi-tenant / "spaces")
+Aqui está a decisão de arquitetura. Apresento três modelos com trade-offs, sem implementar nada:
 
-## 2. Tela `EntraDados.tsx`
+**A. Global (compartilhado entre todas as empresas)**
+- Tabelas `enda_*` sem `empresa_id`. De-paras no S3 sob `de-para/*.json` (modelo atual).
+- Prós: simples, uma única fonte de verdade, fácil de manter governança central.
+- Contras: qualquer empresa enxerga tudo; não permite customização por loja/marca; risco se uma empresa precisar de regras próprias.
 
-Layout simples, alinhado ao padrão visual do projeto (mesmos `Card`, `Badge`, espaçamento das outras páginas como `DePara.tsx`).
+**B. Por empresa (isolado, padrão multi-tenant do projeto)**
+- Tabelas `enda_bases`, `enda_tabelas`, `enda_de_paras` com coluna `empresa_id uuid not null` + RLS via `user_can_access_empresa(empresa_id)` (já existe no projeto).
+- S3 com prefixo por empresa: `de-para/<empresa_id>/<nome>.json`.
+- Contexto ativo vem de `CompanyContext` (`activeCompany.id`) — mesmo padrão de Prospecção/Pós-Vendas.
+- Prós: alinhado ao restante do sistema, isolamento estrito, evita vazamento entre lojas.
+- Contras: duplicação de de-paras comuns; precisa de UI de "copiar de outra empresa"; EMPRESA ADMIN sandbox precisa ser tratada.
 
-```text
-+--------------------------------------------------------+
-| Entra Dados                       [+ Nova base]        |
-| Hub de bases, tabelas e de-paras do time               |
-+--------------------------------------------------------+
-| [KPI: Bases]  [KPI: Tabelas]  [KPI: De-Paras]          |
-+--------------------------------------------------------+
-| Filtros: [busca]  [tipo: todos | base | tabela | depara]
-+--------------------------------------------------------+
-| Cards/Grid de itens:                                   |
-|   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐   |
-|   │ icone + tipo │ │ icone + tipo │ │ icone + tipo │   |
-|   │ nome         │ │ nome         │ │ nome         │   |
-|   │ descricao    │ │ descricao    │ │ descricao    │   |
-|   │ badge ativo  │ │ badge ativo  │ │ badge ativo  │   |
-|   │ [Abrir]      │ │ [Abrir]      │ │ [Abrir]      │   |
-|   └──────────────┘ └──────────────┘ └──────────────┘   |
-+--------------------------------------------------------+
-```
+**C. Híbrido (recomendado para discutir)**
+- Itens marcados como `escopo = 'global'` ficam visíveis a todas as empresas (read-only para não-Admin).
+- Itens `escopo = 'empresa'` ficam isolados por `empresa_id`.
+- Prós: de-paras "de referência" (ex.: marca → grupo) ficam globais; tabelas operacionais ficam por empresa.
+- Contras: regra de RLS mais complexa; UI precisa deixar o escopo claro; risco de Admin global sobrescrever sem querer.
 
-Detalhes:
+Para cada modelo, o doc traz: schema sugerido, RLS sugerida, impacto no S3, e como Master/Admin/EMPRESA ADMIN se comportam.
 
-- **Header**: título "Entra Dados" + subtítulo curto. Botão `+ Nova base` (apenas visual, abre toast "em breve").
-- **KPIs (3 cards)**: Bases, Tabelas, De-Paras — números vindos do mock.
-- **Filtros**: input de busca por nome + `Tabs` (Todos / Bases / Tabelas / De-Paras).
-- **Grid responsivo** (`grid md:grid-cols-2 lg:grid-cols-3 gap-4`) de cards com:
-  - Ícone por tipo (`Database` para base, `Table` para tabela, `GitMerge` para de-para).
-  - Nome, descrição curta, badge "Ativo".
-  - Botão **Abrir**: se for de-para → navega para `/de-para`; demais tipos → toast "em breve".
-- **Mock interno** no arquivo: um array de itens incluindo pelo menos um item real de de-para (estático, sem chamar a edge function ainda) e 2–3 placeholders de bases/tabelas para ilustrar.
+### 5. Mapa visual (Mermaid embutido no .md)
+Diagrama mostrando:
+- Usuário → `useUserAccessType` → flag → `PermissionProtectedRoute` → rota.
+- `CompanyContext.activeCompany` → filtro de dados.
+- Tabelas `enda_*` (futuras) e bucket S3 → relação com `empresa_id`.
+- Como os 3 modelos (Global / Por empresa / Híbrido) mudam o fluxo.
 
-Sem chamadas à edge function, sem hooks novos, sem alterações em `DePara.tsx` ou na função `de-para-s3`.
+### 6. Como os outros menus se comportam (genérico, 1 parágrafo cada)
+- **Prospecção / Kanban / Eventos**: existência **por empresa** via `empresa_id` + `prospeccao_equipe_membros` para visibilidade fina (SDR/Vendedor).
+- **Pós-Vendas (Paty)**: existência **por empresa**, mesma flag `canAccessPosVendas`.
+- **Administração / MFA**: acesso **global restrito** (Master/Admin/TI), dados sensíveis com RLS estrita.
+- **Resultados / Relatórios**: leitura agregada cross-empresa para perfis gerenciais; demais filtrados por `user_empresas`.
+- **Quarentena / Opt-Out Global**: existência **global** intencional (bloqueio cross-marca por telefone).
+- **Configurações / Feature Flags**: flags globais com override `per_empresa` quando aplicável.
 
----
+### 7. Próximos passos sugeridos
+- Decidir o modelo (A/B/C) antes de criar qualquer tabela `enda_*`.
+- Criar flag dedicada `canAccessEntraDados` para desacoplar de Pós-Vendas.
+- Definir se EMPRESA ADMIN sandbox participa ou é excluída (padrão do projeto: excluída).
 
-## 3. Critérios de sucesso
+## Entregável
+- `/mnt/documents/entra-dados-niveis.md` — documento completo com Mermaid embutido.
+- Tag `<presentation-artifact>` no chat para download.
 
-1. Rota `/entra-dados` existe e renderiza a nova página.
-2. Sidebar mostra **Visão Geral** dentro de **Entra Dados**, acima de **De-Para**.
-3. KPIs, filtros e grid de cards aparecem com dados mockados.
-4. Clicar em **Abrir** num card de de-para leva para `/de-para`.
-5. Nenhuma tabela nova no banco, nenhuma alteração em edge function.
-
----
-
-## Observações
-
-- Quando formos para o passo de dados reais, criaremos as tabelas com prefixo `enda_` (ex.: `enda_bases`, `enda_tabelas`, `enda_deparas`) e um RPC/endpoint único para listar tudo agregando o S3 atual dos de-paras.
-- Mantém escopo cirúrgico: só UI + rota + 2 itens no sidebar.
+Nenhum arquivo do código do app é tocado.
