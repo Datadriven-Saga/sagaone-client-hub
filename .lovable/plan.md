@@ -1,64 +1,76 @@
+
 ## Objetivo
 
-Gerar um documento markdown abrangente em `/mnt/documents/permissoes-niveis.md` que cubra **todos os módulos** do `PermissionRegistry`, seguindo a mesma premissa do `entra-dados-niveis.md`:
+Gerar `/mnt/documents/rbac-atual.md` documentando o sistema RBAC (Role-Based Access Control) **como ele existe hoje** no código, sem propostas de mudança.
 
-Para cada módulo, explicar:
-1. **Nível de acesso** — quais flags do `PermissionRegistry` controlam, defaults por `tipo_acesso`, overrides via `departamento_permissoes`.
-2. **Nível de visualização** — onde aparece (sidebar, página, ações, botões), o que cada role enxerga.
-3. **Nível de existência (multi-tenant)** — como o módulo se comporta entre empresas/spaces: por empresa (`empresa_id` + RLS), global compartilhado, ou híbrido. Quais tabelas, quais políticas, como o `CompanyContext.activeCompany` afeta.
+## Estrutura
 
-## Estrutura do documento
+1. **Visão geral**
+   - Modelo híbrido: papel base (`profiles.tipo_acesso`) + overrides granulares (`departamento_permissoes`) + super-papel (Master via `mfa_account_access`).
+   - Diferença vs RBAC clássico: não usa `user_roles` separada — papel mora em `profiles`. Justificativa histórica e implicações.
 
-1. **Visão geral do sistema de permissões**
-   - Fluxo: `auth` → `profiles.tipo_acesso` → `PermissionRegistry` (defaults) → `departamento_permissoes` (overrides) → `useUserAccessType` → `PermissionProtectedRoute` / checks na UI.
-   - Hierarquia de 12 níveis de `tipo_acesso` + regra Master = superadmin.
-   - Diagrama Mermaid do fluxo.
+2. **Camadas do RBAC**
+   - **Camada 1 — Autenticação**: `AuthContext` + Azure SSO restrito a `@gruposaga.com.br`.
+   - **Camada 2 — Papel base** (`tipo_acesso`): 12 níveis hierárquicos (Master, Admin, TI, Gerente, Coordenador, SDR, Vendedor, Recepcionista, Financeiro, Marketing, Pós-Vendas, Visitante). Tabela com cada papel + escopo.
+   - **Camada 3 — Defaults por papel** (`PermissionRegistry.getDefaultPermissions`): cada papel recebe um conjunto de flags `can*`. Exemplo de mapeamento.
+   - **Camada 4 — Overrides** (`departamento_permissoes`): tabela permite habilitar/desabilitar flags individuais por usuário/departamento, sobrescrevendo o default.
+   - **Camada 5 — Master**: `mfa_account_access` + `useMfaMaster` concede bypass total (superadmin), inclusive ao Vault.
+   - **Camada 6 — Multi-tenant**: empresa ativa (`CompanyContext`) + `user_empresas` + `user_can_access_empresa()` RLS.
 
-2. **Modelos de existência multi-tenant (referência)**
-   - Modelo A — Global, Modelo B — Por empresa, Modelo C — Híbrido (resumo, com link ao doc Entra Dados).
-   - Como `EMPRESA ADMIN` (sandbox), `user_can_access_empresa()` e `prospeccao_equipe_membros` se encaixam.
+3. **Pontos de aplicação (enforcement)**
+   - **Rotas**: `ProtectedRoute`, `AdminProtectedRoute`, `TIAdminProtectedRoute`, `GestorProtectedRoute`, `PermissionProtectedRoute` (genérico por flag).
+   - **UI**: `useUserAccessType()` retorna `permissions[key]` + helpers (`isAdmin`, `isMaster`, etc.) usados para esconder botões/menus.
+   - **Sidebar**: `AppSidebar` filtra itens por flags `canSee*`.
+   - **Banco (RLS)**: políticas usam `user_can_access_empresa()`, `has_role()`-equivalentes (`is_admin_user`, `is_master_user`), e checks diretos em `profiles.tipo_acesso`.
+   - **Edge functions**: validam JWT + recheck de papel via service role (ex: `manage-users`, `prospeccao-anotacao`).
 
-3. **Catálogo por módulo** — uma seção por módulo do `PERMISSION_MODULES`, cada uma com tabela de flags + 3 níveis:
-   - Authenticator (MFA) — masterOnly, global restrito
-   - Controle de Agentes — por empresa
-   - Agentes IA / Instâncias — por empresa, com `agente_empresas`
-   - Templates (WhatsApp) — compartilhado via `id_meta`
-   - Eventos / Prospecção — por empresa, com equipes
-   - IA Ligação — por empresa, isolada por `crm_id` + telefone
-   - Disparos — por empresa, com aprovação
-   - Base / Contatos (inclui Pool/DataLake, Opt-Out Global) — misto: contatos por empresa, opt-out global
-   - Recepção — por empresa (QR scan)
-   - Convites / QR Codes — por evento/empresa
-   - Kanban / Atendimentos — por empresa + visibilidade SDR
-   - Prospecção — por empresa + `prospeccao_equipe_membros`
-   - Vendas — por empresa
-   - Usuários / Acessos — global restrito (Admin/TI/Master)
-   - Empresas / Lojas — global (sync de `user_empresas`)
-   - Financeiro / Relatórios — agregado cross-company para gestão
-   - Resultados — agregado cross-company
-   - Configurações — global com override `per_empresa`
-   - Personas / Gatilhos — por empresa
-   - Integrações / APIs — global restrito
-   - Navegação / Menus — perfil-only (não multi-tenant)
-   - Pós-Vendas (Paty) — por empresa
-   - Algoritmos — em construção
-   - Entra Dados (novo) — referência ao doc dedicado
+4. **Fluxo de resolução de permissão** (diagrama Mermaid)
+   ```
+   request → AuthContext (user) 
+          → useUserAccessType
+             → fetch profiles.tipo_acesso
+             → fetch departamento_permissoes (overrides)
+             → fetch mfa_account_access (Master?)
+             → merge: defaults(tipo_acesso) ⊕ overrides ⊕ master-bypass
+          → permissions{} → ProtectedRoute / UI check
+   ```
 
-4. **Diagramas Mermaid**
-   - Fluxo permissão→UI
-   - Matriz módulo × modelo de existência
-   - Decisão "qual modelo escolher para um novo módulo"
+5. **Catálogo de papéis** (tabela)
+   - Para cada um dos 12 `tipo_acesso`: descrição, escopo (empresa única / multi / global), módulos default, restrições típicas, exemplos de overrides comuns.
 
-5. **Como adicionar um novo módulo** (checklist)
-   - Passos no `PermissionRegistry`, `getDefaultPermissions`, `useUserAccessType`, `PermissionProtectedRoute`, decisão de modelo multi-tenant, RLS.
+6. **Tabelas centrais do RBAC**
+   - `profiles` (tipo_acesso, empresa_id principal)
+   - `user_empresas` (vínculo N:N usuário↔empresa)
+   - `departamento_permissoes` (overrides granulares)
+   - `mfa_account_access` (Master)
+   - `prospeccao_equipe_membros` (visibilidade SDR/Vendedor de leads)
+   - `agente_empresas` (vínculo agente IA↔empresa)
+   - Functions: `user_can_access_empresa`, `is_admin_user`, `is_master_user`, `has_dept_permission` (se existir), `get_user_tipo_acesso`.
 
-## Detalhes técnicos
+7. **Bypass e exceções documentadas**
+   - Master → bypass total.
+   - EMPRESA ADMIN (`b32ae8c9-...`) → sandbox restrito a Admin/TI/Master.
+   - Edge functions com service role → bypass RLS controlado.
+   - `user_can_access_empresa` overload intencional (única exceção à regra de não-overload).
 
-- Fontes lidas: `PermissionRegistry.ts`, `useUserAccessType.ts`, `PermissionProtectedRoute.ts`, memórias do projeto (`access-hierarchy-levels`, `prospeccao-equipe-membros`, `whatsapp-template-sharing`, `quarentena/*`, `mfa/*`, `sync-empresas-strategy`, `logica-contexto-empresa-ativa`, `relatorio-leads-convidados`).
-- Cada flag listada com: `key`, `action`, default por role (resumido), módulo, descrição. Onde aplicável: `hasValor`/`valorSchema` (ex: `canImportPool*` com `dias_max`).
-- Para o nível de existência, cada módulo recebe um rótulo: **Global**, **Por empresa**, **Híbrido**, **Compartilhado-Meta**, **Perfil-only**, com justificativa e referência à tabela/política RLS principal.
+8. **Anti-padrões evitados / armadilhas**
+   - Por que não checa role no client via localStorage.
+   - Por que RLS usa security definer functions (recursão).
+   - Por que `DISTINCT` em agregações (eventos_prospeccao multi-row).
+   - Sessão 8h / idle 1h.
 
-## Entregáveis
+9. **Como adicionar um novo papel ou flag** (checklist curto)
+   - Adicionar enum/string em `tipo_acesso` (migração).
+   - Atualizar `getDefaultPermissions` em `PermissionRegistry`.
+   - Atualizar `useUserAccessType` se houver helper booleano novo.
+   - Atualizar RLS se o papel tem escopo especial.
+   - Refletir no UI de `ControleAcessos`.
 
-- `/mnt/documents/permissoes-niveis.md` (~15–25 KB)
-- Sem mudanças no código.
+## Fontes a consultar
+
+`PermissionRegistry.ts`, `useUserAccessType.ts`, `AuthContext.tsx`, `CompanyContext.tsx`, `ProtectedRoute.tsx`, `AdminProtectedRoute.tsx`, `TIAdminProtectedRoute.tsx`, `GestorProtectedRoute.tsx`, `PermissionProtectedRoute.tsx`, `useMfaMaster.ts`, `useAdminCheck.ts`, `pages/admin/ControleAcessos.tsx`, `pages/admin/Acessos.tsx`, memórias `access-hierarchy-levels`, `rls-security-definer-pattern`, `mfa-and-vault-architecture-and-permissions`, `intentional-function-overloads`, `session-and-inactivity-policy`, `administracao-manager-access-scope`, `route-and-component-guard-alignment`.
+
+## Entregável
+
+- `/mnt/documents/rbac-atual.md` (~12–18 KB), com diagrama Mermaid do fluxo e tabela de papéis.
+- Sem alterações de código.
