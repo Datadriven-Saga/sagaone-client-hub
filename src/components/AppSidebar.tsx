@@ -71,6 +71,7 @@ const agentesIASubItems = [
 ];
 
 const entraDadosSubItems = [
+  { title: "Visão Geral", url: "/entra-dados", icon: LayoutDashboard, exact: true },
   { title: "De-Para", url: "/de-para", icon: GitMerge },
 ];
 
