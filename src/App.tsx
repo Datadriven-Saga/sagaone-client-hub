@@ -114,6 +114,7 @@ const AppRoutes = () => {
         <Route path="/pos-vendas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/:tab" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
         <Route path="/de-para" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><DePara /></PermissionProtectedRoute>} />
+        <Route path="/entra-dados" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><EntraDados /></PermissionProtectedRoute>} />
 
         {/* Algoritmos */}
         <Route path="/algoritmos/compra/avaliacao" element={<PermissionProtectedRoute permissionKey="canAccessAlgoritmosCompra"><AlgoritmoEmConstrucao titulo="Avaliação de Compra" grupo="Compra" /></PermissionProtectedRoute>} />
