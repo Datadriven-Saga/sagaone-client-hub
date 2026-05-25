@@ -33,6 +33,7 @@ const Ajuda = lazy(() => import("./pages/Ajuda"));
 const AgentesIA = lazy(() => import("./pages/AgentesIA"));
 const PosVendas = lazy(() => import("./pages/pos-vendas/PosVendas"));
 const DePara = lazy(() => import("./pages/DePara"));
+const EntraDados = lazy(() => import("./pages/EntraDados"));
 const AlgoritmoEmConstrucao = lazy(() => import("./pages/algoritmos/EmConstrucao"));
 
 // Admin pages - lazy
