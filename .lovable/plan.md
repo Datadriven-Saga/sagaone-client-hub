@@ -1,76 +1,40 @@
+# Fix: lead criado pelo "Criar Lead" não aparece para o vendedor
 
-## Objetivo
+## Problema confirmado
+- Lead `4C7FCFE2` foi gravado com `responsavel_email = "050b4cc0-...uuid..."` em vez de `gabriel.pvieira@gruposaga.com.br`.
+- O Kanban filtra "Meus Leads / Atribuído" do vendedor por `responsavel_email === user.email` (`src/pages/Prospeccao.tsx:2285`), então o UUID nunca bate e o lead some para o vendedor.
+- Admin enxerga porque não passa por esse filtro.
 
-Gerar `/mnt/documents/rbac-atual.md` documentando o sistema RBAC (Role-Based Access Control) **como ele existe hoje** no código, sem propostas de mudança.
+## Causa raiz
+`src/components/NovoLeadModal.tsx` grava `user?.id` (UUID) onde a coluna espera email:
+- Linha 309: `.update({ responsavel_email: user?.id })`
+- Linha 398: payload da criação `responsavel_email: user?.id`
+- Linhas 251-255, 320: lógica local comparando `responsavel_email` contra `user?.id` (compensando o bug, mas só localmente)
 
-## Estrutura
+## Correção
 
-1. **Visão geral**
-   - Modelo híbrido: papel base (`profiles.tipo_acesso`) + overrides granulares (`departamento_permissoes`) + super-papel (Master via `mfa_account_access`).
-   - Diferença vs RBAC clássico: não usa `user_roles` separada — papel mora em `profiles`. Justificativa histórica e implicações.
+### 1. NovoLeadModal — padronizar para email
+- Substituir `user?.id` por `user?.email` nas duas gravações (linhas 309 e 398).
+- Ajustar `existingContato.responsavel_email === user?.id || ... === user?.email` para comparar apenas por `user?.email` (linhas 251-255).
+- Atualizar o estado local pós-update (linhas 320, 1196 em `useContatoData.ts` se aplicável ao mesmo fluxo) para refletir email.
 
-2. **Camadas do RBAC**
-   - **Camada 1 — Autenticação**: `AuthContext` + Azure SSO restrito a `@gruposaga.com.br`.
-   - **Camada 2 — Papel base** (`tipo_acesso`): 12 níveis hierárquicos (Master, Admin, TI, Gerente, Coordenador, SDR, Vendedor, Recepcionista, Financeiro, Marketing, Pós-Vendas, Visitante). Tabela com cada papel + escopo.
-   - **Camada 3 — Defaults por papel** (`PermissionRegistry.getDefaultPermissions`): cada papel recebe um conjunto de flags `can*`. Exemplo de mapeamento.
-   - **Camada 4 — Overrides** (`departamento_permissoes`): tabela permite habilitar/desabilitar flags individuais por usuário/departamento, sobrescrevendo o default.
-   - **Camada 5 — Master**: `mfa_account_access` + `useMfaMaster` concede bypass total (superadmin), inclusive ao Vault.
-   - **Camada 6 — Multi-tenant**: empresa ativa (`CompanyContext`) + `user_empresas` + `user_can_access_empresa()` RLS.
+### 2. Backfill do lead afetado (e quaisquer outros recentes com UUID em responsavel_email)
+Migration que faz:
+```sql
+UPDATE public.contatos c
+SET responsavel_email = u.email
+FROM auth.users u
+WHERE c.responsavel_email ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND u.id::text = c.responsavel_email;
+```
+Isso corrige `4C7FCFE2` e qualquer outro lead contaminado pelo mesmo bug.
 
-3. **Pontos de aplicação (enforcement)**
-   - **Rotas**: `ProtectedRoute`, `AdminProtectedRoute`, `TIAdminProtectedRoute`, `GestorProtectedRoute`, `PermissionProtectedRoute` (genérico por flag).
-   - **UI**: `useUserAccessType()` retorna `permissions[key]` + helpers (`isAdmin`, `isMaster`, etc.) usados para esconder botões/menus.
-   - **Sidebar**: `AppSidebar` filtra itens por flags `canSee*`.
-   - **Banco (RLS)**: políticas usam `user_can_access_empresa()`, `has_role()`-equivalentes (`is_admin_user`, `is_master_user`), e checks diretos em `profiles.tipo_acesso`.
-   - **Edge functions**: validam JWT + recheck de papel via service role (ex: `manage-users`, `prospeccao-anotacao`).
+### 3. Verificação
+- Após o fix, logar como Gabriel (`gabriel.pvieira@gruposaga.com.br`) → o lead deve aparecer no Kanban dele em "Atribuído".
+- Criar um novo lead pelo botão "Criar Lead" como vendedor → conferir no banco que `responsavel_email` salva email, não UUID.
 
-4. **Fluxo de resolução de permissão** (diagrama Mermaid)
-   ```
-   request → AuthContext (user) 
-          → useUserAccessType
-             → fetch profiles.tipo_acesso
-             → fetch departamento_permissoes (overrides)
-             → fetch mfa_account_access (Master?)
-             → merge: defaults(tipo_acesso) ⊕ overrides ⊕ master-bypass
-          → permissions{} → ProtectedRoute / UI check
-   ```
+## Fora do escopo (apenas registrar, não mexer agora)
+- Há código defensivo espalhado (`p.id === responsavel_email || p.email === ... || p.celular === ...`) que existe justamente porque a coluna virou um campo polimórfico. Limpeza geral desse padrão é trabalho separado; aqui apenas garantimos que o **filtro principal de visibilidade do vendedor** volta a funcionar.
 
-5. **Catálogo de papéis** (tabela)
-   - Para cada um dos 12 `tipo_acesso`: descrição, escopo (empresa única / multi / global), módulos default, restrições típicas, exemplos de overrides comuns.
-
-6. **Tabelas centrais do RBAC**
-   - `profiles` (tipo_acesso, empresa_id principal)
-   - `user_empresas` (vínculo N:N usuário↔empresa)
-   - `departamento_permissoes` (overrides granulares)
-   - `mfa_account_access` (Master)
-   - `prospeccao_equipe_membros` (visibilidade SDR/Vendedor de leads)
-   - `agente_empresas` (vínculo agente IA↔empresa)
-   - Functions: `user_can_access_empresa`, `is_admin_user`, `is_master_user`, `has_dept_permission` (se existir), `get_user_tipo_acesso`.
-
-7. **Bypass e exceções documentadas**
-   - Master → bypass total.
-   - EMPRESA ADMIN (`b32ae8c9-...`) → sandbox restrito a Admin/TI/Master.
-   - Edge functions com service role → bypass RLS controlado.
-   - `user_can_access_empresa` overload intencional (única exceção à regra de não-overload).
-
-8. **Anti-padrões evitados / armadilhas**
-   - Por que não checa role no client via localStorage.
-   - Por que RLS usa security definer functions (recursão).
-   - Por que `DISTINCT` em agregações (eventos_prospeccao multi-row).
-   - Sessão 8h / idle 1h.
-
-9. **Como adicionar um novo papel ou flag** (checklist curto)
-   - Adicionar enum/string em `tipo_acesso` (migração).
-   - Atualizar `getDefaultPermissions` em `PermissionRegistry`.
-   - Atualizar `useUserAccessType` se houver helper booleano novo.
-   - Atualizar RLS se o papel tem escopo especial.
-   - Refletir no UI de `ControleAcessos`.
-
-## Fontes a consultar
-
-`PermissionRegistry.ts`, `useUserAccessType.ts`, `AuthContext.tsx`, `CompanyContext.tsx`, `ProtectedRoute.tsx`, `AdminProtectedRoute.tsx`, `TIAdminProtectedRoute.tsx`, `GestorProtectedRoute.tsx`, `PermissionProtectedRoute.tsx`, `useMfaMaster.ts`, `useAdminCheck.ts`, `pages/admin/ControleAcessos.tsx`, `pages/admin/Acessos.tsx`, memórias `access-hierarchy-levels`, `rls-security-definer-pattern`, `mfa-and-vault-architecture-and-permissions`, `intentional-function-overloads`, `session-and-inactivity-policy`, `administracao-manager-access-scope`, `route-and-component-guard-alignment`.
-
-## Entregável
-
-- `/mnt/documents/rbac-atual.md` (~12–18 KB), com diagrama Mermaid do fluxo e tabela de papéis.
-- Sem alterações de código.
+## Por que não mudar o filtro do Kanban em vez do modal
+A coluna se chama `responsavel_email`, e o resto do sistema (importação, sync, webhooks) já trata como email. Mudar o filtro para aceitar UUID propagaria a inconsistência. O ponto de origem do bug é o modal.
