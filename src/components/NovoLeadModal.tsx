@@ -250,9 +250,9 @@ export const NovoLeadModal = ({
         // Lead já existe - verificar responsável
         if (existingContato.responsavel_email) {
           // Verificar se o responsável é o próprio usuário
-          const isCurrentUser = 
-            existingContato.responsavel_email === user?.id ||
-            existingContato.responsavel_email === user?.email;
+          const isCurrentUser =
+            existingContato.responsavel_email === user?.email ||
+            existingContato.responsavel_email === user?.id;
           
           if (isCurrentUser) {
             // Lead pertence ao usuário atual - abrir para edição
@@ -306,7 +306,7 @@ export const NovoLeadModal = ({
         // Lead existe mas ninguém está atendendo - atribuir ao usuário atual
         const { error: updateError } = await supabase
           .from('contatos')
-          .update({ responsavel_email: user?.id })
+          .update({ responsavel_email: user?.email })
           .eq('id', existingContato.id);
         
         if (updateError) throw updateError;
@@ -317,7 +317,7 @@ export const NovoLeadModal = ({
         });
         
         // Abrir contato para edição
-        const updatedContato = { ...existingContato, responsavel_email: user?.id } as Contato;
+        const updatedContato = { ...existingContato, responsavel_email: user?.email } as Contato;
         onOpenContato(updatedContato);
         onClose();
         return;
@@ -395,7 +395,7 @@ export const NovoLeadModal = ({
         email: email.trim() || null,
         origem: origem,
         observacoes: observacoes.trim() || null,
-        responsavel_email: user?.id,
+        responsavel_email: user?.email,
         empresa_id: activeCompany.id,
         status: 'Atribuído',
         prospeccao_id: selectedProspeccaoId,
