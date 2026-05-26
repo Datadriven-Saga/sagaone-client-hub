@@ -6120,6 +6120,7 @@ export type Database = {
           confirmados: number
           convidados: number
           descartes: number
+          em_espera: number
           nome_completo: string
           tipo_acesso: string
           user_id: string

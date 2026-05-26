@@ -17,6 +17,7 @@ interface VendedorDesempenho {
   nomeCompleto: string;
   tipoAcesso: string;
   atribuidos: number;
+  emEspera: number;
   convidados: number;
   agendados: number;
   confirmados: number;
@@ -25,7 +26,7 @@ interface VendedorDesempenho {
   descartes: number;
 }
 
-type SortColumn = 'nomeCompleto' | 'atribuidos' | 'convidados' | 'agendados' | 'confirmados' | 'checkins' | 'vendas' | 'descartes' | 'pontuacao';
+type SortColumn = 'nomeCompleto' | 'atribuidos' | 'emEspera' | 'convidados' | 'agendados' | 'confirmados' | 'checkins' | 'vendas' | 'descartes' | 'pontuacao';
 type SortDirection = 'asc' | 'desc';
 
 const calcularPontuacao = (v: VendedorDesempenho): number => {
@@ -70,13 +71,14 @@ export function DesempenhoTab({ prospeccaoIds, prospeccaoId, empresaId }: Desemp
           setVendedores(
             (data as Array<{
               user_id: string; nome_completo: string; tipo_acesso: string;
-              atribuidos: number; convidados: number; agendados: number;
+              atribuidos: number; em_espera: number; convidados: number; agendados: number;
               confirmados: number; checkins: number; vendas: number; descartes: number;
             }>).map((row) => ({
               userId: row.user_id,
               nomeCompleto: row.nome_completo || 'Sem nome',
               tipoAcesso: row.tipo_acesso || 'Vendedor',
               atribuidos: Number(row.atribuidos),
+              emEspera: Number(row.em_espera),
               convidados: Number(row.convidados),
               agendados: Number(row.agendados),
               confirmados: Number(row.confirmados),
@@ -147,6 +149,7 @@ export function DesempenhoTab({ prospeccaoIds, prospeccaoId, empresaId }: Desemp
 
   const columns: { key: SortColumn; label: string; highlight?: boolean }[] = [
     { key: 'atribuidos', label: 'Atrib.' },
+    { key: 'emEspera', label: 'Espera' },
     { key: 'convidados', label: 'Conv.' },
     { key: 'agendados', label: 'Agend.' },
     { key: 'confirmados', label: 'Conf.' },
@@ -226,6 +229,7 @@ export function DesempenhoTab({ prospeccaoIds, prospeccaoId, empresaId }: Desemp
                       </div>
                     </TableCell>
                     <TableCell className="text-center font-medium py-2 px-2">{vendedor.atribuidos}</TableCell>
+                    <TableCell className="text-center py-2 px-2">{vendedor.emEspera}</TableCell>
                     <TableCell className="text-center py-2 px-2">{vendedor.convidados}</TableCell>
                     <TableCell className="text-center py-2 px-2">{vendedor.agendados}</TableCell>
                     <TableCell className="text-center py-2 px-2">{vendedor.confirmados}</TableCell>
