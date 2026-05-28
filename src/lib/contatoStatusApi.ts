@@ -54,32 +54,56 @@ export async function setContatoStatus(input: SetContatoStatusInput): Promise<Se
     return { ok: false, error: 'Supabase env não configurado' };
   }
 
-  // JWT do usuário atual (nunca service-role daqui)
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
+  // JWT do usuário (com refresh proativo se faltar <2 min para expirar)
+  async function getFreshAccessToken(forceRefresh = false): Promise<string | null> {
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session;
+    if (!session) return null;
+    const expiresAt = (session.expires_at ?? 0) * 1000;
+    const msLeft = expiresAt - Date.now();
+    if (forceRefresh || msLeft < 120_000) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      return refreshed?.session?.access_token ?? session.access_token ?? null;
+    }
+    return session.access_token ?? null;
+  }
+
+  let accessToken = await getFreshAccessToken(false);
   if (!accessToken) {
     return { ok: false, error: 'Sessão não autenticada' };
   }
 
   const url = `${SUPABASE_URL}/functions/v1/prospeccao-status?lead_id=${encodeURIComponent(contatoId)}`;
+  const body = JSON.stringify({
+    novo_status: novoStatus,
+    prospeccao_id: prospeccaoId ?? null,
+    observacoes: observacoes ?? null,
+    skip_webhooks: skipWebhooks === true,
+    webhook_kind: webhookKind ?? null,
+  });
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  const doFetch = (tok: string) =>
+    fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${tok}`,
+        apikey: SUPABASE_ANON_KEY!,
       },
-      body: JSON.stringify({
-        novo_status: novoStatus,
-        prospeccao_id: prospeccaoId ?? null,
-        observacoes: observacoes ?? null,
-        skip_webhooks: skipWebhooks === true,
-        webhook_kind: webhookKind ?? null,
-      }),
+      body,
     });
+
+  let res: Response;
+  try {
+    res = await doFetch(accessToken);
+    // Retry 1x em 401: força refresh do JWT e tenta de novo
+    if (res.status === 401) {
+      const refreshed = await getFreshAccessToken(true);
+      if (refreshed && refreshed !== accessToken) {
+        accessToken = refreshed;
+        res = await doFetch(accessToken);
+      }
+    }
   } catch (err: any) {
     return { ok: false, error: err?.message ?? 'Erro de rede' };
   }
