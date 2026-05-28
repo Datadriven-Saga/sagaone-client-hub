@@ -287,62 +287,67 @@ export function ContatoRealizadoDialog({
                     return (
                       <React.Fragment key={opcao.value}>
                       <div
-                        className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
                           isSelected 
                             ? 'border-primary bg-primary/5 shadow-sm' 
                             : 'border-border hover:border-muted-foreground/30 hover:bg-muted/30'
                         }`}
                         onClick={() => handleTipoContatoChange(opcao.value)}
                       >
-                        <RadioGroupItem 
-                          value={opcao.value} 
-                          id={opcao.value} 
-                          className="h-5 w-5 border-2"
-                        />
-                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-background' : 'bg-muted/50'}`}>
-                          <Icon className={`w-5 h-5 ${opcao.color}`} />
+                        <div className="flex items-center gap-4">
+                          <RadioGroupItem
+                            value={opcao.value}
+                            id={opcao.value}
+                            className="h-5 w-5 border-2"
+                          />
+                          <div className={`p-2 rounded-lg ${isSelected ? 'bg-background' : 'bg-muted/50'}`}>
+                            <Icon className={`w-5 h-5 ${opcao.color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={opcao.value}
+                              className="block text-[15px] font-medium cursor-pointer leading-tight"
+                            >
+                              {opcao.label}
+                            </label>
+                            <p className="text-sm text-foreground/60 mt-0.5 leading-snug">
+                              {opcao.description}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <label
-                            htmlFor={opcao.value}
-                            className="block text-[15px] font-medium cursor-pointer leading-tight"
+                        {opcao.value === 'nao_vai_participar' && isSelected && (
+                          <div
+                            className="space-y-2 mt-4 pt-4 border-t border-primary/20 animate-in fade-in slide-in-from-top-2 duration-200"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            {opcao.label}
-                          </label>
-                          <p className="text-sm text-foreground/60 mt-0.5 leading-snug">
-                            {opcao.description}
-                          </p>
-                        </div>
-                      </div>
-                      {opcao.value === 'nao_vai_participar' && isSelected && (
-                        <div className="space-y-3 pl-4 pr-2 pb-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                          <Label className="text-sm font-semibold text-foreground">
-                            Motivo de Insucesso *
-                          </Label>
-                          <Select value={motivoId} onValueChange={setMotivoId}>
-                            <SelectTrigger className="h-11 text-[15px]">
-                              <SelectValue placeholder="Selecione o motivo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {loadingMotivos ? (
-                                <SelectItem value="loading" disabled>
-                                  Carregando...
-                                </SelectItem>
-                              ) : (
-                                motivos.map((motivo) => (
-                                  <SelectItem
-                                    key={motivo.id}
-                                    value={motivo.id}
-                                    className="text-[15px] py-3"
-                                  >
-                                    {motivo.descricao}
+                            <Label className="text-sm font-semibold text-foreground">
+                              Motivo de Insucesso *
+                            </Label>
+                            <Select value={motivoId} onValueChange={setMotivoId}>
+                              <SelectTrigger className="h-11 text-[15px]">
+                                <SelectValue placeholder="Selecione o motivo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {loadingMotivos ? (
+                                  <SelectItem value="loading" disabled>
+                                    Carregando...
                                   </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                                ) : (
+                                  motivos.map((motivo) => (
+                                    <SelectItem
+                                      key={motivo.id}
+                                      value={motivo.id}
+                                      className="text-[15px] py-3"
+                                    >
+                                      {motivo.descricao}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
                       </React.Fragment>
                     );
                   })}
