@@ -89,7 +89,7 @@ export function ContatoRealizadoDialog({
       return;
     }
 
-    if (tipoContato === 'registrar_contato' && !anotacao.trim()) {
+    if ((tipoContato === 'registrar_contato' || tipoContato === 'opt_out') && !anotacao.trim()) {
       toast({
         title: "Anotação obrigatória",
         description: "Detalhe o contato realizado",
