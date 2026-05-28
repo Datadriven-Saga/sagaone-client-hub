@@ -121,9 +121,15 @@ export function ContatoRealizadoDialog({
 
       // Se não vai participar, adicionar o motivo
       if (tipoContato === 'nao_vai_participar' && motivoId) {
-        const motivoSelecionado = motivos.find(m => m.id === motivoId);
-        if (motivoSelecionado) {
-          descricaoCompleta += `\n\nMotivo: ${motivoSelecionado.descricao}`;
+        let motivoTexto: string | undefined;
+        if (motivoId === 'nao_tem_interesse') {
+          motivoTexto = 'Não tem interesse';
+        } else {
+          const motivoSelecionado = motivos.find(m => m.id === motivoId);
+          motivoTexto = motivoSelecionado?.descricao;
+        }
+        if (motivoTexto) {
+          descricaoCompleta += `\n\nMotivo: ${motivoTexto}`;
         }
       }
 
@@ -324,20 +330,25 @@ export function ContatoRealizadoDialog({
                                 <SelectValue placeholder="Selecione o motivo" />
                               </SelectTrigger>
                               <SelectContent>
-                                {loadingMotivos ? (
+                              {loadingMotivos ? (
                                   <SelectItem value="loading" disabled>
                                     Carregando...
                                   </SelectItem>
                                 ) : (
-                                  motivos.map((motivo) => (
-                                    <SelectItem
-                                      key={motivo.id}
-                                      value={motivo.id}
-                                      className="text-[15px] py-3"
-                                    >
-                                      {motivo.descricao}
+                                  <>
+                                    {motivos.map((motivo) => (
+                                      <SelectItem
+                                        key={motivo.id}
+                                        value={motivo.id}
+                                        className="text-[15px] py-3"
+                                      >
+                                        {motivo.descricao}
+                                      </SelectItem>
+                                    ))}
+                                    <SelectItem value="nao_tem_interesse" className="text-[15px] py-3">
+                                      Não tem interesse
                                     </SelectItem>
-                                  ))
+                                  </>
                                 )}
                               </SelectContent>
                             </Select>
