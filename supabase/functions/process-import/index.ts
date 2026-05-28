@@ -777,87 +777,83 @@ async function processBatch(
 
     if (legacyMap.size > 0) {
       const legacyPhones = [...legacyMap.keys()];
-      const CHUNK = 200;
-      for (let i = 0; i < legacyPhones.length; i += CHUNK) {
-        const chunk = legacyPhones.slice(i, i + CHUNK);
-        const { data: existentes, error: fetchErr } = await supabase
-          .from('contatos')
-          .select('id, telefone')
-          .eq('empresa_id', empresaId)
-          .in('telefone', chunk);
+      const novosTels = [...new Set(legacyMap.values())];
+      const allTels = [...new Set([...legacyPhones, ...novosTels])];
 
-        if (fetchErr) {
-          console.warn('⚠️ Falha ao buscar telefones legados:', fetchErr.message);
-          continue;
+      // 1 RPC para buscar legados E novos já existentes da empresa
+      const { data: existentes, error: fetchErr } = await supabase.rpc('get_contatos_by_telefones', {
+        p_empresa_id: empresaId,
+        p_telefones: allTels,
+      });
+
+      if (fetchErr) {
+        console.warn('⚠️ Falha ao buscar telefones legados (bulk):', fetchErr.message);
+      } else {
+        const byTelefone = new Map<string, string>(); // telefone → id
+        for (const row of (existentes || [])) {
+          if (row?.telefone && row?.id) byTelefone.set(row.telefone, row.id);
         }
 
-        for (const row of (existentes || [])) {
-          const novoTel = legacyMap.get(row.telefone);
-          if (!novoTel) continue;
+        const toUpdate: { contato_id: string; telefone_novo: string }[] = [];
+        const toMerge: { legacyId: string; novoId: string; legacyTel: string; novoTel: string }[] = [];
 
-          // Verifica se já existe um contato com o telefone novo (sem 9) na empresa.
-          const { data: jaExiste } = await supabase
-            .from('contatos')
-            .select('id')
-            .eq('empresa_id', empresaId)
-            .eq('telefone', novoTel)
-            .neq('id', row.id)
-            .limit(1)
-            .maybeSingle();
-
-          if (jaExiste) {
-            // AMBOS existem → mesclar: mover dependências do legado para o novo e deletar o legado
-            const legacyId = row.id as string;
-            const novoId = jaExiste.id as string;
-            try {
-              // Move vínculos de eventos_prospeccao do legado para o novo (evita duplicar vínculos)
-              const { data: legacyVinculos } = await supabase
-                .from('eventos_prospeccao')
-                .select('id, prospeccao_id')
-                .eq('contato_id', legacyId);
-
-              for (const v of (legacyVinculos || [])) {
-                const { data: jaVinculado } = await supabase
-                  .from('eventos_prospeccao')
-                  .select('id')
-                  .eq('contato_id', novoId)
-                  .eq('prospeccao_id', v.prospeccao_id)
-                  .limit(1)
-                  .maybeSingle();
-                if (jaVinculado) {
-                  // Já existe vínculo no novo → apenas remove o legado
-                  await supabase.from('eventos_prospeccao').delete().eq('id', v.id);
-                } else {
-                  await supabase.from('eventos_prospeccao').update({ contato_id: novoId }).eq('id', v.id);
-                }
-              }
-
-              // Move timeline do legado para o novo
-              await supabase.from('contato_timeline').update({ contato_id: novoId }).eq('contato_id', legacyId);
-
-              // Deleta o contato legado (com 9)
-              const { error: delErr } = await supabase.from('contatos').delete().eq('id', legacyId);
-              if (delErr) {
-                console.warn(`⚠️ Falha ao deletar legado ${row.telefone}:`, delErr.message);
-              } else {
-                console.log(`🔀 Mesclado: legado ${row.telefone} (${legacyId}) → novo ${novoTel} (${novoId})`);
-              }
-            } catch (mergeErr: any) {
-              console.warn(`⚠️ Falha ao mesclar ${row.telefone} → ${novoTel}:`, mergeErr?.message || mergeErr);
-            }
-            continue;
+        for (const [legacyTel, novoTel] of legacyMap.entries()) {
+          const legacyId = byTelefone.get(legacyTel);
+          if (!legacyId) continue;
+          const novoId = byTelefone.get(novoTel);
+          if (novoId && novoId !== legacyId) {
+            toMerge.push({ legacyId, novoId, legacyTel, novoTel });
+          } else if (!novoId) {
+            toUpdate.push({ contato_id: legacyId, telefone_novo: novoTel });
           }
+        }
 
-          // Apenas o legado existe → atualiza para o formato sem 9
-          const { error: updErr } = await supabase
-            .from('contatos')
-            .update({ telefone: novoTel, updated_at: new Date().toISOString() })
-            .eq('id', row.id);
-
-          if (updErr) {
-            console.warn(`⚠️ Falha ao normalizar telefone ${row.telefone} → ${novoTel}:`, updErr.message);
+        // 1 RPC para os updates seguros
+        if (toUpdate.length > 0) {
+          const { data: updCount, error: bulkErr } = await supabase.rpc('bulk_update_telefones_contatos', {
+            p_empresa_id: empresaId,
+            p_items: toUpdate as any,
+          });
+          if (bulkErr) {
+            console.warn('⚠️ Falha em bulk_update_telefones_contatos:', bulkErr.message);
           } else {
-            console.log(`📞 Telefone normalizado (importação): ${row.telefone} → ${novoTel}`);
+            console.log(`📞 Bulk normalizou ${updCount ?? toUpdate.length} telefones legados`);
+          }
+        }
+
+        // Merges continuam linha-a-linha (raros, dependem de transferência de FKs)
+        for (const m of toMerge) {
+          try {
+            const { data: legacyVinculos } = await supabase
+              .from('eventos_prospeccao')
+              .select('id, prospeccao_id')
+              .eq('contato_id', m.legacyId);
+
+            for (const v of (legacyVinculos || [])) {
+              const { data: jaVinculado } = await supabase
+                .from('eventos_prospeccao')
+                .select('id')
+                .eq('contato_id', m.novoId)
+                .eq('prospeccao_id', v.prospeccao_id)
+                .limit(1)
+                .maybeSingle();
+              if (jaVinculado) {
+                await supabase.from('eventos_prospeccao').delete().eq('id', v.id);
+              } else {
+                await supabase.from('eventos_prospeccao').update({ contato_id: m.novoId }).eq('id', v.id);
+              }
+            }
+
+            await supabase.from('contato_timeline').update({ contato_id: m.novoId }).eq('contato_id', m.legacyId);
+
+            const { error: delErr } = await supabase.from('contatos').delete().eq('id', m.legacyId);
+            if (delErr) {
+              console.warn(`⚠️ Falha ao deletar legado ${m.legacyTel}:`, delErr.message);
+            } else {
+              console.log(`🔀 Mesclado: ${m.legacyTel} → ${m.novoTel}`);
+            }
+          } catch (mergeErr: any) {
+            console.warn(`⚠️ Falha ao mesclar ${m.legacyTel} → ${m.novoTel}:`, mergeErr?.message || mergeErr);
           }
         }
       }
