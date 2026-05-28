@@ -136,26 +136,40 @@ Deno.serve(async (req: Request) => {
 
     console.log(`✅ [${requestId}] Contatos criados: ${contatosCriados}, total lead_ids agora: ${phoneToLeadId.size}`);
 
-    // 4) Atualizar prospect_pri_voz com lead_id
+    // 4) Atualizar prospect_pri_voz com lead_id (bulk via RPC)
     let updatedCount = 0;
+    const updateErrors: string[] = [];
+    const updateItems: { id_evento: number; telefone_lead: string; lead_id: string }[] = [];
     for (const prospect of allProspects) {
       const norm = normalizePhoneTo10Digits(prospect.telefone_lead);
       const leadId = norm ? phoneToLeadId.get(norm) : null;
-      
-      if (leadId && prospect.lead_id !== leadId) {
-        const { error: updateErr } = await supabase
-          .from('prospect_pri_voz')
-          .update({ lead_id: leadId, atualizado_em: new Date().toISOString() })
-          .eq('id', prospect.id);
-        
-        if (!updateErr) {
-          updatedCount++;
-          prospect.lead_id = leadId;
-        }
+      if (leadId && prospect.lead_id !== String(leadId)) {
+        updateItems.push({
+          id_evento: Number(id_evento),
+          telefone_lead: prospect.telefone_lead,
+          lead_id: String(leadId),
+        });
+        prospect.lead_id = leadId;
       }
     }
 
-    console.log(`✅ [${requestId}] ${updatedCount} prospects atualizados com lead_id`);
+    const UPDATE_BATCH = 500;
+    for (let i = 0; i < updateItems.length; i += UPDATE_BATCH) {
+      const slice = updateItems.slice(i, i + UPDATE_BATCH);
+      const { data: cnt, error: bulkErr } = await supabase.rpc('bulk_update_lead_ids', {
+        p_items: slice as any,
+      });
+      if (bulkErr) {
+        updateErrors.push(`batch ${Math.floor(i / UPDATE_BATCH) + 1} (${slice.length} itens): ${bulkErr.message}`);
+      } else {
+        updatedCount += Number(cnt || 0);
+      }
+    }
+
+    console.log(`✅ [${requestId}] ${updatedCount} prospects atualizados com lead_id (bulk, ${updateErrors.length} batches falharam)`);
+    if (updateErrors.length > 0) {
+      console.error(`⚠️ [${requestId}] Erros de bulk_update_lead_ids:`, updateErrors);
+    }
 
     // 5) Reenviar TODOS para o webhook externo com lead_id
     const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
@@ -223,6 +237,7 @@ Deno.serve(async (req: Request) => {
       webhook_falhas: externalFail,
       com_lead_id: comLeadId,
       sem_lead_id: semLeadId,
+      update_errors: updateErrors,
     };
 
     console.log(`✅ [${requestId}] RESYNC concluído:`, JSON.stringify(result));
