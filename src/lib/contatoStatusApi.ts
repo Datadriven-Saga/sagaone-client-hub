@@ -58,12 +58,22 @@ export async function setContatoStatus(input: SetContatoStatusInput): Promise<Se
   async function getFreshAccessToken(forceRefresh = false): Promise<string | null> {
     const { data } = await supabase.auth.getSession();
     const session = data?.session;
-    if (!session) return null;
+    if (!session) {
+      if (!forceRefresh) return null;
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      return refreshed?.session?.access_token ?? null;
+    }
     const expiresAt = (session.expires_at ?? 0) * 1000;
     const msLeft = expiresAt - Date.now();
     if (forceRefresh || msLeft < 120_000) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      return refreshed?.session?.access_token ?? session.access_token ?? null;
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError && refreshed?.session?.access_token) {
+        return refreshed.session.access_token;
+      }
+      if (msLeft > 0 && session.access_token) {
+        return session.access_token;
+      }
+      return null;
     }
     return session.access_token ?? null;
   }
@@ -99,7 +109,7 @@ export async function setContatoStatus(input: SetContatoStatusInput): Promise<Se
     // Retry 1x em 401: força refresh do JWT e tenta de novo
     if (res.status === 401) {
       const refreshed = await getFreshAccessToken(true);
-      if (refreshed && refreshed !== accessToken) {
+      if (refreshed) {
         accessToken = refreshed;
         res = await doFetch(accessToken);
       }
