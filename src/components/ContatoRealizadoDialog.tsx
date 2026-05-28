@@ -11,6 +11,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
+import { setContatoStatus } from '@/lib/contatoStatusApi';
 
 interface MotivoInsucesso {
   id: string;
@@ -88,7 +89,7 @@ export function ContatoRealizadoDialog({
       return;
     }
 
-    if (!anotacao.trim()) {
+    if (tipoContato === 'registrar_contato' && !anotacao.trim()) {
       toast({
         title: "Anotação obrigatória",
         description: "Detalhe o contato realizado",
@@ -109,14 +110,18 @@ export function ContatoRealizadoDialog({
     setLoading(true);
     try {
       // Montar a descrição da anotação
-      const tipoDescricao = {
+      const tipoDescricao: Record<TipoContato, string> = {
         vai_participar: '✅ CLIENTE VAI PARTICIPAR',
         registrar_contato: '📞 CONTATO REALIZADO',
         tentativa_sem_sucesso: '📵 TENTATIVA SEM SUCESSO',
-        nao_vai_participar: '❌ CLIENTE NÃO VAI PARTICIPAR'
+        nao_vai_participar: '❌ CLIENTE NÃO VAI PARTICIPAR',
+        opt_out: '🔕 OPT OUT SOLICITADO',
       };
 
-      let descricaoCompleta = `${tipoDescricao[tipoContato]}\n\n${anotacao}`;
+      const anotacaoTrim = anotacao.trim();
+      let descricaoCompleta = anotacaoTrim
+        ? `${tipoDescricao[tipoContato]}\n\n${anotacaoTrim}`
+        : tipoDescricao[tipoContato];
 
       // Se não vai participar, adicionar o motivo
       if (tipoContato === 'nao_vai_participar' && motivoId) {
@@ -153,13 +158,22 @@ export function ContatoRealizadoDialog({
       }
 
       if (novoStatus) {
-        const { error: updateError } = await supabase
-          .from('contatos')
-          .update({ status: novoStatus })
-          .eq('id', contatoId);
+        const statusResult = await setContatoStatus({
+          contatoId,
+          novoStatus,
+          prospeccaoId,
+          observacoes: descricaoCompleta,
+          webhookKind: 'atualizacao_status',
+        });
 
-        if (updateError) {
-          console.error('Erro ao atualizar status:', updateError);
+        if (!statusResult.ok) {
+          console.error('Erro ao atualizar status:', statusResult.error);
+          toast({
+            title: "Erro ao atualizar status",
+            description: statusResult.error ?? "Tente novamente.",
+            variant: "destructive",
+          });
+          return;
         }
       }
 
