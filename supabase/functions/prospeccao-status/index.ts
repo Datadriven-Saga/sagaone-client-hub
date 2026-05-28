@@ -138,20 +138,15 @@ serve(async (req) => {
     } else if (token) {
       // Tentar validar como JWT do usuário (respeita RLS)
       console.log('🔐 Autenticação via JWT de usuário');
-      supabaseClient = createClient(
+      const authClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: authHeader ? { authorization: authHeader } : {},
-          },
-        }
+        { auth: { persistSession: false } }
       );
 
-      // Validar JWT em código (verify_jwt=false no config)
-      const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-      if (claimsError || !claimsData?.claims) {
+      const { data: userData, error: userError } = await authClient.auth.getUser(token);
+      if (userError || !userData?.user) {
+        console.warn('❌ prospeccao-status: token inválido/expirado', userError?.message);
         return new Response(
           JSON.stringify({
             error: 'Token inválido ou expirado',
@@ -161,8 +156,19 @@ serve(async (req) => {
         );
       }
 
-      userId = claimsData.claims.sub;
-      userEmail = (claimsData.claims as any).email;
+      supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: authHeader ? { Authorization: authHeader } : {},
+          },
+        }
+      );
+
+      userId = userData.user.id;
+      userEmail = userData.user.email ?? undefined;
     } else {
       // Sem autenticação válida
       console.log('❌ Sem autenticação válida');
