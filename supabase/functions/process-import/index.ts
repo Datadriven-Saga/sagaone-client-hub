@@ -122,14 +122,17 @@ Deno.serve(async (req: Request) => {
       import_log_id,
       telefones_skip,
       force_status_novo,
+      worker_id: workerIdFromBody,
     }: {
       import_log_id?: string;
       telefones_skip?: string[];
       force_status_novo?: boolean;
+      worker_id?: string;
     } = reqBody || {};
 
     const skipSet = new Set<string>(Array.isArray(telefones_skip) ? telefones_skip : []);
     const forceStatusNovo = Boolean(force_status_novo);
+    const workerId: string = workerIdFromBody || crypto.randomUUID();
 
     if (!import_log_id) {
       return new Response(JSON.stringify({ error: 'import_log_id is required' }), {
@@ -198,8 +201,24 @@ Deno.serve(async (req: Request) => {
 
     console.log(`🚀 Processing import ${import_log_id}, offset: ${log.current_offset}`);
 
+    // Lock atômico via RPC. Falha se outro worker está processando ou se
+    // chain_count >= 20. Mesma chain re-entra reusando o mesmo worker_id.
+    {
+      const { error: claimErr } = await supabaseAdmin.rpc('claim_import_processing', {
+        p_import_id: import_log_id,
+        p_worker_id: workerId,
+        p_max_chains: 20,
+      });
+      if (claimErr) {
+        console.warn(`🔒 [${workerId}] Claim failed for ${import_log_id}: ${claimErr.message}`);
+        return new Response(JSON.stringify({ status: 'locked', error: claimErr.message }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     await supabaseAdmin.from('import_logs').update({
-      status: 'processing',
       message: 'Baixando arquivo do servidor...',
     }).eq('id', import_log_id);
 
