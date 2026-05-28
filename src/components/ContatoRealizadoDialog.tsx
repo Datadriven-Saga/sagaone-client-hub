@@ -121,9 +121,15 @@ export function ContatoRealizadoDialog({
 
       // Se não vai participar, adicionar o motivo
       if (tipoContato === 'nao_vai_participar' && motivoId) {
-        const motivoSelecionado = motivos.find(m => m.id === motivoId);
-        if (motivoSelecionado) {
-          descricaoCompleta += `\n\nMotivo: ${motivoSelecionado.descricao}`;
+        let motivoTexto: string | undefined;
+        if (motivoId === 'nao_tem_interesse') {
+          motivoTexto = 'Não tem interesse';
+        } else {
+          const motivoSelecionado = motivos.find(m => m.id === motivoId);
+          motivoTexto = motivoSelecionado?.descricao;
+        }
+        if (motivoTexto) {
+          descricaoCompleta += `\n\nMotivo: ${motivoTexto}`;
         }
       }
 
