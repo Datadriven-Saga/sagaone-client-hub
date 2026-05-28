@@ -285,8 +285,8 @@ export function ContatoRealizadoDialog({
                     const Icon = opcao.icon;
                     const isSelected = tipoContato === opcao.value;
                     return (
+                      <React.Fragment key={opcao.value}>
                       <div
-                        key={opcao.value}
                         className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
                           isSelected 
                             ? 'border-primary bg-primary/5 shadow-sm' 
@@ -314,40 +314,40 @@ export function ContatoRealizadoDialog({
                           </p>
                         </div>
                       </div>
+                      {opcao.value === 'nao_vai_participar' && isSelected && (
+                        <div className="space-y-3 pl-4 pr-2 pb-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <Label className="text-sm font-semibold text-foreground">
+                            Motivo de Insucesso *
+                          </Label>
+                          <Select value={motivoId} onValueChange={setMotivoId}>
+                            <SelectTrigger className="h-11 text-[15px]">
+                              <SelectValue placeholder="Selecione o motivo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {loadingMotivos ? (
+                                <SelectItem value="loading" disabled>
+                                  Carregando...
+                                </SelectItem>
+                              ) : (
+                                motivos.map((motivo) => (
+                                  <SelectItem
+                                    key={motivo.id}
+                                    value={motivo.id}
+                                    className="text-[15px] py-3"
+                                  >
+                                    {motivo.descricao}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                 </RadioGroup>
 
-                {/* Motivo de Insucesso */}
-                {tipoContato === 'nao_vai_participar' && (
-                  <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <Label className="text-base font-semibold text-foreground">
-                      Motivo de Insucesso *
-                    </Label>
-                    <Select value={motivoId} onValueChange={setMotivoId}>
-                      <SelectTrigger className="h-12 text-[15px]">
-                        <SelectValue placeholder="Selecione o motivo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingMotivos ? (
-                          <SelectItem value="loading" disabled>
-                            Carregando...
-                          </SelectItem>
-                        ) : (
-                          motivos.map((motivo) => (
-                            <SelectItem 
-                              key={motivo.id} 
-                              value={motivo.id}
-                              className="text-[15px] py-3"
-                            >
-                              {motivo.descricao}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
               </div>
 
               {/* Coluna Direita - Anotações */}
