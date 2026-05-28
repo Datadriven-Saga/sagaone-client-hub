@@ -438,6 +438,12 @@ Deno.serve(async (req: Request) => {
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
 
+        // Renova lock para evitar que watchdog mate a importação no meio do batch
+        await supabaseAdmin.rpc('heartbeat_import_processing', {
+          p_import_id: import_log_id,
+          p_worker_id: workerId,
+        });
+
         batch = [];
       }
     }
@@ -486,6 +492,7 @@ Deno.serve(async (req: Request) => {
           import_log_id,
           telefones_skip: Array.from(skipSet),
           force_status_novo: forceStatusNovo,
+          worker_id: workerId,
         }),
       }).catch(err => console.error('Self-chain error:', err));
 
