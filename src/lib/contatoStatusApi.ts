@@ -44,6 +44,10 @@ export type SetContatoStatusResult = {
 const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
+function isJwtLike(token: string | null | undefined): token is string {
+  return typeof token === 'string' && /^[^.]+\.[^.]+\.[^.]+$/.test(token);
+}
+
 export async function setContatoStatus(input: SetContatoStatusInput): Promise<SetContatoStatusResult> {
   const { contatoId, novoStatus, prospeccaoId, observacoes, skipWebhooks, webhookKind } = input;
 
@@ -61,21 +65,25 @@ export async function setContatoStatus(input: SetContatoStatusInput): Promise<Se
     if (!session) {
       if (!forceRefresh) return null;
       const { data: refreshed } = await supabase.auth.refreshSession();
-      return refreshed?.session?.access_token ?? null;
+      return isJwtLike(refreshed?.session?.access_token) ? refreshed!.session!.access_token : null;
     }
+
+    const currentAccessToken = session.access_token;
     const expiresAt = (session.expires_at ?? 0) * 1000;
     const msLeft = expiresAt - Date.now();
-    if (forceRefresh || msLeft < 120_000) {
+    const tokenLooksInvalid = !isJwtLike(currentAccessToken);
+
+    if (forceRefresh || tokenLooksInvalid || msLeft < 120_000) {
       const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-      if (!refreshError && refreshed?.session?.access_token) {
+      if (!refreshError && isJwtLike(refreshed?.session?.access_token)) {
         return refreshed.session.access_token;
       }
-      if (msLeft > 0 && session.access_token) {
-        return session.access_token;
+      if (!tokenLooksInvalid && msLeft > 0 && isJwtLike(currentAccessToken)) {
+        return currentAccessToken;
       }
       return null;
     }
-    return session.access_token ?? null;
+    return isJwtLike(currentAccessToken) ? currentAccessToken : null;
   }
 
   let accessToken = await getFreshAccessToken(false);
