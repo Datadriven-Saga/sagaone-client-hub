@@ -353,7 +353,7 @@ export function ContatoRealizadoDialog({
               {/* Coluna Direita - Anotações */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold text-foreground">
-                  Anotações *
+                  Anotações{tipoContato === 'registrar_contato' ? ' *' : ''}
                 </Label>
                 <Textarea
                   ref={anotacaoRef}
