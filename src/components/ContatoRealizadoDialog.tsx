@@ -47,10 +47,6 @@ export function ContatoRealizadoDialog({
 
   const handleTipoContatoChange = (value: TipoContato) => {
     setTipoContato(value);
-    // Focar no campo de anotação após selecionar uma opção
-    setTimeout(() => {
-      anotacaoRef.current?.focus();
-    }, 100);
   };
 
   useEffect(() => {
