@@ -2504,6 +2504,7 @@ export type Database = {
         Row: {
           already_linked: number | null
           base_id: string | null
+          chain_count: number
           created_at: string
           current_offset: number | null
           empresa_id: string
@@ -2513,7 +2514,9 @@ export type Database = {
           file_path: string
           id: string
           inserted: number | null
+          last_heartbeat_at: string | null
           linked: number | null
+          locked_until: string | null
           message: string | null
           origem: string | null
           processed_rows: number | null
@@ -2527,10 +2530,12 @@ export type Database = {
           updated_at: string
           user_id: string
           warning_details: Json
+          worker_id: string | null
         }
         Insert: {
           already_linked?: number | null
           base_id?: string | null
+          chain_count?: number
           created_at?: string
           current_offset?: number | null
           empresa_id: string
@@ -2540,7 +2545,9 @@ export type Database = {
           file_path: string
           id?: string
           inserted?: number | null
+          last_heartbeat_at?: string | null
           linked?: number | null
+          locked_until?: string | null
           message?: string | null
           origem?: string | null
           processed_rows?: number | null
@@ -2554,10 +2561,12 @@ export type Database = {
           updated_at?: string
           user_id: string
           warning_details?: Json
+          worker_id?: string | null
         }
         Update: {
           already_linked?: number | null
           base_id?: string | null
+          chain_count?: number
           created_at?: string
           current_offset?: number | null
           empresa_id?: string
@@ -2567,7 +2576,9 @@ export type Database = {
           file_path?: string
           id?: string
           inserted?: number | null
+          last_heartbeat_at?: string | null
           linked?: number | null
+          locked_until?: string | null
           message?: string | null
           origem?: string | null
           processed_rows?: number | null
@@ -2581,6 +2592,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           warning_details?: Json
+          worker_id?: string | null
         }
         Relationships: [
           {
@@ -5941,6 +5953,11 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      bulk_update_lead_ids: { Args: { p_items: Json }; Returns: number }
+      bulk_update_telefones_contatos: {
+        Args: { p_empresa_id: string; p_items: Json }
+        Returns: number
+      }
       bulk_upsert_contatos: {
         Args: {
           p_canal?: string
@@ -5992,6 +6009,50 @@ export type Database = {
       check_user_is_admin: {
         Args: { user_id_param?: string }
         Returns: boolean
+      }
+      claim_import_processing: {
+        Args: {
+          p_import_id: string
+          p_max_chains?: number
+          p_worker_id: string
+        }
+        Returns: {
+          already_linked: number | null
+          base_id: string | null
+          chain_count: number
+          created_at: string
+          current_offset: number | null
+          empresa_id: string
+          error_details: Json | null
+          errors: number | null
+          file_name: string
+          file_path: string
+          id: string
+          inserted: number | null
+          last_heartbeat_at: string | null
+          linked: number | null
+          locked_until: string | null
+          message: string | null
+          origem: string | null
+          processed_rows: number | null
+          prospeccao_id: string | null
+          quarantined: number | null
+          responsavel_applied: number
+          responsavel_skipped: number
+          status: string
+          total_rows: number | null
+          updated: number | null
+          updated_at: string
+          user_id: string
+          warning_details: Json
+          worker_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "import_logs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       count_vendedor_leads_pendentes: {
         Args: { user_id_param: string }
@@ -6082,6 +6143,13 @@ export type Database = {
           metadata: Json
           tipo: string
           usuario_nome: string
+        }[]
+      }
+      get_contatos_by_telefones: {
+        Args: { p_empresa_id: string; p_telefones: string[] }
+        Returns: {
+          id: string
+          telefone: string
         }[]
       }
       get_contatos_metricas: { Args: { p_empresa_id: string }; Returns: Json }
@@ -6319,6 +6387,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      heartbeat_import_processing: {
+        Args: { p_import_id: string; p_worker_id: string }
+        Returns: boolean
+      }
       importar_pool_para_evento: {
         Args: { p_empresa_id: string; p_itens: Json; p_prospeccao_id: string }
         Returns: Json
@@ -6338,6 +6410,7 @@ export type Database = {
         Returns: boolean
       }
       is_mfa_master: { Args: { check_user_id?: string }; Returns: boolean }
+      mark_stale_imports_as_error: { Args: never; Returns: number }
       mask_sensitive_data: {
         Args: {
           data_type: string
