@@ -2562,7 +2562,7 @@ showAllEvents: true
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
                                     <p className="text-xs">
-                                      Código do evento na PRI. Use no nome da campanha com o padrão <strong>[EVENTO][ID_PRI=XXX]</strong> para direcionar leads automaticamente para este evento. Sem esse código, os leads serão roteados para o evento mais recente da loja.
+                                      Código do evento na PRI. Use no nome da campanha com o padrão <strong>[EVENTO][IDPRI=XXX]</strong> para direcionar leads automaticamente para este evento. Sem esse código, os leads serão roteados para o evento mais recente da loja.
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
