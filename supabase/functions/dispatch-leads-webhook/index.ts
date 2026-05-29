@@ -51,6 +51,7 @@ interface RequestBody {
     data_fim: string | null;
     template_prospeccao_id: string | null; // UUID do template
   };
+  user_id?: string | null; // opcional: usuário que iniciou o disparo (para audit log)
 }
 
 // Função para resolver variáveis do template com valores reais do lead
@@ -134,7 +135,7 @@ serve(async (req) => {
   try {
     // Parse request body
     const body: RequestBody = await req.json();
-    const { leads, prospeccao_id, empresa_id, prospeccao_data } = body;
+    const { leads, prospeccao_id, empresa_id, prospeccao_data, user_id } = body;
 
     console.log(`📥 [${requestId}] Dados recebidos:`);
     console.log(`   ├─ Total de leads: ${leads?.length || 0}`);
@@ -188,6 +189,58 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // ============================================================
+    // Helper: registrar log de disparo server-side (fire-and-forget)
+    // ============================================================
+    const registrarLogDisparoServer = async (
+      totalSucesso: number,
+      totalFalha: number
+    ) => {
+      try {
+        if (!user_id) return; // sem user_id não temos como atribuir
+        let nome: string | null = null;
+        let email: string | null = null;
+        let perfil: string | null = null;
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('nome_completo, tipo_acesso')
+            .eq('id', user_id)
+            .maybeSingle();
+          nome = profile?.nome_completo || null;
+          perfil = profile?.tipo_acesso || null;
+          const { data: userRow } = await supabase.auth.admin.getUserById(user_id);
+          email = userRow?.user?.email || null;
+        } catch {}
+
+        const total = totalSucesso + totalFalha;
+        const VALOR_UNITARIO_USD = isIALigacao ? 0 : 0.06;
+        await supabase.from('logs_disparos').insert({
+          usuario_id: user_id,
+          usuario_nome: nome,
+          usuario_email: email,
+          usuario_perfil: perfil,
+          prospeccao_id,
+          evento_nome: prospeccao_data?.titulo || '',
+          canal: prospeccao_data?.canal || (isIALigacao ? 'Ligação' : 'Whatsapp'),
+          total_contatos: total,
+          total_sucesso: totalSucesso,
+          total_falha: totalFalha,
+          empresa_id,
+          marca: empresaData?.marca || null,
+          uf: empresaData?.uf || null,
+          template_id: prospeccao_data?.template_prospeccao_id || null,
+          template_nome: templateNome || null,
+          tipo_evento: prospeccao_data?.canal || null,
+          origem: 'edge_function',
+          valor_unitario_usd: VALOR_UNITARIO_USD,
+          custo_total_usd: total * VALOR_UNITARIO_USD,
+        });
+      } catch (e: any) {
+        console.warn(`⚠️ [${requestId}] Falha ao registrar log_disparo (não crítico):`, e?.message);
+      }
+    };
 
     console.log(`\n📊 [${requestId}] Buscando dados da empresa e agentes...`);
 
@@ -524,7 +577,8 @@ serve(async (req) => {
           }
 
           const totalDuration = Date.now() - startTime;
-          
+          await registrarLogDisparoServer(leads.length, 0);
+
           return new Response(
             JSON.stringify({ 
               success: true,
@@ -545,7 +599,8 @@ serve(async (req) => {
         } else {
           console.error(`\n❌ [${requestId}] Webhook Ligação FALHOU - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
           console.error(`   └─ Resposta: ${responseBody.substring(0, 300)}${responseBody.length > 300 ? '...' : ''}`);
-          
+          await registrarLogDisparoServer(0, leads.length);
+
           return new Response(
             JSON.stringify({ 
               success: false,
@@ -564,7 +619,8 @@ serve(async (req) => {
         }
       } catch (err: any) {
         console.error(`\n❌ [${requestId}] Erro de rede ao chamar webhook Ligação:`, err.message);
-        
+        await registrarLogDisparoServer(0, leads.length);
+
         return new Response(
           JSON.stringify({ 
             success: false,
@@ -760,6 +816,9 @@ serve(async (req) => {
         console.log(`   ${i + 1}. ${r.nome} (${r.lead_id}): ${r.error}`);
       });
     }
+
+    // Log server-side consolidado (WhatsApp)
+    await registrarLogDisparoServer(sucessos, falhas);
 
     return new Response(
       JSON.stringify({ 
