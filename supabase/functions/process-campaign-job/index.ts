@@ -82,6 +82,24 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       .eq('id', job.empresa_id)
       .single();
 
+    // Buscar dados do usuário criador do job para enriquecer logs_disparos
+    let logUserNome: string | null = null;
+    let logUserEmail: string | null = null;
+    let logUserPerfil: string | null = null;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('nome_completo, tipo_acesso')
+        .eq('id', job.user_id)
+        .maybeSingle();
+      logUserNome = profile?.nome_completo || null;
+      logUserPerfil = profile?.tipo_acesso || null;
+      const { data: userRow } = await supabase.auth.admin.getUserById(job.user_id);
+      logUserEmail = userRow?.user?.email || null;
+    } catch (e) {
+      console.warn('⚠️ [BG] Falha ao buscar profile/email para log:', (e as any)?.message);
+    }
+
     // Buscar agentes
     const { data: agentesVinculados } = await supabase
       .from('agente_empresas')
@@ -114,6 +132,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
     // Buscar template para WhatsApp
     let variableMapping: Record<string, any> | null = null;
     let temVariavel = 'Não';
+    let templateNome: string | null = null;
 
     if (!isIALigacao && prospeccao.template_prospeccao_id) {
       const { data: templateData } = await supabase
@@ -126,6 +145,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       if (templateData) {
         variableMapping = templateData.variable_mapping as Record<string, any> | null;
         temVariavel = /\{\{\d+\}\}/.test(templateData.conteudo || '') ? 'Sim' : 'Não';
+        templateNome = templateData.nome || null;
       }
     }
 
@@ -520,6 +540,37 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
           failed_records: totalFailed,
           updated_at: new Date().toISOString(),
         }).eq('id', job_id);
+
+        // ========== LOG SERVER-SIDE DE DISPARO (auditoria por batch) ==========
+        try {
+          const totalBatch = successLeadIds.length + failedLeadIds.length;
+          const VALOR_UNITARIO_USD = isIALigacao ? 0 : 0.06;
+          await supabase.from('logs_disparos').insert({
+            usuario_id: job.user_id,
+            usuario_nome: logUserNome,
+            usuario_email: logUserEmail,
+            usuario_perfil: logUserPerfil,
+            prospeccao_id: job.prospeccao_id,
+            evento_nome: prospeccao.titulo || '',
+            canal: prospeccao.canal || (isIALigacao ? 'Ligação' : 'Whatsapp'),
+            total_contatos: totalBatch,
+            total_sucesso: successLeadIds.length,
+            total_falha: failedLeadIds.length,
+            empresa_id: job.empresa_id,
+            marca: empresaData?.marca || null,
+            uf: empresaData?.uf || null,
+            template_id: prospeccao.template_prospeccao_id || null,
+            template_nome: templateNome,
+            tipo_evento: prospeccao.canal || null,
+            origem: 'edge_function',
+            job_id: job_id,
+            batch_index: batch.batch_index,
+            valor_unitario_usd: VALOR_UNITARIO_USD,
+            custo_total_usd: totalBatch * VALOR_UNITARIO_USD,
+          });
+        } catch (logErr: any) {
+          console.warn(`⚠️ [BG] Falha ao registrar log_disparo (não crítico):`, logErr?.message);
+        }
 
       } catch (batchErr: any) {
         console.error(`❌ [BG] Erro crítico no batch ${batch.batch_index}:`, batchErr);

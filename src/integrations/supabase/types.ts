@@ -2620,60 +2620,101 @@ export type Database = {
       }
       logs_disparos: {
         Row: {
+          batch_index: number | null
           canal: string
-          cotacao_data: string
-          cotacao_dolar: number
+          cotacao_data: string | null
+          cotacao_dolar: number | null
           created_at: string
-          custo_total_brl: number
+          custo_total_brl: number | null
           custo_total_usd: number
           disparo_id: string
-          evento_nome: string
+          empresa_id: string | null
+          evento_nome: string | null
           id: string
+          job_id: string | null
+          marca: string | null
+          origem: string
           prospeccao_id: string
+          template_id: string | null
+          template_nome: string | null
+          tipo_evento: string | null
           total_contatos: number
-          usuario_email: string
+          total_falha: number | null
+          total_sucesso: number | null
+          uf: string | null
+          usuario_email: string | null
           usuario_id: string
-          usuario_nome: string
-          usuario_perfil: string
+          usuario_nome: string | null
+          usuario_perfil: string | null
           valor_unitario_usd: number
         }
         Insert: {
+          batch_index?: number | null
           canal: string
-          cotacao_data: string
-          cotacao_dolar: number
+          cotacao_data?: string | null
+          cotacao_dolar?: number | null
           created_at?: string
-          custo_total_brl: number
+          custo_total_brl?: number | null
           custo_total_usd: number
           disparo_id?: string
-          evento_nome: string
+          empresa_id?: string | null
+          evento_nome?: string | null
           id?: string
+          job_id?: string | null
+          marca?: string | null
+          origem?: string
           prospeccao_id: string
+          template_id?: string | null
+          template_nome?: string | null
+          tipo_evento?: string | null
           total_contatos?: number
-          usuario_email: string
+          total_falha?: number | null
+          total_sucesso?: number | null
+          uf?: string | null
+          usuario_email?: string | null
           usuario_id: string
-          usuario_nome: string
-          usuario_perfil: string
+          usuario_nome?: string | null
+          usuario_perfil?: string | null
           valor_unitario_usd?: number
         }
         Update: {
+          batch_index?: number | null
           canal?: string
-          cotacao_data?: string
-          cotacao_dolar?: number
+          cotacao_data?: string | null
+          cotacao_dolar?: number | null
           created_at?: string
-          custo_total_brl?: number
+          custo_total_brl?: number | null
           custo_total_usd?: number
           disparo_id?: string
-          evento_nome?: string
+          empresa_id?: string | null
+          evento_nome?: string | null
           id?: string
+          job_id?: string | null
+          marca?: string | null
+          origem?: string
           prospeccao_id?: string
+          template_id?: string | null
+          template_nome?: string | null
+          tipo_evento?: string | null
           total_contatos?: number
-          usuario_email?: string
+          total_falha?: number | null
+          total_sucesso?: number | null
+          uf?: string | null
+          usuario_email?: string | null
           usuario_id?: string
-          usuario_nome?: string
-          usuario_perfil?: string
+          usuario_nome?: string | null
+          usuario_perfil?: string | null
           valor_unitario_usd?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "logs_disparos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logs_movimentacao_contatos: {
         Row: {
@@ -6232,6 +6273,15 @@ export type Database = {
           status_atual: string
           telefone: string
           vendedor_nome: string
+        }[]
+      }
+      get_logs_disparos_filtros: {
+        Args: never
+        Returns: {
+          eventos: string[]
+          marcas: string[]
+          ufs: string[]
+          usuarios: string[]
         }[]
       }
       get_next_venda_numero: {
