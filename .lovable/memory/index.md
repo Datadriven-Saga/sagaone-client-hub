@@ -1,0 +1,1 @@
+- [Logs Disparos Server-Side](mem://architecture/prospeccao/logs-disparos-server-side) — Edge Functions inserem logs_disparos com origem='edge_function', USD apenas, BRL via toggle de cotação na UI
