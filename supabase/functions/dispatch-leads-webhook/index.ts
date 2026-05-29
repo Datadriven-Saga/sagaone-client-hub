@@ -287,7 +287,7 @@ serve(async (req) => {
     // Determinar webhook - IA Ligação usa dispara-ligacao, IA Whatsapp usa recebe-leads-pri
     const webhookUrl = isIALigacao 
       ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao'
-      : 'https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri';
+      : 'https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/dev/disparo';
 
     console.log(`\n🌐 [${requestId}] Webhook URL: ${webhookUrl}`);
 
@@ -651,7 +651,7 @@ serve(async (req) => {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+              'x-api-key': Deno.env.get('MAIP_MSG_Wpp_Send_Dev_X_api_key') ?? '',
             },
             body: JSON.stringify(payload)
           });

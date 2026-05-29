@@ -131,7 +131,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
     const webhookUrl = isIALigacao
       ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao'
-      : 'https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-leads-pri';
+      : 'https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/dev/disparo';
 
     const eventIdPri = prospeccao.event_id_pri || '';
 
@@ -402,7 +402,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+                    'x-api-key': Deno.env.get('MAIP_MSG_Wpp_Send_Dev_X_api_key') ?? '',
                   },
                   body: JSON.stringify(payload),
                   signal: controller.signal,
