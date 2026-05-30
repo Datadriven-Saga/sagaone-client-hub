@@ -109,10 +109,23 @@ serve(async (req) => {
   try {
     // Verificar autenticação - JWT do usuário OU token de admin
     const authHeader = req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    
+    // Normaliza: aceita "Bearer xxx", "bearer  xxx", trim de espaços/CR/LF.
+    const rawToken = authHeader
+      ? authHeader.replace(/^\s*[Bb]earer\s+/, '').trim()
+      : '';
+    const token = rawToken || undefined;
+
     // Verificar se é o token de admin (antes de tentar validar como JWT)
-    const isAdminToken = token && ADMIN_TOKEN && token === ADMIN_TOKEN;
+    const isAdminToken = !!(token && ADMIN_TOKEN && token === ADMIN_TOKEN);
+
+    // Diagnóstico sem vazar o token: só comprimentos e prefixo curto.
+    if (token && ADMIN_TOKEN && !isAdminToken && !/^[^.]+\.[^.]+\.[^.]+$/.test(token)) {
+      console.warn(
+        `⚠️ Token recebido não é JWT e não bate com ADMIN_TOKEN. ` +
+        `len_recebido=${token.length} len_admin=${ADMIN_TOKEN.length} ` +
+        `prefix_recebido=${token.slice(0, 4)} prefix_admin=${ADMIN_TOKEN.slice(0, 4)}`
+      );
+    }
     
     if (isAdminToken && !PRI_IA_USER_ID) {
       console.error('PRI_IA_USER_ID não configurado');
