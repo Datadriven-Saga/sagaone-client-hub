@@ -7,27 +7,121 @@ const corsHeaders = {
 
 const DEFAULT_BATCH_SIZE = 300;
 const SAFE_BATCH_SIZE = 100;
-const SAFE_BATCH_ROW_THRESHOLD = 1000;
-const FIAT_SIA_EMPRESA_ID = Deno.env.get('FIAT_SIA_EMPRESA_ID') || '';
+const LARGE_IMPORT_THRESHOLD = 1000;
+const LARGE_EMPRESA_CONTATOS_THRESHOLD = 50_000;
+const RECENT_TIMEOUT_THRESHOLD = 2;
+const RECENT_TIMEOUT_WINDOW_DAYS = 30;
 const MAX_ELAPSED_MS = 120_000;
 
-function getBatchSize(params: {
+type BatchSizeDecision = {
+  batchSize: number;
+  reason: string;
+  signals: {
+    safeMode?: boolean;
+    isKnownHighRiskEmpresa?: boolean;
+    totalRows?: number | null;
+    contatoCountEmpresa?: number | null;
+    recentTimeouts?: number | null;
+  };
+};
+
+function getHighRiskEmpresaIds(): Set<string> {
+  return new Set(
+    (Deno.env.get('HIGH_RISK_IMPORT_EMPRESA_IDS') ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  );
+}
+
+function decideBatchSize(params: {
   empresaId?: string | null;
   totalRows?: number | null;
+  contatoCountEmpresa?: number | null;
+  recentTimeouts?: number | null;
   safeMode?: boolean;
-}): number {
-  if (params.safeMode) return SAFE_BATCH_SIZE;
-  if (
-    FIAT_SIA_EMPRESA_ID &&
-    params.empresaId &&
-    params.empresaId === FIAT_SIA_EMPRESA_ID
-  ) {
-    return SAFE_BATCH_SIZE;
+  isKnownHighRiskEmpresa?: boolean;
+}): BatchSizeDecision {
+  const signals = {
+    safeMode: params.safeMode,
+    isKnownHighRiskEmpresa: params.isKnownHighRiskEmpresa,
+    totalRows: params.totalRows ?? null,
+    contatoCountEmpresa: params.contatoCountEmpresa ?? null,
+    recentTimeouts: params.recentTimeouts ?? null,
+  };
+  if (params.safeMode) {
+    return { batchSize: SAFE_BATCH_SIZE, reason: 'safe_mode', signals };
   }
-  if ((params.totalRows ?? 0) > SAFE_BATCH_ROW_THRESHOLD) {
-    return SAFE_BATCH_SIZE;
+  if (params.isKnownHighRiskEmpresa) {
+    return { batchSize: SAFE_BATCH_SIZE, reason: 'known_high_risk_empresa', signals };
   }
-  return DEFAULT_BATCH_SIZE;
+  if ((params.recentTimeouts ?? 0) >= RECENT_TIMEOUT_THRESHOLD) {
+    return { batchSize: SAFE_BATCH_SIZE, reason: 'recent_timeouts', signals };
+  }
+  if ((params.totalRows ?? 0) > LARGE_IMPORT_THRESHOLD) {
+    return { batchSize: SAFE_BATCH_SIZE, reason: 'large_import', signals };
+  }
+  if ((params.contatoCountEmpresa ?? 0) > LARGE_EMPRESA_CONTATOS_THRESHOLD) {
+    return { batchSize: SAFE_BATCH_SIZE, reason: 'large_empresa_base', signals };
+  }
+  return { batchSize: DEFAULT_BATCH_SIZE, reason: 'default', signals };
+}
+
+async function getEmpresaContatoCount(
+  supabaseAdmin: any,
+  empresaId: string,
+): Promise<number | null> {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('contatos')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId);
+    if (error) {
+      console.warn('[process-import][batch-size:contato-count-error]', {
+        empresaId,
+        error: error.message,
+      });
+      return null;
+    }
+    return count ?? null;
+  } catch (err: any) {
+    console.warn('[process-import][batch-size:contato-count-error]', {
+      empresaId,
+      error: err?.message ?? String(err),
+    });
+    return null;
+  }
+}
+
+async function getRecentImportTimeouts(
+  supabaseAdmin: any,
+  empresaId: string,
+): Promise<number | null> {
+  try {
+    const since = new Date(
+      Date.now() - RECENT_TIMEOUT_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const { count, error } = await supabaseAdmin
+      .from('import_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId)
+      .gte('created_at', since)
+      .ilike('message', '%canceling statement due to statement timeout%');
+    if (error) {
+      console.warn('[process-import][batch-size:recent-timeouts-error]', {
+        empresaId,
+        error: error.message,
+      });
+      return null;
+    }
+    return count ?? null;
+  } catch (err: any) {
+    console.warn('[process-import][batch-size:recent-timeouts-error]', {
+      empresaId,
+      error: err?.message ?? String(err),
+    });
+    return null;
+  }
 }
 
 // Simple CSV parser that handles quoted fields
@@ -300,17 +394,36 @@ Deno.serve(async (req: Request) => {
     const totalDataRows = lines.length - 1;
     const currentOffset = log.current_offset || 0;
 
-    const configuredBatchSize = getBatchSize({
+    const highRiskEmpresaIds = getHighRiskEmpresaIds();
+    const isKnownHighRiskEmpresa =
+      !!log.empresa_id && highRiskEmpresaIds.has(log.empresa_id);
+
+    const contatoCountEmpresa = log.empresa_id
+      ? await getEmpresaContatoCount(supabaseAdmin, log.empresa_id)
+      : null;
+    const recentTimeouts = log.empresa_id
+      ? await getRecentImportTimeouts(supabaseAdmin, log.empresa_id)
+      : null;
+
+    const batchDecision = decideBatchSize({
       empresaId: log.empresa_id,
       totalRows: log.total_rows ?? totalDataRows,
+      contatoCountEmpresa,
+      recentTimeouts,
+      safeMode: false,
+      isKnownHighRiskEmpresa,
     });
-    console.log('[process-import][config]', {
+    const configuredBatchSize = batchDecision.batchSize;
+    const batchSizeReason = batchDecision.reason;
+
+    console.log('[process-import][batch-size:decision]', {
       importId: import_log_id,
       empresaId: log.empresa_id,
       prospeccaoId: log.prospeccao_id,
       totalRows: totalDataRows,
-      configuredBatchSize,
-      isFiatSia: Boolean(FIAT_SIA_EMPRESA_ID && log.empresa_id === FIAT_SIA_EMPRESA_ID),
+      batchSize: configuredBatchSize,
+      reason: batchSizeReason,
+      signals: batchDecision.signals,
     });
 
     if (currentOffset === 0) {
@@ -363,6 +476,7 @@ Deno.serve(async (req: Request) => {
             batchIndex: batchCount + 1,
             offset: i,
             configuredBatchSize,
+            batchSizeReason,
           });
           inserted += result.inserted;
           updated += result.updated;
@@ -447,6 +561,7 @@ Deno.serve(async (req: Request) => {
           batchIndex: batchCount,
           offset: batchOffsetStart,
           configuredBatchSize,
+          batchSizeReason,
           actualBatchSize: batch.length,
         });
 
@@ -455,6 +570,7 @@ Deno.serve(async (req: Request) => {
           batchIndex: batchCount,
           offset: batchOffsetStart,
           configuredBatchSize,
+          batchSizeReason,
         });
         inserted += result.inserted;
         updated += result.updated;
@@ -511,6 +627,7 @@ Deno.serve(async (req: Request) => {
         batchIndex: batchCount,
         offset: totalDataRows - batch.length,
         configuredBatchSize,
+        batchSizeReason,
         actualBatchSize: batch.length,
         final: true,
       });
@@ -520,6 +637,7 @@ Deno.serve(async (req: Request) => {
         batchIndex: batchCount,
         offset: totalDataRows - batch.length,
         configuredBatchSize,
+        batchSizeReason,
       });
       inserted += result.inserted;
       updated += result.updated;
@@ -825,6 +943,7 @@ async function processBatch(
     batchIndex?: number;
     offset?: number;
     configuredBatchSize?: number;
+    batchSizeReason?: string;
   },
 ): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
@@ -835,6 +954,7 @@ async function processBatch(
     batchIndex: logCtx?.batchIndex,
     offset: logCtx?.offset,
     configuredBatchSize: logCtx?.configuredBatchSize,
+    batchSizeReason: logCtx?.batchSizeReason,
     actualBatchSize: batch.length,
   };
 
