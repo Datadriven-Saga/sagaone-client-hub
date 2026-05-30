@@ -394,17 +394,36 @@ Deno.serve(async (req: Request) => {
     const totalDataRows = lines.length - 1;
     const currentOffset = log.current_offset || 0;
 
-    const configuredBatchSize = getBatchSize({
+    const highRiskEmpresaIds = getHighRiskEmpresaIds();
+    const isKnownHighRiskEmpresa =
+      !!log.empresa_id && highRiskEmpresaIds.has(log.empresa_id);
+
+    const contatoCountEmpresa = log.empresa_id
+      ? await getEmpresaContatoCount(supabaseAdmin, log.empresa_id)
+      : null;
+    const recentTimeouts = log.empresa_id
+      ? await getRecentImportTimeouts(supabaseAdmin, log.empresa_id)
+      : null;
+
+    const batchDecision = decideBatchSize({
       empresaId: log.empresa_id,
       totalRows: log.total_rows ?? totalDataRows,
+      contatoCountEmpresa,
+      recentTimeouts,
+      safeMode: false,
+      isKnownHighRiskEmpresa,
     });
-    console.log('[process-import][config]', {
+    const configuredBatchSize = batchDecision.batchSize;
+    const batchSizeReason = batchDecision.reason;
+
+    console.log('[process-import][batch-size:decision]', {
       importId: import_log_id,
       empresaId: log.empresa_id,
       prospeccaoId: log.prospeccao_id,
       totalRows: totalDataRows,
-      configuredBatchSize,
-      isFiatSia: Boolean(FIAT_SIA_EMPRESA_ID && log.empresa_id === FIAT_SIA_EMPRESA_ID),
+      batchSize: configuredBatchSize,
+      reason: batchSizeReason,
+      signals: batchDecision.signals,
     });
 
     if (currentOffset === 0) {
