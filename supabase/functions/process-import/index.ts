@@ -5,8 +5,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const BATCH_SIZE = 300;
+const DEFAULT_BATCH_SIZE = 300;
+const SAFE_BATCH_SIZE = 100;
+const SAFE_BATCH_ROW_THRESHOLD = 1000;
+const FIAT_SIA_EMPRESA_ID = Deno.env.get('FIAT_SIA_EMPRESA_ID') || '';
 const MAX_ELAPSED_MS = 120_000;
+
+function getBatchSize(params: {
+  empresaId?: string | null;
+  totalRows?: number | null;
+  safeMode?: boolean;
+}): number {
+  if (params.safeMode) return SAFE_BATCH_SIZE;
+  if (
+    FIAT_SIA_EMPRESA_ID &&
+    params.empresaId &&
+    params.empresaId === FIAT_SIA_EMPRESA_ID
+  ) {
+    return SAFE_BATCH_SIZE;
+  }
+  if ((params.totalRows ?? 0) > SAFE_BATCH_ROW_THRESHOLD) {
+    return SAFE_BATCH_SIZE;
+  }
+  return DEFAULT_BATCH_SIZE;
+}
 
 // Simple CSV parser that handles quoted fields
 function parseCSVLine(line: string): string[] {
@@ -278,6 +300,19 @@ Deno.serve(async (req: Request) => {
     const totalDataRows = lines.length - 1;
     const currentOffset = log.current_offset || 0;
 
+    const configuredBatchSize = getBatchSize({
+      empresaId: log.empresa_id,
+      totalRows: log.total_rows ?? totalDataRows,
+    });
+    console.log('[process-import][config]', {
+      importId: import_log_id,
+      empresaId: log.empresa_id,
+      prospeccaoId: log.prospeccao_id,
+      totalRows: totalDataRows,
+      configuredBatchSize,
+      isFiatSia: Boolean(FIAT_SIA_EMPRESA_ID && log.empresa_id === FIAT_SIA_EMPRESA_ID),
+    });
+
     if (currentOffset === 0) {
       await supabaseAdmin.from('import_logs').update({
         total_rows: totalDataRows,
@@ -323,7 +358,12 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
         if (batch.length > 0) {
-          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
+          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+            importId: import_log_id,
+            batchIndex: batchCount + 1,
+            offset: i,
+            configuredBatchSize,
+          });
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -397,11 +437,25 @@ Deno.serve(async (req: Request) => {
         codigo_proposta: colIndices.codigo_proposta >= 0 ? (row[colIndices.codigo_proposta] || '').trim() || null : null,
       });
 
-      if (batch.length >= BATCH_SIZE) {
+      if (batch.length >= configuredBatchSize) {
         batchCount++;
-        console.log(`📤 Lote ${batchCount}: Enviando ${batch.length} registros...`);
+        const batchOffsetStart = i - batch.length + 1;
+        console.log('[process-import][batch:start]', {
+          importId: import_log_id,
+          empresaId: log.empresa_id,
+          prospeccaoId: log.prospeccao_id,
+          batchIndex: batchCount,
+          offset: batchOffsetStart,
+          configuredBatchSize,
+          actualBatchSize: batch.length,
+        });
 
-        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
+        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+          importId: import_log_id,
+          batchIndex: batchCount,
+          offset: batchOffsetStart,
+          configuredBatchSize,
+        });
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -419,7 +473,6 @@ Deno.serve(async (req: Request) => {
         if (result.error_details && result.error_details.length > 0) {
           for (const detail of result.error_details) {
             if (errorDetails.length < 200) {
-              const batchOffset = (batchCount - 1) * BATCH_SIZE + currentOffset;
               errorDetails.push(`Tel: ${detail.telefone || '?'} | Nome: ${detail.nome || '?'} | Erro: ${detail.erro}`);
             }
           }
@@ -451,9 +504,23 @@ Deno.serve(async (req: Request) => {
     // Flush remaining batch
     if (!needsChain && batch.length > 0) {
       batchCount++;
-      console.log(`📤 Lote final ${batchCount}: Enviando ${batch.length} registros...`);
+      console.log('[process-import][batch:start]', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        prospeccaoId: log.prospeccao_id,
+        batchIndex: batchCount,
+        offset: totalDataRows - batch.length,
+        configuredBatchSize,
+        actualBatchSize: batch.length,
+        final: true,
+      });
 
-      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo);
+      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+        importId: import_log_id,
+        batchIndex: batchCount,
+        offset: totalDataRows - batch.length,
+        configuredBatchSize,
+      });
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -753,9 +820,23 @@ async function processBatch(
   prospeccaoId: string | null,
   canal: string = 'whatsapp',
   forceStatusNovo: boolean = false,
+  logCtx?: {
+    importId?: string;
+    batchIndex?: number;
+    offset?: number;
+    configuredBatchSize?: number;
+  },
 ): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
+  const batchStartedAt = performance.now();
+  const ctx = {
+    importId: logCtx?.importId,
+    batchIndex: logCtx?.batchIndex,
+    offset: logCtx?.offset,
+    configuredBatchSize: logCtx?.configuredBatchSize,
+    actualBatchSize: batch.length,
+  };
 
   // ==========================================================
   // PRÉ-PROCESSAMENTO: migrar telefones legados (com 9 adicional)
@@ -764,6 +845,7 @@ async function processBatch(
   // telefone normalizado, e o upsert seguinte fará UPDATE (não INSERT duplicado).
   // ==========================================================
   try {
+    const legacyStartedAt = performance.now();
     // Para cada telefone normalizado (10 dígitos sem 9), monta o equivalente
     // legado com 9 adicional (11 dígitos). Ex: 6232001234 → 62932001234
     const legacyMap = new Map<string, string>(); // legacy(11d c/9) → novo(10d s/9)
@@ -858,18 +940,30 @@ async function processBatch(
         }
       }
     }
+    console.log('[process-import][batch:legacy-preprocess]', {
+      ...ctx,
+      durationMs: Math.round(performance.now() - legacyStartedAt),
+    });
   } catch (preErr: any) {
     console.warn('⚠️ Erro no pré-processamento de normalização:', preErr?.message || preErr);
   }
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
+      const rpcStartedAt = performance.now();
       const { data, error } = await supabase.rpc('bulk_upsert_contatos', {
         p_contatos: batch,
         p_empresa_id: empresaId,
         p_prospeccao_id: prospeccaoId,
         p_canal: canal,
         p_force_status_novo: forceStatusNovo,
+      });
+
+      console.log('[process-import][batch:bulk_upsert_contatos]', {
+        ...ctx,
+        attempt,
+        durationMs: Math.round(performance.now() - rpcStartedAt),
+        error: error?.message ?? null,
       });
 
       if (error) throw error;
@@ -888,13 +982,31 @@ async function processBatch(
       };
     } catch (err: any) {
       lastError = err?.message || String(err);
-      console.error(`❌ Batch attempt ${attempt} failed:`, lastError);
       if (attempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, 2000 * attempt));
+        const backoffMs = 2000 * attempt;
+        console.warn('[process-import][batch:retry]', {
+          ...ctx,
+          attempt,
+          maxRetries: MAX_RETRIES,
+          backoffMs,
+          error: lastError,
+        });
+        await new Promise(r => setTimeout(r, backoffMs));
+      } else {
+        console.error('[process-import][batch:attempt-failed]', {
+          ...ctx,
+          attempt,
+          error: lastError,
+        });
       }
     }
   }
 
-  console.error(`🚫 Batch failed permanently: ${lastError}`);
+  console.error('[process-import][batch:failed]', {
+    ...ctx,
+    attempts: MAX_RETRIES,
+    durationMs: Math.round(performance.now() - batchStartedAt),
+    error: lastError,
+  });
   return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
