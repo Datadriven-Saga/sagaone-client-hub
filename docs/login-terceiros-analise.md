@@ -1,95 +1,99 @@
-# Login de Terceiros (email/senha) ao lado do SSO Microsoft — Análise
+# Login de Terceiros (email/senha) + Allowlist de Domínios — Análise
 
-> Documento de decisão técnica. Gerado a partir da análise do código atual de auth e do sistema de permissões.
+> Documento de decisão técnica. Espelho do `.lovable/plan.md`.
 
 ## TL;DR
 
-**Complexidade: Média.** Não é refactor estrutural, mas também não é "uma flag". Estimativa: **2 a 3 dias** de implementação + QA.
+**Complexidade: Média. Estimativa: ~3 dias.**
 
-O Supabase Auth já suporta nativamente os dois métodos (OAuth Azure e email/senha). O `signIn(email, password)` inclusive **já existe** no `AuthContext`. O que bloqueia hoje é uma trava de domínio (`@gruposaga.com.br`) aplicada em toda sessão. O trabalho real está em três frentes pequenas e isoladas:
+O Supabase Auth já tem os dois métodos. O `signIn` por senha já existe no `AuthContext`. O que bloqueia é o hard-code `@gruposaga.com.br`. A solução cobre 4 frentes:
 
-1. Relaxar a trava de domínio para aceitar terceiros marcados como tal.
-2. Marcar quem é "terceiro" no `profiles` e poder ativar/desativar.
-3. UI gerencial de criação de usuário externa, protegida por uma nova permission flag.
-
-Tudo isso encaixa no modelo de permissões existente (`PermissionRegistry` + `departamento_permissoes`). **Não precisa reescrever roles, criar tabela paralela, nem adicionar provider OAuth novo.**
-
----
-
-## 1. Diagnóstico do modelo atual
-
-### 1.1 Auth (`src/contexts/AuthContext.tsx`)
-
-- Implementa Supabase Auth com **dois caminhos**:
-  - `signIn(email, password)` — pronto, mas não usado pela UI.
-  - `signInWithAzure()` — caminho ativo (SSO Microsoft).
-- **Trava dura de domínio** em `isValidDomain()` (linha 214): qualquer email fora de `@gruposaga.com.br` é deslogado imediatamente após autenticar.
-- Sessão: 8h máx + 1h de inatividade (já em memória do projeto).
-
-### 1.2 Tela de Login (`src/pages/Login.tsx`)
-
-- `USE_SSO_LOGIN = true` força só o botão Microsoft. O formulário de email/senha está comentado/escondido — não removido.
-
-### 1.3 Permissões
-
-- `PermissionRegistry.ts` é o registry central; `departamento_permissoes` aplica overrides por `tipo_acesso` (e pode ser aplicado a **departamentos/grupos específicos** — atende o requisito de "aplicar a grupo ou pessoa").
-- Já existem `canCreateUsers`, `canManageUsers`, `canEditUsers`, `canDeleteUsers` (módulo `usuarios`), mas **não diferenciam interno vs externo**. Hoje toda criação acontece via `auto_provision_user_from_sso` no primeiro login Azure.
-- `profiles.tipo_acesso` é o enum central. **Não existe** flag de "externo" nem de "ativo/inativo".
-
-### 1.4 Edge function `manage-users`
-
-- Já existe, já roda com `service_role`. É o lugar certo para criar usuários — `auth.users` exige privilégio elevado, então não dá pra fazer pelo client direto.
+1. **Allowlist gerenciável de domínios** (tabela + UI) substituindo o hard-code.
+2. Flags `is_external` / `is_active` em `profiles`.
+3. UI gerencial de criação de terceiros (gated por permission).
+4. UI gerencial de domínios permitidos (gated por permission).
 
 ---
 
-## 2. O que precisa mudar (escopo cirúrgico)
+## 1. Modelo atual
+
+- `AuthContext.isValidDomain()` força `@gruposaga.com.br` em toda sessão.
+- `signIn(email, password)` existe mas a UI esconde (`USE_SSO_LOGIN = true`).
+- `PermissionRegistry` + `departamento_permissoes` cobrem grupos/pessoas.
+- `profiles.tipo_acesso` é o enum central — sem `is_external` / `is_active`.
+- Edge `manage-users` já roda com `service_role` (lugar certo para criar usuários).
+
+---
+
+## 2. Mudanças (cirúrgicas)
 
 ### 2.1 Banco — 1 migration
 
-- `profiles`:
-  - `is_external boolean NOT NULL DEFAULT false`
-  - `is_active boolean NOT NULL DEFAULT true`
-  - `external_created_by uuid NULL` (auditoria de quem criou)
-- RPC `can_user_login(_user_id uuid) returns boolean` — `security definer`. Retorna true se:
-  - email termina em `@gruposaga.com.br` **OU**
-  - `is_external = true AND is_active = true`
-- Feature flag global em `system_feature_flags` (`external_login_enabled`) — kill switch.
-- Policies: só quem tem `canManageUsers` enxerga/edita `is_external` e `is_active`.
-- Guard em `auto_provision_user_from_sso`: `WHERE is_external = false`, para não sobrescrever dados de terceiro.
+**Allowlist:**
+```sql
+CREATE TABLE public.allowed_login_domains (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  dominio text NOT NULL UNIQUE,
+  descricao text,
+  tipo text NOT NULL DEFAULT 'sso',  -- 'sso' | 'password' | 'ambos'
+  ativo boolean NOT NULL DEFAULT true,
+  criado_por uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+- Seed obrigatório protegido: `('gruposaga.com.br', 'Domínio corporativo', 'sso', true)` — não pode ser apagado nem desativado (trigger/guard).
+- `tipo` separa SSO de senha: parceiro pode ter só `password`, time interno só `sso`.
+
+**Profiles:**
+- `is_external boolean NOT NULL DEFAULT false`
+- `is_active boolean NOT NULL DEFAULT true`
+- `external_created_by uuid NULL`
+
+**RPC `can_user_login(_user_id uuid, _method text) returns boolean`** (`security definer`):
+- Lê email do `auth.users`, extrai domínio.
+- Retorna true se existe linha em `allowed_login_domains` com `ativo=true`, `dominio` igual, e `tipo IN ('ambos', _method)`.
+- Se `is_external=true`, também exige `is_active=true`.
+
+**Guard** em `auto_provision_user_from_sso`: `WHERE is_external = false`.
 
 ### 2.2 AuthContext
 
-Substituir `isValidDomain(email)` por chamada à RPC `can_user_login(user.id)`. Se `false` → toast "Acesso negado / conta desativada" + signOut.
+Trocar `isValidDomain(email)` pela chamada `can_user_login(user.id, method)`, passando `'sso' | 'password'` conforme o caminho usado. Toasts distintos: "Domínio não autorizado" vs "Conta desativada".
 
-Mudança pequena, mas é o ponto sensível — qualquer bug aqui afeta 100% dos usuários.
+### 2.3 Login
 
-### 2.3 Tela de Login
+- Botão Microsoft como CTA primário.
+- Collapse "Acessar como terceiro" com form email/senha — só renderiza se existir ao menos um domínio com `tipo IN ('password','ambos')` ativo (consulta pública leve via RPC).
 
-- Manter o botão Microsoft como CTA primário.
-- Adicionar collapse "Acessar como terceiro" abaixo, com form email + senha. Reutiliza `signIn()` que já existe.
-- Tela `/reset-password` já existe — só validar fluxo.
+### 2.4 Permissões novas (`PermissionRegistry`, módulo `usuarios`)
 
-### 2.4 Permissões novas (`PermissionRegistry.ts`, módulo `usuarios`)
+- `canCreateExternalUsers` — Criar usuários externos / terceiros
+- `canToggleUserActive` — Ativar/Desativar usuário
+- `canManageLoginDomains` — Gerenciar domínios de login permitidos
 
-- `canCreateExternalUsers` — "Criar usuários externos / terceiros" (`criar`)
-- `canToggleUserActive` — "Ativar/Desativar usuário" (`ativar_desativar`)
+Defaults: só Master/Admin. Liberação granular via `departamento_permissoes`.
 
-Defaults: apenas Master/Admin. Como o sistema usa `departamento_permissoes`, qualquer outro tipo de acesso pode ser liberado pontualmente pela tela de Controle de Acessos. Atende **"aplicar a um grupo específico ou pessoa"** sem código extra.
+### 2.5 UI gerencial — duas abas em `/administracao`
 
-### 2.5 UI gerencial
+**A. Domínios Permitidos** (gated por `canManageLoginDomains`):
+- Tabela: domínio, descrição, tipo (SSO/Senha/Ambos), ativo, criado por.
+- Botão "Adicionar domínio" com validação de formato + confirmação dupla.
+- Toggle ativo/inativo, edição inline de tipo/descrição.
+- Domínio raiz `gruposaga.com.br` bloqueado para delete/desativar.
+- Aviso: "Domínios novos liberam login imediatamente."
 
-Aba "Usuários Externos" em `/administracao` (ou dentro de Controle de Acessos):
+**B. Usuários Externos** (gated por `canCreateExternalUsers` / `canToggleUserActive`):
+- Lista `is_external=true` com nome/email/empresa/tipo_acesso/ativo.
+- "Criar terceiro" → modal (nome, email, senha temporária, tipo_acesso, empresa). Valida domínio contra allowlist com `tipo IN ('password','ambos')`.
+- Toggle Ativo/Inativo.
+- "Resetar senha" só para `is_external=true` (não quebra SSO interno).
 
-- Listagem filtrando `is_external = true` (nome, email, empresa, `tipo_acesso`, ativo).
-- Botão **"Criar terceiro"** (gated por `canCreateExternalUsers`) → modal: nome, email, senha temporária, `tipo_acesso`, empresa. Chama `manage-users` com `action: 'create_external'`.
-- Toggle **Ativo/Inativo** (gated por `canToggleUserActive`).
-- Botão **"Resetar senha"** → `resetPasswordForEmail()`.
-- Bloquear reset/edição de senha em usuários `is_external = false` para não quebrar SSO.
+### 2.6 Edge `manage-users` — branches novas
 
-### 2.6 Edge `manage-users` — 2 branches novas
-
-- `create_external` — valida permission do chamador (via JWT), cria em `auth.users` (`email_confirm: true`), popula `profiles` com `is_external=true`, `external_created_by`, `tipo_acesso`, `empresa_id`. Opcionalmente dispara email de boas-vindas.
-- `set_active` — valida permission, atualiza `profiles.is_active`. Se desativando, opcionalmente revoga sessões via `auth.admin.signOut(user_id)`.
+- `create_external`: valida permission via JWT, valida domínio na allowlist, cria em `auth.users`, popula `profiles`.
+- `set_active`: valida permission, atualiza `is_active`, revoga sessões (`auth.admin.signOut`).
 
 ---
 
@@ -97,51 +101,48 @@ Aba "Usuários Externos" em `/administracao` (ou dentro de Controle de Acessos):
 
 | Risco | Severidade | Mitigação |
 |---|---|---|
-| `auto_provision_user_from_sso` rodar em terceiro e sobrescrever dados | Médio | Guard `WHERE is_external = false` na função |
-| Sessão de terceiro desativado continuar válida até expirar | Médio | `auth.admin.signOut(user_id)` na desativação + check no `can_user_login` ao refresh |
-| Vazamento multi-tenant: terceiro acessar empresa errada | **Alto** | Forçar `empresa_id` na criação + `user_empresas` (RLS já existente) |
-| Reset de senha para usuário SSO interno quebrar login | Baixo | UI esconde botão quando `is_external = false` |
-| Senha fraca / brute force | Médio | Habilitar "Leaked password protection" no Supabase Auth |
-| Bypass do collapse no login (terceiro tentar SSO ou vice-versa) | Baixo | RPC `can_user_login` é a única fonte de verdade — método de login é irrelevante |
+| Apagar/desativar `gruposaga.com.br` e travar todo mundo | **Alto** | Guard no UI + trigger no banco impedindo |
+| Typo de domínio liberar login indevido | Alto | Confirmação dupla + auditoria de `criado_por` |
+| `auto_provision_user_from_sso` rodar em terceiro | Médio | Guard `WHERE is_external = false` |
+| Sessão de terceiro desativado continuar válida | Médio | `auth.admin.signOut` + `can_user_login` em refresh |
+| Multi-tenant: terceiro acessar empresa errada | **Alto** | `empresa_id` na criação + RLS `user_empresas` existente |
+| Brute force em terceiros | Médio | "Leaked password protection" no Supabase Auth |
+| Domínio desativado mas usuário já logado | Baixo | RPC roda a cada refresh de sessão |
 
 ---
 
 ## 4. O que **não** precisa ser feito
 
-- ❌ Reescrever sistema de roles — `profiles.tipo_acesso` + `PermissionRegistry` continuam intactos.
-- ❌ Tabela paralela de "usuários externos" — `auth.users` + 2 flags em `profiles` resolvem.
-- ❌ Provider OAuth novo — email/senha é nativo do Supabase.
-- ❌ Mexer em política de sessão (8h/1h) — vale igual para os dois tipos.
-- ❌ Nova tela de login — só reativar o que já existe.
+- Reescrever roles.
+- Tabela paralela de usuários externos.
+- Provider OAuth novo.
+- Mexer em sessão (8h/1h).
 
 ---
 
-## 5. Estimativa por etapa
+## 5. Estimativa
 
-| Etapa | Esforço | Risco |
-|---|---|---|
-| Migration (campos + RPC + guard) | 2h | Baixo |
-| Patch `AuthContext` | 1h | **Crítico** — exige QA cuidadoso de regressão SSO |
-| Permissions novas no Registry | 30min | Baixo |
-| Edge `manage-users` (2 branches) | 3h | Médio |
-| UI gerencial (lista + modal + toggle) | 6h | Baixo |
-| Reativar form senha no Login | 1h | Baixo |
-| QA matriz (SSO interno, terceiro ativo, terceiro inativo, sem permission) | 3h | — |
-| **Total** | **~2,5 dias** | — |
-
----
-
-## 6. Ordem de execução recomendada
-
-1. Migration (campos + RPC + guard no `auto_provision_user_from_sso` + feature flag).
-2. Patch `AuthContext` → `can_user_login`. **Testar SSO interno antes de continuar.**
-3. Edge `manage-users`: branches `create_external` e `set_active`.
-4. Permissions novas no Registry + defaults.
-5. UI: aba "Usuários Externos" + reativar form de senha no Login (gated pela feature flag).
-6. QA da matriz completa.
+| Etapa | Esforço |
+|---|---|
+| Migration (allowlist + profiles + RPC + guards + seed) | 3h |
+| Patch `AuthContext` | 1h |
+| Permissions novas | 30min |
+| Edge `manage-users` (2 branches) | 3h |
+| UI Domínios Permitidos | 4h |
+| UI Usuários Externos | 6h |
+| Reativar form senha no Login | 1h |
+| QA matriz completa | 4h |
+| **Total** | **~3 dias** |
 
 ---
 
-## 7. Decisão
+## 6. Ordem de execução
 
-Viável e de baixo risco arquitetural. Recomenda-se executar como **feature única** (não fatiada), pois as partes só fazem sentido juntas — entregar UI sem o patch do `AuthContext` deixa terceiros bloqueados; entregar o patch sem UI deixa o sistema "aberto" sem caminho de criação controlado.
+1. Migration (allowlist + profiles + RPC + seed protegido + guards).
+2. Patch `AuthContext` → `can_user_login(user.id, method)`. **QA SSO interno antes de continuar.**
+3. Edge `manage-users` (`create_external`, `set_active`).
+4. Permissions novas + defaults.
+5. UI Domínios Permitidos.
+6. UI Usuários Externos.
+7. Reativar form senha no Login (gated pela existência de domínios `password`/`ambos`).
+8. QA matriz: SSO interno OK, terceiro ativo loga, terceiro inativo bloqueado, domínio desativado bloqueia, domínio raiz protegido, sem permission → UI some.
