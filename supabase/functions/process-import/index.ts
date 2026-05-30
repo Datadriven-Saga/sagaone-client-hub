@@ -943,6 +943,7 @@ async function processBatch(
     batchIndex?: number;
     offset?: number;
     configuredBatchSize?: number;
+    batchSizeReason?: string;
   },
 ): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
@@ -953,6 +954,7 @@ async function processBatch(
     batchIndex: logCtx?.batchIndex,
     offset: logCtx?.offset,
     configuredBatchSize: logCtx?.configuredBatchSize,
+    batchSizeReason: logCtx?.batchSizeReason,
     actualBatchSize: batch.length,
   };
 
