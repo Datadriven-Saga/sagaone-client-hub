@@ -476,6 +476,7 @@ Deno.serve(async (req: Request) => {
             batchIndex: batchCount + 1,
             offset: i,
             configuredBatchSize,
+            batchSizeReason,
           });
           inserted += result.inserted;
           updated += result.updated;
@@ -560,6 +561,7 @@ Deno.serve(async (req: Request) => {
           batchIndex: batchCount,
           offset: batchOffsetStart,
           configuredBatchSize,
+          batchSizeReason,
           actualBatchSize: batch.length,
         });
 
@@ -568,6 +570,7 @@ Deno.serve(async (req: Request) => {
           batchIndex: batchCount,
           offset: batchOffsetStart,
           configuredBatchSize,
+          batchSizeReason,
         });
         inserted += result.inserted;
         updated += result.updated;
@@ -624,6 +627,7 @@ Deno.serve(async (req: Request) => {
         batchIndex: batchCount,
         offset: totalDataRows - batch.length,
         configuredBatchSize,
+        batchSizeReason,
         actualBatchSize: batch.length,
         final: true,
       });
@@ -633,6 +637,7 @@ Deno.serve(async (req: Request) => {
         batchIndex: batchCount,
         offset: totalDataRows - batch.length,
         configuredBatchSize,
+        batchSizeReason,
       });
       inserted += result.inserted;
       updated += result.updated;
