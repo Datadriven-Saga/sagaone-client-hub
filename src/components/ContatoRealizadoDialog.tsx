@@ -12,7 +12,7 @@ import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-rea
 import type { Database } from '@/integrations/supabase/types';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { setContatoStatus } from '@/lib/contatoStatusApi';
-import { ExternalOptOutConfirmDialog, type OptOutCanalKey } from '@/components/optout/ExternalOptOutConfirmDialog';
+import { ExternalOptOutConfirmDialog, OPTOUT_MOTIVO_OPTIONS, type OptOutCanalKey } from '@/components/optout/ExternalOptOutConfirmDialog';
 
 interface MotivoInsucesso {
   id: string;
@@ -39,6 +39,8 @@ export function ContatoRealizadoDialog({
   const { activeCompany } = useCompany();
   const [tipoContato, setTipoContato] = useState<TipoContato | ''>('');
   const [motivoId, setMotivoId] = useState<string>('');
+  const [motivoOptOut, setMotivoOptOut] = useState<string>('Cliente faleceu');
+  const [motivoOptOutOutros, setMotivoOptOutOutros] = useState<string>('');
   const [anotacao, setAnotacao] = useState('');
   const [motivos, setMotivos] = useState<MotivoInsucesso[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,7 @@ export function ContatoRealizadoDialog({
     uf: string;
     canaisSugeridos?: OptOutCanalKey[];
     justificativaInicial?: string;
+    motivoInicial?: string;
   } | null>(null);
 
   const handleTipoContatoChange = (value: TipoContato) => {
@@ -96,13 +99,28 @@ export function ContatoRealizadoDialog({
       return;
     }
 
-    if ((tipoContato === 'registrar_contato' || tipoContato === 'opt_out') && !anotacao.trim()) {
+    if (tipoContato === 'registrar_contato' && !anotacao.trim()) {
       toast({
         title: "Anotação obrigatória",
         description: "Detalhe o contato realizado",
         variant: "destructive"
       });
       return;
+    }
+
+    if (tipoContato === 'opt_out') {
+      if (!motivoOptOut) {
+        toast({ title: 'Selecione o motivo do opt-out', variant: 'destructive' });
+        return;
+      }
+      if (motivoOptOut === 'Outros' && motivoOptOutOutros.trim().length < 20) {
+        toast({
+          title: 'Especifique o motivo',
+          description: 'Mínimo de 20 caracteres ao escolher "Outros".',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     if (tipoContato === 'nao_vai_participar' && !motivoId) {
@@ -165,6 +183,11 @@ export function ContatoRealizadoDialog({
             ? ['whatsapp', 'call']
             : undefined;
 
+        const isOutros = motivoOptOut === 'Outros';
+        const justInicial = isOutros
+          ? motivoOptOutOutros.trim()
+          : (anotacao.trim() || undefined);
+
         setOptOutCtx({
           contato: {
             telefone: contato.telefone || '',
@@ -175,7 +198,8 @@ export function ContatoRealizadoDialog({
           marca,
           uf,
           canaisSugeridos,
-          justificativaInicial: anotacao.trim() || undefined,
+          justificativaInicial: justInicial,
+          motivoInicial: motivoOptOut,
         });
         setOptOutOpen(true);
       } catch (err) {
@@ -297,6 +321,8 @@ export function ContatoRealizadoDialog({
   const handleClose = () => {
     setTipoContato('');
     setMotivoId('');
+    setMotivoOptOut('Cliente faleceu');
+    setMotivoOptOutOutros('');
     setAnotacao('');
     onClose();
   };
@@ -441,6 +467,62 @@ export function ContatoRealizadoDialog({
                             </Select>
                           </div>
                         )}
+                        {opcao.value === 'opt_out' && isSelected && (
+                          <div
+                            className="space-y-2 mt-4 pt-4 border-t border-primary/20 animate-in fade-in slide-in-from-top-2 duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Label className="text-sm font-semibold text-foreground">
+                              Motivo do Opt-Out *
+                            </Label>
+                            <Select value={motivoOptOut} onValueChange={setMotivoOptOut}>
+                              <SelectTrigger className="h-11 text-[15px]">
+                                <SelectValue placeholder="Selecione o motivo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {OPTOUT_MOTIVO_OPTIONS.map((opt) => (
+                                  <SelectItem
+                                    key={opt.value}
+                                    value={opt.value}
+                                    className="text-[15px] py-3"
+                                  >
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {motivoOptOut === 'Outros' && (
+                              <div className="space-y-1 pt-2">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-sm font-medium text-foreground">
+                                    Especificar motivo *
+                                  </Label>
+                                  <span
+                                    className={`text-xs ${
+                                      motivoOptOutOutros.trim().length > 0 &&
+                                      motivoOptOutOutros.trim().length < 20
+                                        ? 'text-destructive'
+                                        : 'text-muted-foreground'
+                                    }`}
+                                  >
+                                    {motivoOptOutOutros.trim().length >= 20
+                                      ? 'OK'
+                                      : `mín. 20 (${motivoOptOutOutros.trim().length})`}
+                                  </span>
+                                </div>
+                                <Textarea
+                                  value={motivoOptOutOutros}
+                                  onChange={(e) =>
+                                    setMotivoOptOutOutros(e.target.value.slice(0, 500))
+                                  }
+                                  placeholder="Descreva o motivo do opt-out..."
+                                  rows={3}
+                                  className="text-[15px]"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       </React.Fragment>
                     );
@@ -452,7 +534,7 @@ export function ContatoRealizadoDialog({
               {/* Coluna Direita - Anotações */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold text-foreground">
-                  Anotações{(tipoContato === 'registrar_contato' || tipoContato === 'opt_out') ? ' *' : ''}
+                  Anotações{tipoContato === 'registrar_contato' ? ' *' : ''}
                 </Label>
                 <Textarea
                   ref={anotacaoRef}
@@ -503,6 +585,7 @@ export function ContatoRealizadoDialog({
         uf={optOutCtx.uf}
         canaisSugeridos={optOutCtx.canaisSugeridos}
         justificativaInicial={optOutCtx.justificativaInicial}
+        motivoInicial={optOutCtx.motivoInicial}
       />
     )}
     </>
