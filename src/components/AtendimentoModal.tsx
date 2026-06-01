@@ -10,11 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { KanbanItem } from './KanbanBoard';
-import { User, Phone, Mail, MessageSquare, Package, Thermometer, Clock, Settings, History } from 'lucide-react';
+import { User, Phone, Mail, MessageSquare, Package, Thermometer, Clock, Settings, History, ShieldOff } from 'lucide-react';
 import { ContatoTimeline } from './ContatoTimeline';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/contexts/CompanyContext';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
+import { ExternalOptOutDialog, type OptOutCanal } from './ExternalOptOutDialog';
 
 interface AtendimentoModalProps {
   isOpen: boolean;
@@ -31,10 +33,55 @@ interface TemperaturaOption {
 
 export function AtendimentoModal({ isOpen, onClose, item, columnId }: AtendimentoModalProps) {
   const { activeCompany } = useCompany();
+  const { permissions } = useUserAccessType();
   const [activeTab, setActiveTab] = useState('dados-pessoais');
   const [novaAnotacao, setNovaAnotacao] = useState('');
   const [temperatura, setTemperatura] = useState('');
   const [temperaturasDisponiveis, setTemperaturasDisponiveis] = useState<TemperaturaOption[]>([]);
+  const [optOutOpen, setOptOutOpen] = useState(false);
+  const [contatoData, setContatoData] = useState<{
+    id: string;
+    nome: string;
+    telefone: string;
+    email?: string | null;
+    empresa_marca?: string | null;
+    empresa_uf?: string | null;
+  } | null>(null);
+
+  const canRegisterOptOut = permissions.canRegisterExternalOptOut === true;
+
+  // Canal herdado do canal da prospecção
+  const optOutCanal: OptOutCanal = useMemo(() => {
+    const c = (item?.prospeccaoCanal || '').toLowerCase();
+    if (c.startsWith('lig')) return 'ligacao';
+    return 'whatsapp';
+  }, [item?.prospeccaoCanal]);
+
+  // Buscar dados reais do contato + empresa quando o modal abre
+  useEffect(() => {
+    const fetchContato = async () => {
+      if (!isOpen || !item?.id) {
+        setContatoData(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('contatos')
+        .select('id, nome, telefone, email, empresas:empresa_id(marca, uf)')
+        .eq('id', item.id)
+        .maybeSingle();
+      if (!error && data) {
+        setContatoData({
+          id: data.id,
+          nome: data.nome || item.title || '',
+          telefone: (data.telefone || '').toString(),
+          email: data.email,
+          empresa_marca: (data as any).empresas?.marca ?? null,
+          empresa_uf: (data as any).empresas?.uf ?? null,
+        });
+      }
+    };
+    fetchContato();
+  }, [isOpen, item?.id, item?.title]);
 
   // Buscar temperaturas da empresa
   useEffect(() => {
@@ -210,6 +257,23 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                 <History className="h-4 w-4" />
                 Histórico
               </button>
+              {canRegisterOptOut && (
+                <button
+                  onClick={() => setOptOutOpen(true)}
+                  disabled={!contatoData?.telefone || !contatoData?.empresa_marca || !contatoData?.empresa_uf}
+                  className="w-full text-left p-3 rounded-lg flex items-center gap-2 text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !contatoData?.telefone
+                      ? 'Carregando dados do contato...'
+                      : !contatoData?.empresa_marca || !contatoData?.empresa_uf
+                        ? 'Empresa sem marca/UF configurada'
+                        : 'Registrar Opt-Out Externo (regulatório)'
+                  }
+                >
+                  <ShieldOff className="h-4 w-4" />
+                  Opt-Out Externo
+                </button>
+              )}
             </nav>
           </div>
 
@@ -487,6 +551,21 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
             )}
           </ScrollIndicator>
         </div>
+
+        {canRegisterOptOut && contatoData?.telefone && contatoData?.empresa_marca && contatoData?.empresa_uf && (
+          <ExternalOptOutDialog
+            open={optOutOpen}
+            onOpenChange={setOptOutOpen}
+            contato={{
+              id: contatoData.id,
+              nome: contatoData.nome,
+              telefone: contatoData.telefone,
+              email: contatoData.email,
+            }}
+            empresa={{ marca: contatoData.empresa_marca, uf: contatoData.empresa_uf }}
+            canal={optOutCanal}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
