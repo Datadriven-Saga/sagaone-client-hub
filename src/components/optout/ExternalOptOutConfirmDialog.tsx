@@ -47,8 +47,8 @@ interface ExternalOptOutConfirmDialogProps {
   contato: ExternalOptOutContatoInput;
   marca: string;
   uf: string;
-  /** Pré-seleciona um canal (operador pode alterar). */
-  canalSugerido?: OptOutCanalKey;
+  /** Pré-seleciona canais (operador pode alterar). */
+  canaisSugeridos?: OptOutCanalKey[];
   /** Texto inicial da justificativa (ex: anotação já preenchida). */
   justificativaInicial?: string;
   /** Permite editar marca/UF (quando não vêm do contexto). */
@@ -73,7 +73,7 @@ export function ExternalOptOutConfirmDialog({
   contato,
   marca: marcaProp,
   uf: ufProp,
-  canalSugerido,
+  canaisSugeridos,
   justificativaInicial,
   allowMarcaUfEdit = false,
 }: ExternalOptOutConfirmDialogProps) {
@@ -88,7 +88,7 @@ export function ExternalOptOutConfirmDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSelectedCanais(canalSugerido ? [canalSugerido] : []);
+    setSelectedCanais(canaisSugeridos && canaisSugeridos.length > 0 ? [...canaisSugeridos] : []);
     setMarca(marcaProp || "");
     setUf(ufProp || "");
     setCpf(contato.cpf || contato.documento || "");
@@ -98,7 +98,7 @@ export function ExternalOptOutConfirmDialog({
     setSubmitting(false);
   }, [
     open,
-    canalSugerido,
+    canaisSugeridos,
     marcaProp,
     ufProp,
     contato.cpf,
