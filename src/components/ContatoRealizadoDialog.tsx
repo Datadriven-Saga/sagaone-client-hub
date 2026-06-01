@@ -338,6 +338,7 @@ export function ContatoRealizadoDialog({
   ];
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl h-[85vh] max-h-[680px] flex flex-col p-0 gap-0">
         {/* Header fixo */}
