@@ -54,11 +54,17 @@ function isNullish(value?: string | null): boolean {
 
 export function normalizePhone(value?: string | null): string | null {
   if (isNullish(value)) return null;
-  const digits = String(value).replace(/\D/g, "");
+  let digits = String(value).replace(/\D/g, "");
   if (!digits || digits.length < 10) return null;
-  // Strip country code 55 when present on 12/13-digit numbers
-  if (digits.startsWith("55") && digits.length > 11) {
-    return digits.slice(2);
+  // 1) Strip country code 55 when present on 12/13-digit numbers
+  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+    digits = digits.slice(2);
+  }
+  // 2) Strip the 9th digit for mobile numbers (project convention)
+  //    Mobile = 11 digits where the 3rd char is "9" (DDD + 9 + 8 digits).
+  //    Normalize to 10-digit form: DDD + 8 digits.
+  if (digits.length === 11 && digits[2] === "9") {
+    digits = digits.slice(0, 2) + digits.slice(3);
   }
   return digits;
 }
