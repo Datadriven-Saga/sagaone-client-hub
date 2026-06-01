@@ -1108,6 +1108,104 @@ showAllEvents: true
     [user, contatosProspeccoes, globalFilters.prospeccaoIds, prospeccoes, registrarMovimentacao]
   );
 
+  // Abre o modal de confirmação regulatória. Resolve marca/uf da empresa e
+  // canal sugerido a partir da prospecção. Retorna `true` se o modal foi
+  // aberto (caller deve tratar como "operação assíncrona pendente").
+  const openOptOutConfirmModal = async (params: {
+    contato: { telefone: string; nome: string; email?: string | null; cpf?: string | null };
+    empresaId?: string | null;
+    prospeccaoId?: string | null;
+    onConfirmed: () => void | Promise<void>;
+  }): Promise<boolean> => {
+    const { contato, empresaId, prospeccaoId, onConfirmed } = params;
+    if (!contato.telefone) {
+      toast({ title: 'Contato sem telefone', description: 'Não é possível registrar opt-out regulatório.', variant: 'destructive' });
+      return false;
+    }
+    let marca = '';
+    let uf = '';
+    let canalSugerido: OptOutCanalKey | undefined;
+    try {
+      if (empresaId) {
+        const { data: emp } = await supabase
+          .from('empresas')
+          .select('marca, uf')
+          .eq('id', empresaId)
+          .maybeSingle();
+        marca = emp?.marca || '';
+        uf = emp?.uf || '';
+      }
+      if (prospeccaoId) {
+        const { data: prospec } = await supabase
+          .from('prospeccoes')
+          .select('canal')
+          .eq('id', prospeccaoId)
+          .maybeSingle();
+        if (prospec?.canal === 'Whatsapp') canalSugerido = 'whatsapp';
+        else if (prospec?.canal === 'Ligação') canalSugerido = 'call';
+      }
+    } catch (err) {
+      console.error('Erro ao preparar opt-out regulatório:', err);
+    }
+    if (!marca || !uf) {
+      toast({
+        title: 'Marca/UF da empresa não configurada',
+        description: 'Configure marca e UF da empresa antes de registrar opt-out regulatório.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    setOptOutModal({
+      isOpen: true,
+      contato,
+      marca,
+      uf,
+      canalSugerido,
+      onConfirmed,
+    });
+    return true;
+  };
+
+  // Executa apenas o "lado interno" da mudança de status para o Kanban
+  // (sem voltar a passar pelas validações de descarte/convite/venda/opt-out).
+  // Usado após confirmação regulatória.
+  const executeKanbanStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
+    try {
+      const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+      if (novoStatusDb) {
+        await atualizarStatusContato(itemId, novoStatusDb);
+      }
+      if (fromStatus === 'novos' && user?.email) {
+        await atribuirResponsavel(itemId, user.email);
+      }
+      logStatusChange(itemId, fromStatus, toStatus);
+      if (isLimitedUser) contarLeadsPendentes();
+
+      const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
+      const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
+      const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0
+        ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
+        : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
+      if (prospeccaoIdParaWebhook && activeCompany?.id) {
+        await supabase.functions.invoke('trigger-webhook', {
+          body: {
+            gatilho: 'movimentacao_lead_kanban',
+            dados: {
+              contato_id: itemId,
+              empresa_id: activeCompany.id,
+              prospeccao_id: prospeccaoIdParaWebhook,
+              status_anterior: kanbanStatusMap[fromStatus as keyof typeof kanbanStatusMap] || fromStatus,
+              status_novo: kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap] || toStatus,
+              usuario_id: user?.id,
+            },
+          },
+        });
+      }
+    } catch (err) {
+      console.error('executeKanbanStatusChange falhou:', err);
+    }
+  };
+
   const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
     console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
     const contatoCompleto = contatos.find(c => c.id === itemId) ?? (() => {
