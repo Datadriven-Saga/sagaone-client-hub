@@ -2315,6 +2315,37 @@ showAllEvents: true
   };
 
   const handleModalStatusChange = async (contatoId: string, novoStatus: Contato['status']) => {
+    // Interceptação regulatória: Opt Out via dropdown do ContatoModal.
+    if (novoStatus === 'Opt Out') {
+      const contatoExistente = contatos.find(c => c.id === contatoId);
+      const opened = await openOptOutConfirmModal({
+        contato: {
+          telefone: contatoExistente?.telefone || '',
+          nome: contatoExistente?.nome || '',
+          email: contatoExistente?.email ?? null,
+          cpf: null,
+        },
+        empresaId: contatoExistente?.empresa_id || activeCompany?.id,
+        prospeccaoId: (() => {
+          const ids = contatosProspeccoes.get(contatoId);
+          const filtros = globalFilters.prospeccaoIds;
+          return (filtros.length > 0
+            ? filtros.find(id => ids?.has(id)) || filtros[0]
+            : ids?.[0]) || prospeccoes?.[0]?.id;
+        })(),
+        onConfirmed: async () => {
+          await atualizarStatusContato(contatoId, novoStatus);
+          if (contatoExistente) {
+            logStatusChange(contatoId, contatoExistente.status, novoStatus);
+          }
+          fetchKanbanColumns(getKanbanFilters(), { silent: true });
+        },
+      });
+      if (opened) return;
+      // Se modal não pôde abrir (faltam dados), aborta sem efetivar.
+      return;
+    }
+
     await atualizarStatusContato(contatoId, novoStatus);
     
     // Registrar movimentação (helper resolve prospeccao_id real do contato)
