@@ -155,6 +155,7 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canValidarImportacao", label: "Validar importações de base", moduleId: "base_contatos", action: "administrar", description: "Aprovar ou reprovar importações de base de contatos" },
   { key: "canGovernancaDados", label: "Gerenciar governança de dados", moduleId: "base_contatos", action: "administrar", description: "Controle de qualidade e governança sobre dados de contatos" },
   { key: "canAccessOptOutGlobal", label: "Acessar Opt-Out Global", moduleId: "base_contatos", action: "administrar", description: "Gerenciar lista negra global de números bloqueados" },
+  { key: "canRegisterExternalOptOut", label: "Registrar Opt-Out Externo (regulatório)", moduleId: "base_contatos", action: "executar", description: "Registrar contato na API externa de opt-out (efeito regulatório)" },
   {
     key: "canImportPool",
     label: "Importar do DataLake (Pool)",
@@ -388,6 +389,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canValidarImportacao = isAdmin || isTI || isCRM; // CRM valida importações; Gestor de Leads NÃO pode validar
   defaults.canGovernancaDados = isAdmin || isTI || isCRM; // CRM gerencia governança de dados
   defaults.canAccessOptOutGlobal = isAdmin || isTI || isCRM; // CRM acessa opt-out global
+  defaults.canRegisterExternalOptOut = isAdmin || isTI || isCRM || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
   defaults.canImportPool = isAdmin || isCRM; // Master herda via flag global
 
   // ── Recepção ──
