@@ -141,6 +141,22 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     fromStatus: '',
     prospeccaoIdAlvo: '',
   });
+  // Opt-out regulatório (interceptação centralizada)
+  const [optOutModal, setOptOutModal] = useState<{
+    isOpen: boolean;
+    contato: { telefone: string; nome: string; email?: string | null; cpf?: string | null } | null;
+    marca: string;
+    uf: string;
+    canalSugerido?: OptOutCanalKey;
+    onConfirmed: (() => void | Promise<void>) | null;
+  }>({
+    isOpen: false,
+    contato: null,
+    marca: '',
+    uf: '',
+    canalSugerido: undefined,
+    onConfirmed: null,
+  });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
   const [responsaveisFiltrados, setResponsaveisFiltrados] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null }[]>([]);
   const [eventosLigacaoValidos, setEventosLigacaoValidos] = useState<Set<string>>(new Set());
