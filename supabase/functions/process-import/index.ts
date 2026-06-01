@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  fetchExternalOptOutIndex,
+  isBlockedByExternalOptOut,
+  type ExternalOptOutIndex,
+} from '../_shared/external-optout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
