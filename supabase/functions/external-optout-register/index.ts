@@ -24,7 +24,7 @@ function json(status: number, body: unknown) {
   });
 }
 
-type Canal = "ligacao" | "whatsapp";
+type Canal = "ligacao" | "call" | "whatsapp" | "sms" | "email" | "pesquisa";
 
 interface RequestBody {
   telefone_cliente: string;
@@ -33,8 +33,30 @@ interface RequestBody {
   nome_completo_cliente: string;
   marca: string;
   uf: string;
-  canal: Canal;
+  /** Compat: canal único (legado). */
+  canal?: Canal;
+  /** Novo: lista de canais a bloquear. */
+  canais_bloqueados?: Canal[];
   justificativa: string;
+}
+
+const VALID_CANAIS: Canal[] = [
+  "ligacao",
+  "call",
+  "whatsapp",
+  "sms",
+  "email",
+  "pesquisa",
+];
+
+function normalizeCanal(c: string): Canal | null {
+  const v = (c ?? "").toString().trim().toLowerCase();
+  if (v === "call" || v === "ligacao" || v === "ligação") return "call";
+  if (v === "whatsapp" || v === "wpp") return "whatsapp";
+  if (v === "sms") return "sms";
+  if (v === "email" || v === "e-mail") return "email";
+  if (v === "pesquisa") return "pesquisa";
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -101,8 +123,22 @@ Deno.serve(async (req) => {
   }
   if (!body.marca?.trim()) errors.push("marca é obrigatória");
   if (!body.uf?.trim()) errors.push("uf é obrigatória");
-  if (body.canal !== "ligacao" && body.canal !== "whatsapp") {
-    errors.push("canal inválido (use 'ligacao' ou 'whatsapp')");
+  // Canais — aceita canal único (compat) OU canais_bloqueados[]
+  const canaisRaw: string[] = Array.isArray(body.canais_bloqueados) &&
+      body.canais_bloqueados.length > 0
+    ? body.canais_bloqueados as string[]
+    : body.canal
+    ? [body.canal as string]
+    : [];
+  const canaisNorm: Canal[] = [];
+  for (const c of canaisRaw) {
+    const n = normalizeCanal(c);
+    if (n && !canaisNorm.includes(n)) canaisNorm.push(n);
+  }
+  if (canaisNorm.length === 0) {
+    errors.push(
+      "Informe ao menos um canal válido (whatsapp, call/ligacao, sms, email, pesquisa)",
+    );
   }
   const just = (body.justificativa ?? "").toString().trim();
   if (!just) errors.push("justificativa é obrigatória");
@@ -131,7 +167,13 @@ Deno.serve(async (req) => {
     if (e.includes("@")) emailNorm = e;
   }
 
-  // 6. Flags de canal
+  // 6. Flags de canal — opt-in = true por padrão; canal escolhido = false
+  const blockCall = canaisNorm.includes("call");
+  const blockWhats = canaisNorm.includes("whatsapp");
+  const blockSms = canaisNorm.includes("sms");
+  const blockEmail = canaisNorm.includes("email");
+  const blockPesquisa = canaisNorm.includes("pesquisa");
+
   const payload = {
     telefone_cliente: telefoneNorm,
     cpf_cliente: cpfNorm,
@@ -139,11 +181,11 @@ Deno.serve(async (req) => {
     nome_completo_cliente: body.nome_completo_cliente.trim(),
     marca: mapMarcaForApi(body.marca),
     uf: body.uf.trim().toUpperCase(),
-    call_optin: body.canal !== "ligacao",
-    email_optin: true,
-    sms_optin: true,
-    whatsapp_optin: body.canal !== "whatsapp",
-    pesquisa_optin: true,
+    call_optin: !blockCall,
+    email_optin: !blockEmail,
+    sms_optin: !blockSms,
+    whatsapp_optin: !blockWhats,
+    pesquisa_optin: !blockPesquisa,
     nome_solicitante: nomeSolicitante,
     cargo_solicitante: cargoSolicitante,
   };
@@ -201,7 +243,7 @@ Deno.serve(async (req) => {
       userId,
       marca: payload.marca,
       uf: payload.uf,
-      canal: body.canal,
+      canais: canaisNorm,
       responseSnippet: bodyText.slice(0, 200),
     });
     return json(502, {
@@ -215,7 +257,7 @@ Deno.serve(async (req) => {
     cargoSolicitante,
     marca: payload.marca,
     uf: payload.uf,
-    canal: body.canal,
+    canais: canaisNorm,
     justificativa: just,
   });
 
@@ -242,11 +284,11 @@ Deno.serve(async (req) => {
         contato_id: contato.id,
         tipo: "optout_externo",
         descricao:
-          `Opt-out externo registrado por ${nomeSolicitante}. Canal: ${body.canal}. Justificativa: ${just}`,
+          `Opt-out externo registrado por ${nomeSolicitante}. Canais: ${canaisNorm.join(", ")}. Justificativa: ${just}`,
         usuario_id: userId,
         usuario_nome: nomeSolicitante,
         metadata: {
-          canal: body.canal,
+          canais: canaisNorm,
           marca: payload.marca,
           uf: payload.uf,
           cargo_solicitante: cargoSolicitante,
