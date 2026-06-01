@@ -6,6 +6,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +36,16 @@ const CANAL_OPTIONS: { key: OptOutCanalKey; label: string }[] = [
   { key: "sms", label: "SMS" },
   { key: "email", label: "E-mail" },
   { key: "pesquisa", label: "Pesquisa" },
+];
+
+const MOTIVO_OPTIONS = [
+  { value: "Cliente faleceu", label: "Cliente faleceu" },
+  { value: "Experiência negativa com a empresa ou colaborador", label: "Experiência negativa com a empresa ou colaborador" },
+  { value: "Não possui mais o veículo", label: "Não possui mais o veículo" },
+  { value: "Não quer mais receber ofertas", label: "Não quer mais receber ofertas" },
+  { value: "Recebe ligações em excesso", label: "Recebe ligações em excesso" },
+  { value: "Telefone não é da pessoa", label: "Telefone não é da pessoa" },
+  { value: "Outros", label: "Outros (especificar)" },
 ];
 
 export interface ExternalOptOutContatoInput {
@@ -82,9 +99,12 @@ export function ExternalOptOutConfirmDialog({
   const [uf, setUf] = useState(ufProp || "");
   const [cpf, setCpf] = useState(contato.cpf || contato.documento || "");
   const [email, setEmail] = useState(contato.email || "");
-  const [justificativa, setJustificativa] = useState("");
+  const [motivo, setMotivo] = useState<string>("Cliente faleceu");
+  const [justificativaOutros, setJustificativaOutros] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const isOutros = motivo === "Outros";
 
   useEffect(() => {
     if (!open) return;
@@ -93,7 +113,8 @@ export function ExternalOptOutConfirmDialog({
     setUf(ufProp || "");
     setCpf(contato.cpf || contato.documento || "");
     setEmail(contato.email || "");
-    setJustificativa(justificativaInicial?.slice(0, 200) || "");
+    setMotivo("Cliente faleceu");
+    setJustificativaOutros(justificativaInicial?.slice(0, 500) || "");
     setAcknowledged(false);
     setSubmitting(false);
   }, [
@@ -107,22 +128,29 @@ export function ExternalOptOutConfirmDialog({
     justificativaInicial,
   ]);
 
-  const justLen = justificativa.trim().length;
+  const outrosLen = justificativaOutros.trim().length;
 
   const canSubmit = useMemo(() => {
     if (submitting) return false;
     if (selectedCanais.length === 0) return false;
-    if (justLen < 10 || justLen > 200) return false;
+    if (isOutros && outrosLen < 20) return false;
     if (!acknowledged) return false;
     if (!marca.trim() || !uf.trim()) return false;
     if (!contato.telefone) return false;
     return true;
-  }, [submitting, selectedCanais, justLen, acknowledged, marca, uf, contato.telefone]);
+  }, [submitting, selectedCanais, isOutros, outrosLen, acknowledged, marca, uf, contato.telefone]);
 
   const toggleCanal = (k: OptOutCanalKey) => {
     setSelectedCanais((prev) =>
       prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
     );
+  };
+
+  const buildJustificativa = (): string => {
+    if (isOutros) {
+      return `Outros: ${justificativaOutros.trim()}`;
+    }
+    return motivo;
   };
 
   const handleSubmit = async () => {
@@ -140,7 +168,7 @@ export function ExternalOptOutConfirmDialog({
             marca: marca.trim(),
             uf: uf.trim(),
             canais_bloqueados: selectedCanais,
-            justificativa: justificativa.trim(),
+            justificativa: buildJustificativa(),
           },
         },
       );
@@ -294,36 +322,61 @@ export function ExternalOptOutConfirmDialog({
             </div>
           </div>
 
-          {/* Justificativa */}
+          {/* Motivo */}
           <div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="ext-just" className="text-sm">
-                Justificativa *
-              </Label>
-              <span
-                className={`text-xs ${
-                  justLen > 200 || (justLen > 0 && justLen < 10)
-                    ? "text-destructive"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {justLen}/200
-              </span>
-            </div>
-            <Textarea
-              id="ext-just"
-              value={justificativa}
-              onChange={(e) => setJustificativa(e.target.value.slice(0, 200))}
-              placeholder="Descreva o motivo do opt-out (ex: cliente solicitou por ligação em DD/MM)"
-              rows={3}
+            <Label htmlFor="ext-motivo" className="text-sm">
+              Motivo do opt-out *
+            </Label>
+            <Select
+              value={motivo}
+              onValueChange={setMotivo}
               disabled={submitting}
-            />
-            {justLen > 0 && justLen < 10 && (
-              <p className="text-xs text-destructive mt-1">
-                Mínimo de 10 caracteres.
-              </p>
-            )}
+            >
+              <SelectTrigger id="ext-motivo" className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MOTIVO_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Justificativa livre (apenas quando "Outros") */}
+          {isOutros && (
+            <div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="ext-just" className="text-sm">
+                  Especificar motivo *
+                </Label>
+                <span
+                  className={`text-xs ${
+                    outrosLen > 0 && outrosLen < 20
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {outrosLen >= 20 ? "OK" : `mín. 20 (${outrosLen})`}
+                </span>
+              </div>
+              <Textarea
+                id="ext-just"
+                value={justificativaOutros}
+                onChange={(e) => setJustificativaOutros(e.target.value.slice(0, 500))}
+                placeholder="Descreva o motivo do opt-out..."
+                rows={3}
+                disabled={submitting}
+              />
+              {outrosLen > 0 && outrosLen < 20 && (
+                <p className="text-xs text-destructive mt-1">
+                  Mínimo de 20 caracteres.
+                </p>
+              )}
+            </div>
+          )}
 
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
