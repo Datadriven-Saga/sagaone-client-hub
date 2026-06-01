@@ -487,5 +487,21 @@ export function ContatoRealizadoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {optOutCtx && (
+      <ExternalOptOutConfirmDialog
+        open={optOutOpen}
+        onClose={() => setOptOutOpen(false)}
+        onConfirmed={() => {
+          setOptOutOpen(false);
+          void persistirContato();
+        }}
+        contato={optOutCtx.contato}
+        marca={optOutCtx.marca}
+        uf={optOutCtx.uf}
+        canalSugerido={optOutCtx.canalSugerido}
+        justificativaInicial={optOutCtx.justificativaInicial}
+      />
+    )}
+    </>
   );
 }
