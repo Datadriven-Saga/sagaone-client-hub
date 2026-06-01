@@ -6,6 +6,8 @@ import { toast } from "sonner";
 interface Company {
   id: string;
   nome_empresa: string;
+  marca?: string | null;
+  uf?: string | null;
 }
 
 interface CompanyContextType {
@@ -42,7 +44,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
           is_ativa,
           empresas!inner (
             id,
-            nome_empresa
+            nome_empresa,
+            marca,
+            uf
           )
         `)
         .eq('user_id', user.id);
@@ -63,6 +67,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         .map(ue => ({
           id: ue.empresas.id,
           nome_empresa: ue.empresas.nome_empresa,
+          marca: (ue.empresas as any).marca ?? null,
+          uf: (ue.empresas as any).uf ?? null,
         }));
 
       console.log('🏢 CompanyContext: Processed companies:', companies);
@@ -77,6 +83,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         const activeCompanyData = {
           id: activeEmpresa.empresas.id,
           nome_empresa: activeEmpresa.empresas.nome_empresa,
+          marca: (activeEmpresa.empresas as any).marca ?? null,
+          uf: (activeEmpresa.empresas as any).uf ?? null,
         };
         console.log('🏢 CompanyContext: Setting active company:', activeCompanyData);
         setActiveCompany(activeCompanyData);
