@@ -12,7 +12,7 @@ import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-rea
 import type { Database } from '@/integrations/supabase/types';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { setContatoStatus } from '@/lib/contatoStatusApi';
-import { ExternalOptOutConfirmDialog, type OptOutCanalKey } from '@/components/optout/ExternalOptOutConfirmDialog';
+import { ExternalOptOutConfirmDialog, OPTOUT_MOTIVO_OPTIONS, type OptOutCanalKey } from '@/components/optout/ExternalOptOutConfirmDialog';
 
 interface MotivoInsucesso {
   id: string;
@@ -39,6 +39,8 @@ export function ContatoRealizadoDialog({
   const { activeCompany } = useCompany();
   const [tipoContato, setTipoContato] = useState<TipoContato | ''>('');
   const [motivoId, setMotivoId] = useState<string>('');
+  const [motivoOptOut, setMotivoOptOut] = useState<string>('Cliente faleceu');
+  const [motivoOptOutOutros, setMotivoOptOutOutros] = useState<string>('');
   const [anotacao, setAnotacao] = useState('');
   const [motivos, setMotivos] = useState<MotivoInsucesso[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,7 @@ export function ContatoRealizadoDialog({
     uf: string;
     canaisSugeridos?: OptOutCanalKey[];
     justificativaInicial?: string;
+    motivoInicial?: string;
   } | null>(null);
 
   const handleTipoContatoChange = (value: TipoContato) => {
@@ -96,13 +99,28 @@ export function ContatoRealizadoDialog({
       return;
     }
 
-    if ((tipoContato === 'registrar_contato' || tipoContato === 'opt_out') && !anotacao.trim()) {
+    if (tipoContato === 'registrar_contato' && !anotacao.trim()) {
       toast({
         title: "Anotação obrigatória",
         description: "Detalhe o contato realizado",
         variant: "destructive"
       });
       return;
+    }
+
+    if (tipoContato === 'opt_out') {
+      if (!motivoOptOut) {
+        toast({ title: 'Selecione o motivo do opt-out', variant: 'destructive' });
+        return;
+      }
+      if (motivoOptOut === 'Outros' && motivoOptOutOutros.trim().length < 20) {
+        toast({
+          title: 'Especifique o motivo',
+          description: 'Mínimo de 20 caracteres ao escolher "Outros".',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     if (tipoContato === 'nao_vai_participar' && !motivoId) {
@@ -165,6 +183,11 @@ export function ContatoRealizadoDialog({
             ? ['whatsapp', 'call']
             : undefined;
 
+        const isOutros = motivoOptOut === 'Outros';
+        const justInicial = isOutros
+          ? motivoOptOutOutros.trim()
+          : (anotacao.trim() || undefined);
+
         setOptOutCtx({
           contato: {
             telefone: contato.telefone || '',
@@ -175,7 +198,8 @@ export function ContatoRealizadoDialog({
           marca,
           uf,
           canaisSugeridos,
-          justificativaInicial: anotacao.trim() || undefined,
+          justificativaInicial: justInicial,
+          motivoInicial: motivoOptOut,
         });
         setOptOutOpen(true);
       } catch (err) {
@@ -297,6 +321,8 @@ export function ContatoRealizadoDialog({
   const handleClose = () => {
     setTipoContato('');
     setMotivoId('');
+    setMotivoOptOut('Cliente faleceu');
+    setMotivoOptOutOutros('');
     setAnotacao('');
     onClose();
   };
