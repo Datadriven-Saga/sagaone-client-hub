@@ -1133,6 +1133,32 @@ showAllEvents: true
         : null;
     })();
     
+    // ===== INTERCEPTAÇÃO REGULATÓRIA: drag para coluna Opt Out =====
+    if (toStatus === 'optout' && contatoCompleto) {
+      const opened = await openOptOutConfirmModal({
+        contato: {
+          telefone: contatoCompleto.telefone || '',
+          nome: contatoCompleto.nome || '',
+          email: contatoCompleto.email ?? null,
+          cpf: null,
+        },
+        empresaId: contatoCompleto.empresa_id || activeCompany?.id,
+        prospeccaoId: (() => {
+          const ids = contatosProspeccoes.get(itemId);
+          const filtros = globalFilters.prospeccaoIds;
+          return (filtros.length > 0
+            ? filtros.find(id => ids?.has(id)) || filtros[0]
+            : ids?.[0]) || prospeccoes?.[0]?.id;
+        })(),
+        onConfirmed: async () => {
+          // Após confirmação regulatória, efetiva mudança interna (fluxo original).
+          await executeKanbanStatusChange(itemId, fromStatus, toStatus);
+          fetchKanbanColumns(getKanbanFilters(), { silent: true });
+        },
+      });
+      if (opened) return false; // card NÃO se move até confirmar
+    }
+
     // Bloquear SDR/Vendedor de mover leads para "atribuidos" quando no limite de 30
     if (isLimitedUser && atLimitLeads && fromStatus === 'novos' && toStatus === 'atribuidos') {
       toast({
