@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  fetchExternalOptOutIndex,
+  isBlockedByExternalOptOut,
+  type ExternalOptOutIndex,
+} from '../_shared/external-optout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -426,6 +431,111 @@ Deno.serve(async (req: Request) => {
       signals: batchDecision.signals,
     });
 
+    // ============================================================
+    // OPT-OUT EXTERNO (fail-closed) — bloqueia contatos da lista
+    // externa ANTES de qualquer chamada a bulk_upsert_contatos.
+    // Buscado UMA VEZ por invocação (aceita re-fetch em self-chain).
+    // ============================================================
+    let empresaMarca: string | null = null;
+    let empresaUf: string | null = null;
+    if (log.empresa_id) {
+      const { data: empresaInfo, error: empresaErr } = await supabaseAdmin
+        .from('empresas')
+        .select('marca, uf')
+        .eq('id', log.empresa_id)
+        .single();
+      if (empresaErr) {
+        console.error('[process-import][external-optout] erro ao carregar empresa', {
+          importId: import_log_id,
+          empresaId: log.empresa_id,
+          error: empresaErr.message,
+        });
+      }
+      empresaMarca = empresaInfo?.marca ?? null;
+      empresaUf = empresaInfo?.uf ?? null;
+    }
+
+    if (!empresaMarca || !empresaUf) {
+      const msg = 'Empresa sem marca/UF configurados — opt-out externo não pode ser validado. Importação bloqueada por segurança.';
+      console.error('[process-import][external-optout] FALHA — empresa sem marca/uf', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        marca: empresaMarca,
+        uf: empresaUf,
+      });
+      await supabaseAdmin.from('import_logs').update({
+        status: 'error',
+        message: msg,
+      }).eq('id', import_log_id);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let optOutIndex: ExternalOptOutIndex;
+    try {
+      optOutIndex = await fetchExternalOptOutIndex({
+        marca: empresaMarca,
+        uf: empresaUf,
+      });
+      console.log('[process-import][external-optout] índice carregado', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        prospeccaoId: log.prospeccao_id,
+        marca: empresaMarca,
+        apiMarca: optOutIndex.apiMarca,
+        uf: empresaUf,
+        apiTotalRecords: optOutIndex.totalRecords,
+        indexPhones: optOutIndex.phones.size,
+        indexEmails: optOutIndex.emails.size,
+        indexCpfs: optOutIndex.cpfs.size,
+        fetchDurationMs: optOutIndex.fetchDurationMs,
+      });
+    } catch (err: any) {
+      console.error('[process-import][external-optout] FALHA — importação bloqueada', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        prospeccaoId: log.prospeccao_id,
+        marca: empresaMarca,
+        uf: empresaUf,
+        error: err?.message ?? String(err),
+      });
+      await supabaseAdmin.from('import_logs').update({
+        status: 'error',
+        message: 'Falha ao consultar opt-out externo. Importação bloqueada por segurança.',
+      }).eq('id', import_log_id);
+      return new Response(JSON.stringify({
+        error: 'Falha ao consultar opt-out externo. Importação bloqueada por segurança.',
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Helper local: particiona um batch usando o índice carregado.
+    const partitionByOptOut = (rows: any[]) => {
+      const allowed: any[] = [];
+      let blocked = 0;
+      for (const row of rows) {
+        if (isBlockedByExternalOptOut(
+          {
+            telefone: row?.telefone,
+            email: row?.email,
+            cpf: (row as any)?.cpf,
+            documento: (row as any)?.documento,
+          },
+          optOutIndex,
+        )) {
+          blocked++;
+        } else {
+          allowed.push(row);
+        }
+      }
+      return { allowed, blocked };
+    };
+    let totalOptOutBlocked = 0;
+
     if (currentOffset === 0) {
       await supabaseAdmin.from('import_logs').update({
         total_rows: totalDataRows,
@@ -471,13 +581,25 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
         if (batch.length > 0) {
-          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+          const inputBatchSize = batch.length;
+          const { allowed: allowedBatch, blocked: blockedCount } = partitionByOptOut(batch);
+          console.log('[process-import][external-optout] batch filtrado', {
+            importId: import_log_id,
+            batchIndex: batchCount + 1,
+            offset: i,
+            inputRows: inputBatchSize,
+            blockedRows: blockedCount,
+            allowedRows: allowedBatch.length,
+            phase: 'timeout-flush',
+          });
+          totalOptOutBlocked += blockedCount;
+          const result = allowedBatch.length > 0 ? await processBatch(supabaseAdmin, allowedBatch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
             importId: import_log_id,
             batchIndex: batchCount + 1,
             offset: i,
             configuredBatchSize,
             batchSizeReason,
-          });
+          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -489,7 +611,7 @@ Deno.serve(async (req: Request) => {
           for (const w of result.warning_details) {
             if (warningDetails.length < 200) warningDetails.push(w);
           }
-          processedRows += batch.length;
+          processedRows += inputBatchSize;
         }
 
         await supabaseAdmin.from('import_logs').update({
@@ -554,6 +676,9 @@ Deno.serve(async (req: Request) => {
       if (batch.length >= configuredBatchSize) {
         batchCount++;
         const batchOffsetStart = i - batch.length + 1;
+        const inputBatchSize = batch.length;
+        const { allowed: allowedBatch, blocked: blockedCount } = partitionByOptOut(batch);
+        totalOptOutBlocked += blockedCount;
         console.log('[process-import][batch:start]', {
           importId: import_log_id,
           empresaId: log.empresa_id,
@@ -562,16 +687,29 @@ Deno.serve(async (req: Request) => {
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-          actualBatchSize: batch.length,
+          actualBatchSize: allowedBatch.length,
+          inputRows: inputBatchSize,
+          optOutBlocked: blockedCount,
         });
+        if (blockedCount > 0) {
+          console.log('[process-import][external-optout] batch filtrado', {
+            importId: import_log_id,
+            batchIndex: batchCount,
+            offset: batchOffsetStart,
+            inputRows: inputBatchSize,
+            blockedRows: blockedCount,
+            allowedRows: allowedBatch.length,
+            phase: 'loop',
+          });
+        }
 
-        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+        const result = allowedBatch.length > 0 ? await processBatch(supabaseAdmin, allowedBatch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
           importId: import_log_id,
           batchIndex: batchCount,
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-        });
+        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -583,7 +721,7 @@ Deno.serve(async (req: Request) => {
         for (const w of result.warning_details) {
           if (warningDetails.length < 200) warningDetails.push(w);
         }
-        processedRows += batch.length;
+        processedRows += inputBatchSize;
 
         // Capture per-record error details from RPC
         if (result.error_details && result.error_details.length > 0) {
@@ -620,6 +758,9 @@ Deno.serve(async (req: Request) => {
     // Flush remaining batch
     if (!needsChain && batch.length > 0) {
       batchCount++;
+      const inputBatchSize = batch.length;
+      const { allowed: allowedBatch, blocked: blockedCount } = partitionByOptOut(batch);
+      totalOptOutBlocked += blockedCount;
       console.log('[process-import][batch:start]', {
         importId: import_log_id,
         empresaId: log.empresa_id,
@@ -628,17 +769,30 @@ Deno.serve(async (req: Request) => {
         offset: totalDataRows - batch.length,
         configuredBatchSize,
         batchSizeReason,
-        actualBatchSize: batch.length,
+        actualBatchSize: allowedBatch.length,
+        inputRows: inputBatchSize,
+        optOutBlocked: blockedCount,
         final: true,
       });
+      if (blockedCount > 0) {
+        console.log('[process-import][external-optout] batch filtrado', {
+          importId: import_log_id,
+          batchIndex: batchCount,
+          offset: totalDataRows - batch.length,
+          inputRows: inputBatchSize,
+          blockedRows: blockedCount,
+          allowedRows: allowedBatch.length,
+          phase: 'final',
+        });
+      }
 
-      const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+      const result = allowedBatch.length > 0 ? await processBatch(supabaseAdmin, allowedBatch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
         importId: import_log_id,
         batchIndex: batchCount,
         offset: totalDataRows - batch.length,
         configuredBatchSize,
         batchSizeReason,
-      });
+      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -650,7 +804,7 @@ Deno.serve(async (req: Request) => {
       for (const w of result.warning_details) {
         if (warningDetails.length < 200) warningDetails.push(w);
       }
-      processedRows += batch.length;
+      processedRows += inputBatchSize;
 
       // Capture per-record error details from final batch
       if (result.error_details && result.error_details.length > 0) {
@@ -690,10 +844,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // 7. Done!
+    if (totalOptOutBlocked > 0 && errorDetails.length < 200) {
+      errorDetails.push(`${totalOptOutBlocked} contato(s) bloqueado(s) por opt-out externo`);
+    }
     const quarantineMsg = quarantined > 0 ? ` ${quarantined} em quarentena.` : '';
+    const optOutMsg = totalOptOutBlocked > 0 ? ` ${totalOptOutBlocked} bloqueados por opt-out externo.` : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',

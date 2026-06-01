@@ -74,6 +74,25 @@ export const useBulkImport = () => {
     prospeccaoId: string,
     canal: string = 'whatsapp',
   ): Promise<void> => {
+    // ============================================================
+    // OPT-OUT EXTERNO — caminho direto desabilitado.
+    // Toda importação deve passar por process-import (upload de
+    // planilha) para que a lista externa de opt-out seja validada
+    // server-side antes de bulk_upsert_contatos.
+    // ============================================================
+    const blockedMsg = 'Importação direta desabilitada. Use o fluxo de upload de planilha para garantir validação de opt-out.';
+    console.warn(`🚫 Lote ${batchNum}: ${blockedMsg}`);
+    const pBlocked = progressRef.current;
+    pBlocked.errors += batch.length;
+    pBlocked.processedRecords += batch.length;
+    if (pBlocked.errorDetails.length < 200) {
+      pBlocked.errorDetails.push(`Lote ${batchNum}: ${blockedMsg}`);
+    }
+    progressRef.current = { ...pBlocked };
+    setProgress({ ...pBlocked });
+    return;
+
+    // eslint-disable-next-line no-unreachable
     let lastError = '';
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
