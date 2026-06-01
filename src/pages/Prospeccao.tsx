@@ -1124,7 +1124,7 @@ showAllEvents: true
     }
     let marca = '';
     let uf = '';
-    let canalSugerido: OptOutCanalKey | undefined;
+    let canaisSugeridos: OptOutCanalKey[] | undefined;
     try {
       if (empresaId) {
         const { data: emp } = await supabase
@@ -1141,8 +1141,12 @@ showAllEvents: true
           .select('canal')
           .eq('id', prospeccaoId)
           .maybeSingle();
-        if (prospec?.canal === 'Whatsapp') canalSugerido = 'whatsapp';
-        else if (prospec?.canal === 'Ligação') canalSugerido = 'call';
+        if (prospec?.canal === 'Whatsapp') canaisSugeridos = ['whatsapp'];
+        else if (prospec?.canal === 'Ligação') canaisSugeridos = ['call'];
+        else if (prospec?.canal === 'Grande Evento' || prospec?.canal === 'Mensal') {
+          // Eventos multi-canal: pré-marca WhatsApp + Ligação (operador pode desmarcar)
+          canaisSugeridos = ['whatsapp', 'call'];
+        }
       }
     } catch (err) {
       console.error('Erro ao preparar opt-out regulatório:', err);
@@ -1160,7 +1164,7 @@ showAllEvents: true
       contato,
       marca,
       uf,
-      canalSugerido,
+      canaisSugeridos,
       onConfirmed,
     });
     return true;
@@ -3781,7 +3785,7 @@ showAllEvents: true
           contato={optOutModal.contato}
           marca={optOutModal.marca}
           uf={optOutModal.uf}
-          canalSugerido={optOutModal.canalSugerido}
+          canaisSugeridos={optOutModal.canaisSugeridos}
         />
       )}
     </DashboardLayout>
