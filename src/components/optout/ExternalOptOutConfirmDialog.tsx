@@ -66,6 +66,16 @@ function formatPhoneDisplay(value: string): string {
   return value || "";
 }
 
+const MOTIVO_OPTIONS = [
+  { value: "Cliente faleceu", label: "Cliente faleceu" },
+  { value: "Experiência negativa com a empresa ou colaborador", label: "Experiência negativa com a empresa ou colaborador" },
+  { value: "Não possui mais o veículo", label: "Não possui mais o veículo" },
+  { value: "Não quer mais receber ofertas", label: "Não quer mais receber ofertas" },
+  { value: "Recebe ligações em excesso", label: "Recebe ligações em excesso" },
+  { value: "Telefone não é da pessoa", label: "Telefone não é da pessoa" },
+  { value: "Outros", label: "Outros (especificar)" },
+];
+
 export function ExternalOptOutConfirmDialog({
   open,
   onClose,
@@ -82,7 +92,8 @@ export function ExternalOptOutConfirmDialog({
   const [uf, setUf] = useState(ufProp || "");
   const [cpf, setCpf] = useState(contato.cpf || contato.documento || "");
   const [email, setEmail] = useState(contato.email || "");
-  const [justificativa, setJustificativa] = useState("");
+  const [motivo, setMotivo] = useState<string>("Cliente faleceu");
+  const [justificativaOutros, setJustificativaOutros] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
