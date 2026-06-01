@@ -844,10 +844,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // 7. Done!
+    if (totalOptOutBlocked > 0 && errorDetails.length < 200) {
+      errorDetails.push(`${totalOptOutBlocked} contato(s) bloqueado(s) por opt-out externo`);
+    }
     const quarantineMsg = quarantined > 0 ? ` ${quarantined} em quarentena.` : '';
+    const optOutMsg = totalOptOutBlocked > 0 ? ` ${totalOptOutBlocked} bloqueados por opt-out externo.` : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',
