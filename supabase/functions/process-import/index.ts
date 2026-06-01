@@ -431,6 +431,111 @@ Deno.serve(async (req: Request) => {
       signals: batchDecision.signals,
     });
 
+    // ============================================================
+    // OPT-OUT EXTERNO (fail-closed) — bloqueia contatos da lista
+    // externa ANTES de qualquer chamada a bulk_upsert_contatos.
+    // Buscado UMA VEZ por invocação (aceita re-fetch em self-chain).
+    // ============================================================
+    let empresaMarca: string | null = null;
+    let empresaUf: string | null = null;
+    if (log.empresa_id) {
+      const { data: empresaInfo, error: empresaErr } = await supabaseAdmin
+        .from('empresas')
+        .select('marca, uf')
+        .eq('id', log.empresa_id)
+        .single();
+      if (empresaErr) {
+        console.error('[process-import][external-optout] erro ao carregar empresa', {
+          importId: import_log_id,
+          empresaId: log.empresa_id,
+          error: empresaErr.message,
+        });
+      }
+      empresaMarca = empresaInfo?.marca ?? null;
+      empresaUf = empresaInfo?.uf ?? null;
+    }
+
+    if (!empresaMarca || !empresaUf) {
+      const msg = 'Empresa sem marca/UF configurados — opt-out externo não pode ser validado. Importação bloqueada por segurança.';
+      console.error('[process-import][external-optout] FALHA — empresa sem marca/uf', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        marca: empresaMarca,
+        uf: empresaUf,
+      });
+      await supabaseAdmin.from('import_logs').update({
+        status: 'error',
+        message: msg,
+      }).eq('id', import_log_id);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let optOutIndex: ExternalOptOutIndex;
+    try {
+      optOutIndex = await fetchExternalOptOutIndex({
+        marca: empresaMarca,
+        uf: empresaUf,
+      });
+      console.log('[process-import][external-optout] índice carregado', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        prospeccaoId: log.prospeccao_id,
+        marca: empresaMarca,
+        apiMarca: optOutIndex.apiMarca,
+        uf: empresaUf,
+        apiTotalRecords: optOutIndex.totalRecords,
+        indexPhones: optOutIndex.phones.size,
+        indexEmails: optOutIndex.emails.size,
+        indexCpfs: optOutIndex.cpfs.size,
+        fetchDurationMs: optOutIndex.fetchDurationMs,
+      });
+    } catch (err: any) {
+      console.error('[process-import][external-optout] FALHA — importação bloqueada', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        prospeccaoId: log.prospeccao_id,
+        marca: empresaMarca,
+        uf: empresaUf,
+        error: err?.message ?? String(err),
+      });
+      await supabaseAdmin.from('import_logs').update({
+        status: 'error',
+        message: 'Falha ao consultar opt-out externo. Importação bloqueada por segurança.',
+      }).eq('id', import_log_id);
+      return new Response(JSON.stringify({
+        error: 'Falha ao consultar opt-out externo. Importação bloqueada por segurança.',
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Helper local: particiona um batch usando o índice carregado.
+    const partitionByOptOut = (rows: any[]) => {
+      const allowed: any[] = [];
+      let blocked = 0;
+      for (const row of rows) {
+        if (isBlockedByExternalOptOut(
+          {
+            telefone: row?.telefone,
+            email: row?.email,
+            cpf: (row as any)?.cpf,
+            documento: (row as any)?.documento,
+          },
+          optOutIndex,
+        )) {
+          blocked++;
+        } else {
+          allowed.push(row);
+        }
+      }
+      return { allowed, blocked };
+    };
+    let totalOptOutBlocked = 0;
+
     if (currentOffset === 0) {
       await supabaseAdmin.from('import_logs').update({
         total_rows: totalDataRows,
