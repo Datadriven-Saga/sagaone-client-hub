@@ -467,6 +467,62 @@ export function ContatoRealizadoDialog({
                             </Select>
                           </div>
                         )}
+                        {opcao.value === 'opt_out' && isSelected && (
+                          <div
+                            className="space-y-2 mt-4 pt-4 border-t border-primary/20 animate-in fade-in slide-in-from-top-2 duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Label className="text-sm font-semibold text-foreground">
+                              Motivo do Opt-Out *
+                            </Label>
+                            <Select value={motivoOptOut} onValueChange={setMotivoOptOut}>
+                              <SelectTrigger className="h-11 text-[15px]">
+                                <SelectValue placeholder="Selecione o motivo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {OPTOUT_MOTIVO_OPTIONS.map((opt) => (
+                                  <SelectItem
+                                    key={opt.value}
+                                    value={opt.value}
+                                    className="text-[15px] py-3"
+                                  >
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {motivoOptOut === 'Outros' && (
+                              <div className="space-y-1 pt-2">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-sm font-medium text-foreground">
+                                    Especificar motivo *
+                                  </Label>
+                                  <span
+                                    className={`text-xs ${
+                                      motivoOptOutOutros.trim().length > 0 &&
+                                      motivoOptOutOutros.trim().length < 20
+                                        ? 'text-destructive'
+                                        : 'text-muted-foreground'
+                                    }`}
+                                  >
+                                    {motivoOptOutOutros.trim().length >= 20
+                                      ? 'OK'
+                                      : `mín. 20 (${motivoOptOutOutros.trim().length})`}
+                                  </span>
+                                </div>
+                                <Textarea
+                                  value={motivoOptOutOutros}
+                                  onChange={(e) =>
+                                    setMotivoOptOutOutros(e.target.value.slice(0, 500))
+                                  }
+                                  placeholder="Descreva o motivo do opt-out..."
+                                  rows={3}
+                                  className="text-[15px]"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       </React.Fragment>
                     );
@@ -478,7 +534,7 @@ export function ContatoRealizadoDialog({
               {/* Coluna Direita - Anotações */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold text-foreground">
-                  Anotações{(tipoContato === 'registrar_contato' || tipoContato === 'opt_out') ? ' *' : ''}
+                  Anotações{tipoContato === 'registrar_contato' ? ' *' : ''}
                 </Label>
                 <Textarea
                   ref={anotacaoRef}
@@ -529,6 +585,7 @@ export function ContatoRealizadoDialog({
         uf={optOutCtx.uf}
         canaisSugeridos={optOutCtx.canaisSugeridos}
         justificativaInicial={optOutCtx.justificativaInicial}
+        motivoInicial={optOutCtx.motivoInicial}
       />
     )}
     </>
