@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,12 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShieldBan, Plus, Upload, Search, Trash2, AlertTriangle, FileSpreadsheet } from "lucide-react";
+import { ShieldBan, Plus, Upload, Search, Trash2, AlertTriangle, FileSpreadsheet, ShieldOff } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useCompany } from "@/contexts/CompanyContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
+import { ExternalOptOutDialog } from "@/components/ExternalOptOutDialog";
 
 const formatPhone = (value: string) => {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -24,6 +28,9 @@ const formatPhone = (value: string) => {
 
 const OptOutGlobal = () => {
   const queryClient = useQueryClient();
+  const { activeCompany } = useCompany();
+  const { permissions } = useUserAccessType();
+  const canRegisterExternal = permissions.canRegisterExternalOptOut === true;
   const [search, setSearch] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newMotivo, setNewMotivo] = useState("");
@@ -31,6 +38,27 @@ const OptOutGlobal = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Externo Regulatório
+  const [extPhone, setExtPhone] = useState("");
+  const [extNome, setExtNome] = useState("");
+  const [extCpf, setExtCpf] = useState("");
+  const [extEmail, setExtEmail] = useState("");
+  const [extDialogOpen, setExtDialogOpen] = useState(false);
+  const [empresaInfo, setEmpresaInfo] = useState<{ marca: string; uf: string } | null>(null);
+
+  useEffect(() => {
+    const fetchEmpresa = async () => {
+      if (!activeCompany?.id) { setEmpresaInfo(null); return; }
+      const { data } = await supabase
+        .from("empresas")
+        .select("marca, uf")
+        .eq("id", activeCompany.id)
+        .maybeSingle();
+      if (data) setEmpresaInfo({ marca: data.marca || "", uf: data.uf || "" });
+    };
+    fetchEmpresa();
+  }, [activeCompany?.id]);
 
   const { data: optOuts = [], isLoading } = useQuery({
     queryKey: ["global-opt-outs"],
@@ -142,12 +170,29 @@ const OptOutGlobal = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">Gestão de Opt-Out Global</h1>
+              <h1 className="text-3xl font-bold text-foreground mb-1">Gestão de Opt-Out</h1>
               <p className="text-muted-foreground">
-                Números bloqueados permanentemente em todos os canais e marcas
+                Bloqueio interno (lista negra global) e externo (regulatório por marca/UF)
               </p>
             </div>
-            <div className="flex gap-2">
+          </div>
+
+          <Tabs defaultValue="global" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="global">
+                <ShieldBan className="h-4 w-4 mr-2" />
+                Global Interno
+              </TabsTrigger>
+              {canRegisterExternal && (
+                <TabsTrigger value="externo">
+                  <ShieldOff className="h-4 w-4 mr-2" />
+                  Externo (Regulatório)
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="global" className="space-y-6 mt-0">
+            <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowImportDialog(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Importar CSV
@@ -157,7 +202,6 @@ const OptOutGlobal = () => {
                 Adicionar à Lista Negra
               </Button>
             </div>
-          </div>
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -251,6 +295,86 @@ const OptOutGlobal = () => {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+
+            {canRegisterExternal && (
+              <TabsContent value="externo" className="space-y-6 mt-0">
+                <Card className="rounded-xl">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ShieldOff className="h-4 w-4 text-destructive" />
+                      Registrar contato no Opt-Out Externo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Esta ação envia o contato para a API regulatória externa.
+                      Marca e UF são derivadas da empresa ativa
+                      {empresaInfo
+                        ? <> (<span className="font-medium">{empresaInfo.marca || "—"}</span> / <span className="font-medium">{empresaInfo.uf || "—"}</span>).</>
+                        : <>.</>}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Nome completo *</label>
+                        <Input value={extNome} onChange={(e) => setExtNome(e.target.value)} placeholder="Nome do contato" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Telefone *</label>
+                        <Input value={extPhone} onChange={(e) => setExtPhone(formatPhone(e.target.value))} placeholder="(00) 00000-0000" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">CPF (opcional)</label>
+                        <Input value={extCpf} onChange={(e) => setExtCpf(e.target.value)} placeholder="Somente dígitos" maxLength={14} />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">E-mail (opcional)</label>
+                        <Input type="email" value={extEmail} onChange={(e) => setExtEmail(e.target.value)} placeholder="email@exemplo.com" />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        variant="destructive"
+                        disabled={
+                          !extNome.trim() ||
+                          extPhone.replace(/\D/g, "").length < 10 ||
+                          !empresaInfo?.marca || !empresaInfo?.uf
+                        }
+                        onClick={() => setExtDialogOpen(true)}
+                      >
+                        <ShieldOff className="h-4 w-4 mr-2" />
+                        Prosseguir para confirmação
+                      </Button>
+                    </div>
+                    {(!empresaInfo?.marca || !empresaInfo?.uf) && (
+                      <p className="text-xs text-destructive">
+                        A empresa ativa não tem marca/UF configurada. Configure em Empresas antes de registrar opt-out externo.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {extDialogOpen && empresaInfo && (
+                  <ExternalOptOutDialog
+                    open={extDialogOpen}
+                    onOpenChange={setExtDialogOpen}
+                    contato={{
+                      nome: extNome.trim(),
+                      telefone: extPhone,
+                      cpf: extCpf?.trim() || null,
+                      email: extEmail?.trim() || null,
+                    }}
+                    empresa={{ marca: empresaInfo.marca, uf: empresaInfo.uf }}
+                    canal="whatsapp"
+                    allowCanalSelection
+                    onSuccess={() => {
+                      setExtNome(""); setExtPhone(""); setExtCpf(""); setExtEmail("");
+                    }}
+                  />
+                )}
+              </TabsContent>
+            )}
+          </Tabs>
         </div>
 
         {/* Add Dialog */}
