@@ -52,7 +52,7 @@ export function ContatoRealizadoDialog({
     contato: { telefone: string; nome: string; email?: string | null; cpf?: string | null };
     marca: string;
     uf: string;
-    canalSugerido?: OptOutCanalKey;
+    canaisSugeridos?: OptOutCanalKey[];
     justificativaInicial?: string;
   } | null>(null);
 
@@ -158,10 +158,12 @@ export function ContatoRealizadoDialog({
           return;
         }
 
-        const canalSugerido: OptOutCanalKey | undefined =
-          prospec?.canal === 'Whatsapp' ? 'whatsapp'
-          : prospec?.canal === 'Ligação' ? 'call'
-          : undefined;
+        const canaisSugeridos: OptOutCanalKey[] | undefined =
+          prospec?.canal === 'Whatsapp' ? ['whatsapp']
+          : prospec?.canal === 'Ligação' ? ['call']
+          : (prospec?.canal === 'Grande Evento' || prospec?.canal === 'Mensal')
+            ? ['whatsapp', 'call']
+            : undefined;
 
         setOptOutCtx({
           contato: {
@@ -172,7 +174,7 @@ export function ContatoRealizadoDialog({
           },
           marca,
           uf,
-          canalSugerido,
+          canaisSugeridos,
           justificativaInicial: anotacao.trim() || undefined,
         });
         setOptOutOpen(true);
@@ -499,7 +501,7 @@ export function ContatoRealizadoDialog({
         contato={optOutCtx.contato}
         marca={optOutCtx.marca}
         uf={optOutCtx.uf}
-        canalSugerido={optOutCtx.canalSugerido}
+        canaisSugeridos={optOutCtx.canaisSugeridos}
         justificativaInicial={optOutCtx.justificativaInicial}
       />
     )}
