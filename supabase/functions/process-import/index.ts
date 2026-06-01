@@ -676,6 +676,9 @@ Deno.serve(async (req: Request) => {
       if (batch.length >= configuredBatchSize) {
         batchCount++;
         const batchOffsetStart = i - batch.length + 1;
+        const inputBatchSize = batch.length;
+        const { allowed: allowedBatch, blocked: blockedCount } = partitionByOptOut(batch);
+        totalOptOutBlocked += blockedCount;
         console.log('[process-import][batch:start]', {
           importId: import_log_id,
           empresaId: log.empresa_id,
@@ -684,16 +687,29 @@ Deno.serve(async (req: Request) => {
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-          actualBatchSize: batch.length,
+          actualBatchSize: allowedBatch.length,
+          inputRows: inputBatchSize,
+          optOutBlocked: blockedCount,
         });
+        if (blockedCount > 0) {
+          console.log('[process-import][external-optout] batch filtrado', {
+            importId: import_log_id,
+            batchIndex: batchCount,
+            offset: batchOffsetStart,
+            inputRows: inputBatchSize,
+            blockedRows: blockedCount,
+            allowedRows: allowedBatch.length,
+            phase: 'loop',
+          });
+        }
 
-        const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+        const result = allowedBatch.length > 0 ? await processBatch(supabaseAdmin, allowedBatch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
           importId: import_log_id,
           batchIndex: batchCount,
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-        });
+        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -705,7 +721,7 @@ Deno.serve(async (req: Request) => {
         for (const w of result.warning_details) {
           if (warningDetails.length < 200) warningDetails.push(w);
         }
-        processedRows += batch.length;
+        processedRows += inputBatchSize;
 
         // Capture per-record error details from RPC
         if (result.error_details && result.error_details.length > 0) {
