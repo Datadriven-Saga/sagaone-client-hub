@@ -12,6 +12,7 @@ import { Phone, CheckCircle, XCircle, PhoneOff, MessageSquare } from 'lucide-rea
 import type { Database } from '@/integrations/supabase/types';
 import { ScrollIndicator } from '@/components/ui/scroll-indicator';
 import { setContatoStatus } from '@/lib/contatoStatusApi';
+import { ExternalOptOutConfirmDialog, type OptOutCanalKey } from '@/components/optout/ExternalOptOutConfirmDialog';
 
 interface MotivoInsucesso {
   id: string;
@@ -44,6 +45,16 @@ export function ContatoRealizadoDialog({
   const [loadingMotivos, setLoadingMotivos] = useState(true);
   const { toast } = useToast();
   const anotacaoRef = useRef<HTMLTextAreaElement>(null);
+
+  // Opt-out regulatório
+  const [optOutOpen, setOptOutOpen] = useState(false);
+  const [optOutCtx, setOptOutCtx] = useState<{
+    contato: { telefone: string; nome: string; email?: string | null; cpf?: string | null };
+    marca: string;
+    uf: string;
+    canalSugerido?: OptOutCanalKey;
+    justificativaInicial?: string;
+  } | null>(null);
 
   const handleTipoContatoChange = (value: TipoContato) => {
     setTipoContato(value);
@@ -103,6 +114,79 @@ export function ContatoRealizadoDialog({
       return;
     }
 
+    // Opt-out: interceptar e exibir modal regulatório ANTES de efetivar status.
+    if (tipoContato === 'opt_out') {
+      try {
+        // Buscar dados do contato e da empresa/prospecção para o modal
+        const [{ data: contato }, { data: prospec }] = await Promise.all([
+          supabase
+            .from('contatos')
+            .select('id, nome, telefone, email, documento')
+            .eq('id', contatoId)
+            .maybeSingle(),
+          supabase
+            .from('prospeccoes')
+            .select('canal, empresa_id')
+            .eq('id', prospeccaoId)
+            .maybeSingle(),
+        ]);
+
+        if (!contato) {
+          toast({ title: 'Contato não encontrado', variant: 'destructive' });
+          return;
+        }
+
+        const empresaId = prospec?.empresa_id || activeCompany?.id;
+        let marca = '';
+        let uf = '';
+        if (empresaId) {
+          const { data: emp } = await supabase
+            .from('empresas')
+            .select('marca, uf')
+            .eq('id', empresaId)
+            .maybeSingle();
+          marca = emp?.marca || '';
+          uf = emp?.uf || '';
+        }
+
+        if (!marca || !uf) {
+          toast({
+            title: 'Marca/UF da empresa não configurada',
+            description: 'Configure marca e UF da empresa antes de registrar opt-out regulatório.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const canalSugerido: OptOutCanalKey | undefined =
+          prospec?.canal === 'Whatsapp' ? 'whatsapp'
+          : prospec?.canal === 'Ligação' ? 'call'
+          : undefined;
+
+        setOptOutCtx({
+          contato: {
+            telefone: contato.telefone || '',
+            nome: contato.nome || '',
+            email: contato.email,
+            cpf: (contato as any).documento || null,
+          },
+          marca,
+          uf,
+          canalSugerido,
+          justificativaInicial: anotacao.trim() || undefined,
+        });
+        setOptOutOpen(true);
+      } catch (err) {
+        console.error('Erro ao preparar opt-out regulatório:', err);
+        toast({ title: 'Erro ao preparar confirmação regulatória', variant: 'destructive' });
+      }
+      return;
+    }
+
+    await persistirContato();
+  };
+
+  const persistirContato = async () => {
     setLoading(true);
     try {
       // Montar a descrição da anotação
