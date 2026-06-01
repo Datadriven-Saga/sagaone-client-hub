@@ -127,3 +127,6 @@ verify_jwt = true
 
 [functions.ingest-base-clientes]
 verify_jwt = false
+
+[functions.external-optout-register]
+verify_jwt = true
