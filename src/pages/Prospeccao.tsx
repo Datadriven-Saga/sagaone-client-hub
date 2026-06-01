@@ -147,14 +147,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     contato: { telefone: string; nome: string; email?: string | null; cpf?: string | null } | null;
     marca: string;
     uf: string;
-    canalSugerido?: OptOutCanalKey;
+    canaisSugeridos?: OptOutCanalKey[];
     onConfirmed: (() => void | Promise<void>) | null;
   }>({
     isOpen: false,
     contato: null,
     marca: '',
     uf: '',
-    canalSugerido: undefined,
+    canaisSugeridos: undefined,
     onConfirmed: null,
   });
   const [profiles, setProfiles] = useState<{ id: string; nome_completo: string; tipo_acesso: string | null; celular?: string | null; email?: string; departamento?: string | null }[]>([]);
