@@ -18,6 +18,8 @@ import { ptBR } from "date-fns/locale";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { ExternalOptOutDialog } from "@/components/ExternalOptOutDialog";
+import { ExternalOptOutConfirmDialog } from "@/components/optout/ExternalOptOutConfirmDialog";
+import { ExternalOptOutBulkConfirmDialog, type BulkOptOutRow } from "@/components/optout/ExternalOptOutBulkConfirmDialog";
 
 const formatPhone = (value: string) => {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -38,6 +40,12 @@ const OptOutGlobal = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Confirmação regulatória para inclusão manual
+  const [manualOptOutOpen, setManualOptOutOpen] = useState(false);
+  // Confirmação em massa (CSV)
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkOptOutRow[]>([]);
 
   // Externo Regulatório
   const [extPhone, setExtPhone] = useState("");
@@ -121,40 +129,25 @@ const OptOutGlobal = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImporting(true);
-
     try {
       const text = await file.text();
       const lines = text.split(/[\r\n]+/).filter(Boolean);
       const phones: string[] = [];
-
       for (const line of lines) {
         const digits = line.replace(/\D/g, "");
         if (digits.length >= 10 && digits.length <= 13) {
           phones.push(digits);
         }
       }
-
       if (phones.length === 0) {
         toast({ title: "Nenhum número válido encontrado no arquivo", variant: "destructive" });
         return;
       }
-
-      const rows = phones.map((t) => ({ telefone_normalizado: t, motivo: "Importação em massa" }));
-      const batchSize = 200;
-      let inserted = 0;
-
-      for (let i = 0; i < rows.length; i += batchSize) {
-        const batch = rows.slice(i, i + batchSize);
-        const { error } = await supabase.from("global_opt_outs").upsert(batch, {
-          onConflict: "telefone_normalizado",
-          ignoreDuplicates: true,
-        });
-        if (!error) inserted += batch.length;
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["global-opt-outs"] });
+      // Abre modal de confirmação regulatória em massa. O insert em
+      // global_opt_outs só acontece após a API externa responder OK por número.
+      setBulkRows(phones.map((p) => ({ telefone: p })));
       setShowImportDialog(false);
-      toast({ title: `${inserted} números processados com sucesso` });
+      setBulkConfirmOpen(true);
     } catch {
       toast({ title: "Erro ao processar arquivo", variant: "destructive" });
     } finally {
@@ -405,14 +398,82 @@ const OptOutGlobal = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancelar</Button>
               <Button
-                onClick={() => addMutation.mutate({ telefone: newPhone, motivo: newMotivo })}
+                onClick={() => {
+                  if (newPhone.replace(/\D/g, "").length < 10) return;
+                  setShowAddDialog(false);
+                  setManualOptOutOpen(true);
+                }}
                 disabled={addMutation.isPending || newPhone.replace(/\D/g, "").length < 10}
               >
-                {addMutation.isPending ? "Salvando..." : "Bloquear Número"}
+                Prosseguir
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirmação regulatória — inclusão manual */}
+        {manualOptOutOpen && (
+          <ExternalOptOutConfirmDialog
+            open={manualOptOutOpen}
+            onClose={() => setManualOptOutOpen(false)}
+            onConfirmed={() => {
+              addMutation.mutate(
+                { telefone: newPhone, motivo: newMotivo || "Opt-out regulatório" },
+                {
+                  onSettled: () => setManualOptOutOpen(false),
+                },
+              );
+            }}
+            contato={{
+              telefone: newPhone.replace(/\D/g, ""),
+              nome: "Não informado",
+              email: null,
+              cpf: null,
+            }}
+            marca={empresaInfo?.marca || ""}
+            uf={empresaInfo?.uf || ""}
+            allowMarcaUfEdit={!empresaInfo?.marca || !empresaInfo?.uf}
+            justificativaInicial={newMotivo || undefined}
+          />
+        )}
+
+        {/* Confirmação regulatória em massa — CSV */}
+        {bulkConfirmOpen && (
+          <ExternalOptOutBulkConfirmDialog
+            open={bulkConfirmOpen}
+            onClose={() => {
+              setBulkConfirmOpen(false);
+              setBulkRows([]);
+            }}
+            rows={bulkRows}
+            marca={empresaInfo?.marca || ""}
+            uf={empresaInfo?.uf || ""}
+            allowMarcaUfEdit={!empresaInfo?.marca || !empresaInfo?.uf}
+            onConfirmed={async (result) => {
+              // Insere em global_opt_outs APENAS os que tiveram sucesso na API externa.
+              const okPhones = bulkRows.filter(
+                (r) => !result.errors.find((e) => e.telefone === r.telefone),
+              );
+              if (okPhones.length === 0) {
+                queryClient.invalidateQueries({ queryKey: ["global-opt-outs"] });
+                return;
+              }
+              const rowsInsert = okPhones.map((r) => ({
+                telefone_normalizado: r.telefone,
+                motivo: "Importação em massa (opt-out regulatório)",
+              }));
+              const batchSize = 200;
+              for (let i = 0; i < rowsInsert.length; i += batchSize) {
+                const batch = rowsInsert.slice(i, i + batchSize);
+                await supabase.from("global_opt_outs").upsert(batch, {
+                  onConflict: "telefone_normalizado",
+                  ignoreDuplicates: true,
+                });
+              }
+              queryClient.invalidateQueries({ queryKey: ["global-opt-outs"] });
+            }}
+          />
+        )}
 
         {/* Import Dialog */}
         <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
