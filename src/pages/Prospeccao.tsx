@@ -28,6 +28,7 @@ import { FloatingActionButton } from "@/components/FloatingActionButton";
 import { NovoLeadModal } from "@/components/NovoLeadModal";
 import { DescarteLeadModal } from "@/components/DescarteLeadModal";
 import { EnviarConfirmacaoModal } from "@/components/EnviarConfirmacaoModal";
+import { ExternalOptOutConfirmDialog, type OptOutCanalKey } from "@/components/optout/ExternalOptOutConfirmDialog";
 import { ClientesImportadosList } from "@/components/ClientesImportadosList";
 import { VendasProspeccaoTab } from "@/components/VendasProspeccaoTab";
 import { EventoBaseModal } from "@/components/EventoBaseModal";
