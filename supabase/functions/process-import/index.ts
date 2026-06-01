@@ -581,13 +581,25 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - startTime > MAX_ELAPSED_MS) {
         console.log(`⏱️ Timeout approaching at row ${i}, will self-chain`);
         if (batch.length > 0) {
-          const result = await processBatch(supabaseAdmin, batch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
+          const inputBatchSize = batch.length;
+          const { allowed: allowedBatch, blocked: blockedCount } = partitionByOptOut(batch);
+          console.log('[process-import][external-optout] batch filtrado', {
+            importId: import_log_id,
+            batchIndex: batchCount + 1,
+            offset: i,
+            inputRows: inputBatchSize,
+            blockedRows: blockedCount,
+            allowedRows: allowedBatch.length,
+            phase: 'timeout-flush',
+          });
+          totalOptOutBlocked += blockedCount;
+          const result = allowedBatch.length > 0 ? await processBatch(supabaseAdmin, allowedBatch, log.empresa_id, log.prospeccao_id, canalQuarentena, forceStatusNovo, {
             importId: import_log_id,
             batchIndex: batchCount + 1,
             offset: i,
             configuredBatchSize,
             batchSizeReason,
-          });
+          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -599,7 +611,7 @@ Deno.serve(async (req: Request) => {
           for (const w of result.warning_details) {
             if (warningDetails.length < 200) warningDetails.push(w);
           }
-          processedRows += batch.length;
+          processedRows += inputBatchSize;
         }
 
         await supabaseAdmin.from('import_logs').update({
