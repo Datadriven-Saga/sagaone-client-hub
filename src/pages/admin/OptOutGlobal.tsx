@@ -398,14 +398,82 @@ const OptOutGlobal = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancelar</Button>
               <Button
-                onClick={() => addMutation.mutate({ telefone: newPhone, motivo: newMotivo })}
+                onClick={() => {
+                  if (newPhone.replace(/\D/g, "").length < 10) return;
+                  setShowAddDialog(false);
+                  setManualOptOutOpen(true);
+                }}
                 disabled={addMutation.isPending || newPhone.replace(/\D/g, "").length < 10}
               >
-                {addMutation.isPending ? "Salvando..." : "Bloquear Número"}
+                Prosseguir
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirmação regulatória — inclusão manual */}
+        {manualOptOutOpen && (
+          <ExternalOptOutConfirmDialog
+            open={manualOptOutOpen}
+            onClose={() => setManualOptOutOpen(false)}
+            onConfirmed={() => {
+              addMutation.mutate(
+                { telefone: newPhone, motivo: newMotivo || "Opt-out regulatório" },
+                {
+                  onSettled: () => setManualOptOutOpen(false),
+                },
+              );
+            }}
+            contato={{
+              telefone: newPhone.replace(/\D/g, ""),
+              nome: "Não informado",
+              email: null,
+              cpf: null,
+            }}
+            marca={empresaInfo?.marca || ""}
+            uf={empresaInfo?.uf || ""}
+            allowMarcaUfEdit={!empresaInfo?.marca || !empresaInfo?.uf}
+            justificativaInicial={newMotivo || undefined}
+          />
+        )}
+
+        {/* Confirmação regulatória em massa — CSV */}
+        {bulkConfirmOpen && (
+          <ExternalOptOutBulkConfirmDialog
+            open={bulkConfirmOpen}
+            onClose={() => {
+              setBulkConfirmOpen(false);
+              setBulkRows([]);
+            }}
+            rows={bulkRows}
+            marca={empresaInfo?.marca || ""}
+            uf={empresaInfo?.uf || ""}
+            allowMarcaUfEdit={!empresaInfo?.marca || !empresaInfo?.uf}
+            onConfirmed={async (result) => {
+              // Insere em global_opt_outs APENAS os que tiveram sucesso na API externa.
+              const okPhones = bulkRows.filter(
+                (r) => !result.errors.find((e) => e.telefone === r.telefone),
+              );
+              if (okPhones.length === 0) {
+                queryClient.invalidateQueries({ queryKey: ["global-opt-outs"] });
+                return;
+              }
+              const rowsInsert = okPhones.map((r) => ({
+                telefone_normalizado: r.telefone,
+                motivo: "Importação em massa (opt-out regulatório)",
+              }));
+              const batchSize = 200;
+              for (let i = 0; i < rowsInsert.length; i += batchSize) {
+                const batch = rowsInsert.slice(i, i + batchSize);
+                await supabase.from("global_opt_outs").upsert(batch, {
+                  onConflict: "telefone_normalizado",
+                  ignoreDuplicates: true,
+                });
+              }
+              queryClient.invalidateQueries({ queryKey: ["global-opt-outs"] });
+            }}
+          />
+        )}
 
         {/* Import Dialog */}
         <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
