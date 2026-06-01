@@ -121,7 +121,7 @@ export function ContatoRealizadoDialog({
         const [{ data: contato }, { data: prospec }] = await Promise.all([
           supabase
             .from('contatos')
-            .select('id, nome, telefone, email, documento')
+            .select('id, nome, telefone, email')
             .eq('id', contatoId)
             .maybeSingle(),
           supabase
@@ -168,7 +168,7 @@ export function ContatoRealizadoDialog({
             telefone: contato.telefone || '',
             nome: contato.nome || '',
             email: contato.email,
-            cpf: (contato as any).documento || null,
+            cpf: null,
           },
           marca,
           uf,
