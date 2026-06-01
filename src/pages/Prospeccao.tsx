@@ -3768,6 +3768,22 @@ showAllEvents: true
         isOpen={isSimulacaoPriOpen}
         onClose={() => setIsSimulacaoPriOpen(false)}
       />
+
+      {optOutModal.contato && (
+        <ExternalOptOutConfirmDialog
+          open={optOutModal.isOpen}
+          onClose={() => setOptOutModal((p) => ({ ...p, isOpen: false }))}
+          onConfirmed={() => {
+            const cb = optOutModal.onConfirmed;
+            setOptOutModal((p) => ({ ...p, isOpen: false }));
+            if (cb) void cb();
+          }}
+          contato={optOutModal.contato}
+          marca={optOutModal.marca}
+          uf={optOutModal.uf}
+          canalSugerido={optOutModal.canalSugerido}
+        />
+      )}
     </DashboardLayout>
   );
 };
