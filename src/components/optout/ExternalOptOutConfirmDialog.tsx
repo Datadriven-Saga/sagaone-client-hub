@@ -38,7 +38,7 @@ const CANAL_OPTIONS: { key: OptOutCanalKey; label: string }[] = [
   { key: "pesquisa", label: "Pesquisa" },
 ];
 
-const MOTIVO_OPTIONS = [
+export const OPTOUT_MOTIVO_OPTIONS = [
   { value: "Cliente faleceu", label: "Cliente faleceu" },
   { value: "Experiência negativa com a empresa ou colaborador", label: "Experiência negativa com a empresa ou colaborador" },
   { value: "Não possui mais o veículo", label: "Não possui mais o veículo" },
@@ -47,6 +47,7 @@ const MOTIVO_OPTIONS = [
   { value: "Telefone não é da pessoa", label: "Telefone não é da pessoa" },
   { value: "Outros", label: "Outros (especificar)" },
 ];
+const MOTIVO_OPTIONS = OPTOUT_MOTIVO_OPTIONS;
 
 export interface ExternalOptOutContatoInput {
   telefone: string;
@@ -68,6 +69,8 @@ interface ExternalOptOutConfirmDialogProps {
   canaisSugeridos?: OptOutCanalKey[];
   /** Texto inicial da justificativa (ex: anotação já preenchida). */
   justificativaInicial?: string;
+  /** Pré-seleciona o motivo do opt-out (deve ser um dos OPTOUT_MOTIVO_OPTIONS). */
+  motivoInicial?: string;
   /** Permite editar marca/UF (quando não vêm do contexto). */
   allowMarcaUfEdit?: boolean;
 }
@@ -92,6 +95,7 @@ export function ExternalOptOutConfirmDialog({
   uf: ufProp,
   canaisSugeridos,
   justificativaInicial,
+  motivoInicial,
   allowMarcaUfEdit = false,
 }: ExternalOptOutConfirmDialogProps) {
   const [selectedCanais, setSelectedCanais] = useState<OptOutCanalKey[]>([]);
@@ -113,7 +117,8 @@ export function ExternalOptOutConfirmDialog({
     setUf(ufProp || "");
     setCpf(contato.cpf || contato.documento || "");
     setEmail(contato.email || "");
-    setMotivo("Cliente faleceu");
+    const valid = motivoInicial && MOTIVO_OPTIONS.some((m) => m.value === motivoInicial);
+    setMotivo(valid ? (motivoInicial as string) : "Cliente faleceu");
     setJustificativaOutros(justificativaInicial?.slice(0, 500) || "");
     setAcknowledged(false);
     setSubmitting(false);
@@ -126,6 +131,7 @@ export function ExternalOptOutConfirmDialog({
     contato.documento,
     contato.email,
     justificativaInicial,
+    motivoInicial,
   ]);
 
   const outrosLen = justificativaOutros.trim().length;
