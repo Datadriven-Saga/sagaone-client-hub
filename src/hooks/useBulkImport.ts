@@ -82,14 +82,14 @@ export const useBulkImport = () => {
     // ============================================================
     const blockedMsg = 'Importação direta desabilitada. Use o fluxo de upload de planilha para garantir validação de opt-out.';
     console.warn(`🚫 Lote ${batchNum}: ${blockedMsg}`);
-    const p = progressRef.current;
-    p.errors += batch.length;
-    p.processedRecords += batch.length;
-    if (p.errorDetails.length < 200) {
-      p.errorDetails.push(`Lote ${batchNum}: ${blockedMsg}`);
+    const pBlocked = progressRef.current;
+    pBlocked.errors += batch.length;
+    pBlocked.processedRecords += batch.length;
+    if (pBlocked.errorDetails.length < 200) {
+      pBlocked.errorDetails.push(`Lote ${batchNum}: ${blockedMsg}`);
     }
-    progressRef.current = { ...p };
-    setProgress({ ...p });
+    progressRef.current = { ...pBlocked };
+    setProgress({ ...pBlocked });
     return;
 
     // eslint-disable-next-line no-unreachable
