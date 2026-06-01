@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, DollarSign, Users, Send, X, AlertTriangle, RefreshCw, TrendingUp, PhoneCall, MessageCircle } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -44,6 +45,7 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
   totalContatos,
 }) => {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
   const { toast } = useToast();
   const [cotacao, setCotacao] = useState<CotacaoData>({
@@ -121,6 +123,9 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
           usuario_email: userEmail,
           usuario_perfil: userPerfil,
           prospeccao_id: prospeccaoId,
+          empresa_id: activeCompany?.id ?? null,
+          marca: activeCompany?.marca ?? null,
+          uf: activeCompany?.uf ?? null,
           evento_nome: eventoNome,
           canal: canal,
           total_contatos: totalContatos,
