@@ -71,7 +71,9 @@ interface ImportLog {
   error_details: string[];
   responsavel_applied?: number;
   responsavel_skipped?: number;
-  warning_details?: Array<{ type?: string; value?: string; telefone?: string; nome?: string }>;
+  rejected_responsavel?: number;
+  rejected_reasons?: { profile_inexistente?: number; fora_da_equipe?: number };
+  warning_details?: Array<{ type?: string; reason?: string; value?: string; telefone?: string; nome?: string }>;
   message: string | null;
 }
 
