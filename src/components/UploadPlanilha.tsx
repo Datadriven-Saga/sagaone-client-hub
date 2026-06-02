@@ -71,7 +71,9 @@ interface ImportLog {
   error_details: string[];
   responsavel_applied?: number;
   responsavel_skipped?: number;
-  warning_details?: Array<{ type?: string; value?: string; telefone?: string; nome?: string }>;
+  rejected_responsavel?: number;
+  rejected_reasons?: { profile_inexistente?: number; fora_da_equipe?: number };
+  warning_details?: Array<{ type?: string; reason?: string; value?: string; telefone?: string; nome?: string }>;
   message: string | null;
 }
 
@@ -977,16 +979,16 @@ export const UploadPlanilha = ({
                   </p>
                 )}
 
-                {((importLog.responsavel_applied || 0) > 0 || (importLog.responsavel_skipped || 0) > 0) && (
+                {((importLog.responsavel_applied || 0) > 0 || (importLog.rejected_responsavel || 0) > 0) && (
                   <div className="flex flex-wrap gap-3 text-xs pt-1 border-t border-border/40">
                     {(importLog.responsavel_applied || 0) > 0 && (
                       <span className="text-emerald-600">
                         ✅ {(importLog.responsavel_applied || 0).toLocaleString('pt-BR')} atribuídos
                       </span>
                     )}
-                    {(importLog.responsavel_skipped || 0) > 0 && (
-                      <span className="text-amber-600">
-                        ⚠️ {(importLog.responsavel_skipped || 0).toLocaleString('pt-BR')} responsável não encontrado
+                    {(importLog.rejected_responsavel || 0) > 0 && (
+                      <span className="text-destructive">
+                        🚫 {(importLog.rejected_responsavel || 0).toLocaleString('pt-BR')} não importados (responsável inválido)
                       </span>
                     )}
                   </div>
@@ -1138,7 +1140,7 @@ export const UploadPlanilha = ({
               </div>
 
               {/* Atribuição por responsável */}
-              {((importLog.responsavel_applied || 0) > 0 || (importLog.responsavel_skipped || 0) > 0) && (
+              {((importLog.responsavel_applied || 0) > 0 || (importLog.rejected_responsavel || 0) > 0) && (
                 <Card className="p-3 border-primary/20 bg-primary/5 space-y-1.5">
                   {(importLog.responsavel_applied || 0) > 0 && (
                     <div className="flex justify-between items-center text-xs">
@@ -1151,45 +1153,67 @@ export const UploadPlanilha = ({
                       </span>
                     </div>
                   )}
-                  {(importLog.responsavel_skipped || 0) > 0 && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="flex items-center gap-1.5">
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                        Responsável não encontrado no sistema
-                      </span>
-                      <span className="font-medium text-amber-600">
-                        {(importLog.responsavel_skipped || 0).toLocaleString('pt-BR')}
-                      </span>
-                    </div>
+                  {(importLog.rejected_responsavel || 0) > 0 && (
+                    <>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <XCircle className="h-3.5 w-3.5 text-destructive" />
+                          Leads não importados (responsável inválido)
+                        </span>
+                        <span className="font-medium text-destructive">
+                          {(importLog.rejected_responsavel || 0).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      {(importLog.rejected_reasons?.profile_inexistente || 0) > 0 && (
+                        <div className="flex justify-between items-center text-[11px] text-muted-foreground pl-5">
+                          <span>• E-mail sem usuário cadastrado</span>
+                          <span>{(importLog.rejected_reasons?.profile_inexistente || 0).toLocaleString('pt-BR')}</span>
+                        </div>
+                      )}
+                      {(importLog.rejected_reasons?.fora_da_equipe || 0) > 0 && (
+                        <div className="flex justify-between items-center text-[11px] text-muted-foreground pl-5">
+                          <span>• Responsável fora da equipe do evento</span>
+                          <span>{(importLog.rejected_reasons?.fora_da_equipe || 0).toLocaleString('pt-BR')}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </Card>
               )}
 
-              {/* Warnings: responsáveis não encontrados */}
+              {/* Warnings: responsáveis rejeitados (detalhe por e-mail) */}
               {importLog.warning_details && importLog.warning_details.length > 0 && (() => {
-                const grouped = new Map<string, number>();
+                const grouped = new Map<string, { count: number; reason: string }>();
                 for (const w of importLog.warning_details) {
-                  if (w?.type === 'responsavel_not_found' && w.value) {
-                    grouped.set(w.value, (grouped.get(w.value) || 0) + 1);
+                  if (w?.type === 'rejected' && w.value) {
+                    const cur = grouped.get(w.value);
+                    grouped.set(w.value, { count: (cur?.count || 0) + 1, reason: w.reason || cur?.reason || '' });
                   }
                 }
                 if (grouped.size === 0) return null;
-                const entries = Array.from(grouped.entries()).sort((a, b) => b[1] - a[1]);
+                const entries = Array.from(grouped.entries()).sort((a, b) => b[1].count - a[1].count);
+                const reasonLabel = (r: string) => r === 'profile_inexistente'
+                  ? 'sem usuário'
+                  : r === 'fora_da_equipe'
+                    ? 'fora da equipe'
+                    : '—';
                 return (
                   <Card className="p-3 border-amber-500/30 bg-amber-500/5">
                     <div className="space-y-2">
                       <div className="flex gap-2 items-center">
                         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                         <p className="text-xs font-medium text-amber-700">
-                          Responsáveis não encontrados ({entries.length}):
+                          E-mails de responsável rejeitados ({entries.length}):
                         </p>
                       </div>
                       <ScrollArea className="max-h-40">
                         <div className="text-xs space-y-1">
-                          {entries.slice(0, 50).map(([value, count], i) => (
+                          {entries.slice(0, 50).map(([value, info], i) => (
                             <div key={i} className="flex justify-between items-center py-1 border-b border-amber-500/10 last:border-0">
-                              <span className="text-muted-foreground truncate mr-2">{value}</span>
-                              <span className="font-medium text-amber-700 shrink-0">{count.toLocaleString('pt-BR')} lead(s)</span>
+                              <span className="text-muted-foreground truncate mr-2">
+                                {value} <span className="text-[10px] uppercase opacity-70">({reasonLabel(info.reason)})</span>
+                              </span>
+                              <span className="font-medium text-amber-700 shrink-0">{info.count.toLocaleString('pt-BR')} lead(s)</span>
                             </div>
                           ))}
                           {entries.length > 50 && (

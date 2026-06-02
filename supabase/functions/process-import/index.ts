@@ -579,6 +579,10 @@ Deno.serve(async (req: Request) => {
     let processedRows = log.processed_rows || 0;
     let responsavelApplied = log.responsavel_applied || 0;
     let responsavelSkipped = log.responsavel_skipped || 0;
+    let rejectedResponsavel = log.rejected_responsavel || 0;
+    const rejectedReasons = (log.rejected_reasons && typeof log.rejected_reasons === 'object')
+      ? { profile_inexistente: log.rejected_reasons.profile_inexistente || 0, fora_da_equipe: log.rejected_reasons.fora_da_equipe || 0 }
+      : { profile_inexistente: 0, fora_da_equipe: 0 };
     const warningDetails: any[] = Array.isArray(log.warning_details) ? [...log.warning_details] : [];
 
     // 5b. Fetch canal_quarentena from prospeccao (defaults to 'whatsapp')
@@ -622,7 +626,7 @@ Deno.serve(async (req: Request) => {
             offset: i,
             configuredBatchSize,
             batchSizeReason,
-          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
+          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -631,6 +635,9 @@ Deno.serve(async (req: Request) => {
           quarantined += result.quarantined;
           responsavelApplied += result.responsavel_applied;
           responsavelSkipped += result.responsavel_skipped;
+          rejectedResponsavel += result.rejected_responsavel;
+          rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
+          rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
           for (const w of result.warning_details) {
             if (warningDetails.length < 200) warningDetails.push(w);
           }
@@ -645,6 +652,8 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          rejected_responsavel: rejectedResponsavel,
+          rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')} (continuando em nova execução)`,
         }).eq('id', import_log_id);
@@ -732,7 +741,7 @@ Deno.serve(async (req: Request) => {
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
+        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -741,6 +750,9 @@ Deno.serve(async (req: Request) => {
         quarantined += result.quarantined;
         responsavelApplied += result.responsavel_applied;
         responsavelSkipped += result.responsavel_skipped;
+        rejectedResponsavel += result.rejected_responsavel;
+        rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
+        rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
         for (const w of result.warning_details) {
           if (warningDetails.length < 200) warningDetails.push(w);
         }
@@ -764,6 +776,8 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          rejected_responsavel: rejectedResponsavel,
+          rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
@@ -815,7 +829,7 @@ Deno.serve(async (req: Request) => {
         offset: totalDataRows - batch.length,
         configuredBatchSize,
         batchSizeReason,
-      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
+      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -824,6 +838,9 @@ Deno.serve(async (req: Request) => {
       quarantined += result.quarantined;
       responsavelApplied += result.responsavel_applied;
       responsavelSkipped += result.responsavel_skipped;
+      rejectedResponsavel += result.rejected_responsavel;
+      rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
+      rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
       for (const w of result.warning_details) {
         if (warningDetails.length < 200) warningDetails.push(w);
       }
@@ -872,9 +889,15 @@ Deno.serve(async (req: Request) => {
     }
     const quarantineMsg = quarantined > 0 ? ` ${quarantined} em quarentena.` : '';
     const optOutMsg = totalOptOutBlocked > 0 ? ` ${totalOptOutBlocked} bloqueados por opt-out externo.` : '';
+    const rejectedMsgParts: string[] = [];
+    if (rejectedReasons.profile_inexistente > 0) rejectedMsgParts.push(`${rejectedReasons.profile_inexistente} sem usuário cadastrado`);
+    if (rejectedReasons.fora_da_equipe > 0) rejectedMsgParts.push(`${rejectedReasons.fora_da_equipe} fora da equipe do evento`);
+    const rejectedMsg = rejectedResponsavel > 0
+      ? ` ${rejectedResponsavel} não importados por responsável inválido (${rejectedMsgParts.join(', ')}).`
+      : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}${rejectedMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}${rejectedMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',
@@ -884,6 +907,8 @@ Deno.serve(async (req: Request) => {
       error_details: errorDetails,
       responsavel_applied: responsavelApplied,
       responsavel_skipped: responsavelSkipped,
+      rejected_responsavel: rejectedResponsavel,
+      rejected_reasons: rejectedReasons,
       warning_details: warningDetails,
       message: finalMessage,
     }).eq('id', import_log_id);
@@ -1126,7 +1151,7 @@ async function processBatch(
     configuredBatchSize?: number;
     batchSizeReason?: string;
   },
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; rejected_responsavel: number; rejected_reasons: { profile_inexistente: number; fora_da_equipe: number }; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
   const batchStartedAt = performance.now();
@@ -1278,6 +1303,11 @@ async function processBatch(
         quarantined: data?.quarantined || 0,
         responsavel_applied: data?.responsavel_applied || 0,
         responsavel_skipped: data?.responsavel_skipped || 0,
+        rejected_responsavel: data?.rejected_responsavel || 0,
+        rejected_reasons: {
+          profile_inexistente: data?.rejected_reasons?.profile_inexistente || 0,
+          fora_da_equipe: data?.rejected_reasons?.fora_da_equipe || 0,
+        },
         warning_details: Array.isArray(data?.warning_details) ? data.warning_details : [],
         error_details: data?.error_details || [],
       };
@@ -1309,5 +1339,5 @@ async function processBatch(
     durationMs: Math.round(performance.now() - batchStartedAt),
     error: lastError,
   });
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }

@@ -2659,6 +2659,8 @@ export type Database = {
           processed_rows: number | null
           prospeccao_id: string | null
           quarantined: number | null
+          rejected_reasons: Json
+          rejected_responsavel: number
           responsavel_applied: number
           responsavel_skipped: number
           status: string
@@ -2690,6 +2692,8 @@ export type Database = {
           processed_rows?: number | null
           prospeccao_id?: string | null
           quarantined?: number | null
+          rejected_reasons?: Json
+          rejected_responsavel?: number
           responsavel_applied?: number
           responsavel_skipped?: number
           status?: string
@@ -2721,6 +2725,8 @@ export type Database = {
           processed_rows?: number | null
           prospeccao_id?: string | null
           quarantined?: number | null
+          rejected_reasons?: Json
+          rejected_responsavel?: number
           responsavel_applied?: number
           responsavel_skipped?: number
           status?: string
@@ -6215,6 +6221,8 @@ export type Database = {
           processed_rows: number | null
           prospeccao_id: string | null
           quarantined: number | null
+          rejected_reasons: Json
+          rejected_responsavel: number
           responsavel_applied: number
           responsavel_skipped: number
           status: string
