@@ -579,6 +579,10 @@ Deno.serve(async (req: Request) => {
     let processedRows = log.processed_rows || 0;
     let responsavelApplied = log.responsavel_applied || 0;
     let responsavelSkipped = log.responsavel_skipped || 0;
+    let rejectedResponsavel = log.rejected_responsavel || 0;
+    const rejectedReasons = (log.rejected_reasons && typeof log.rejected_reasons === 'object')
+      ? { profile_inexistente: log.rejected_reasons.profile_inexistente || 0, fora_da_equipe: log.rejected_reasons.fora_da_equipe || 0 }
+      : { profile_inexistente: 0, fora_da_equipe: 0 };
     const warningDetails: any[] = Array.isArray(log.warning_details) ? [...log.warning_details] : [];
 
     // 5b. Fetch canal_quarentena from prospeccao (defaults to 'whatsapp')
