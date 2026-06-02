@@ -741,7 +741,7 @@ Deno.serve(async (req: Request) => {
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, warning_details: [], error_details: [] };
+        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -750,6 +750,9 @@ Deno.serve(async (req: Request) => {
         quarantined += result.quarantined;
         responsavelApplied += result.responsavel_applied;
         responsavelSkipped += result.responsavel_skipped;
+        rejectedResponsavel += result.rejected_responsavel;
+        rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
+        rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
         for (const w of result.warning_details) {
           if (warningDetails.length < 200) warningDetails.push(w);
         }
@@ -773,6 +776,8 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          rejected_responsavel: rejectedResponsavel,
+          rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
           message: `Processando... ${processedRows.toLocaleString('pt-BR')}/${totalDataRows.toLocaleString('pt-BR')}`,
         }).eq('id', import_log_id);
