@@ -3,6 +3,7 @@ import {
   fetchExternalOptOutIndex,
   isBlockedByExternalOptOut,
   type ExternalOptOutIndex,
+  getCachedOptOutIndex,
 } from '../_shared/external-optout.ts';
 
 const corsHeaders = {
@@ -474,11 +475,19 @@ Deno.serve(async (req: Request) => {
     }
 
     let optOutIndex: ExternalOptOutIndex;
+    let optOutIsStale = false;
+    let optOutAgeHours: number | null = null;
+    let optOutFromCache = false;
     try {
-      optOutIndex = await fetchExternalOptOutIndex({
+      const cached = await getCachedOptOutIndex({
         marca: empresaMarca,
         uf: empresaUf,
+        supabaseAdmin,
       });
+      optOutIndex = cached;
+      optOutIsStale = cached.isStale;
+      optOutAgeHours = cached.ageHours;
+      optOutFromCache = cached.fromCache;
       console.log('[process-import][external-optout] índice carregado', {
         importId: import_log_id,
         empresaId: log.empresa_id,
@@ -491,7 +500,21 @@ Deno.serve(async (req: Request) => {
         indexEmails: optOutIndex.emails.size,
         indexCpfs: optOutIndex.cpfs.size,
         fetchDurationMs: optOutIndex.fetchDurationMs,
+        fromCache: optOutFromCache,
+        isStale: optOutIsStale,
+        ageHours: optOutAgeHours,
       });
+      if (optOutIsStale && optOutAgeHours !== null) {
+        const warningMsg =
+          `Opt-out externo: API indisponível. Usando snapshot de ${optOutAgeHours}h atrás como fallback.`;
+        try {
+          await supabaseAdmin.from('import_logs').update({
+            warning_details: warningMsg,
+          }).eq('id', import_log_id);
+        } catch (_e) {
+          // best-effort; coluna pode não existir em ambientes antigos
+        }
+      }
     } catch (err: any) {
       console.error('[process-import][external-optout] FALHA — importação bloqueada', {
         importId: import_log_id,
