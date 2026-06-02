@@ -2269,6 +2269,143 @@ export type Database = {
         }
         Relationships: []
       }
+      external_optout_entries: {
+        Row: {
+          api_id: string | null
+          call_optin: boolean | null
+          canal_solicitado_do_cliente: string | null
+          cargo_solicitante: string | null
+          cpf_cliente: string | null
+          cpf_normalized: string | null
+          data_conclusao: string | null
+          data_inicio: string | null
+          departamento_solicitante: string | null
+          email_cliente: string | null
+          email_normalized: string | null
+          email_optin: boolean | null
+          email_solicitante: string | null
+          id: string
+          marca: string | null
+          marca_api: string
+          nome_abreviado_cliente: string | null
+          nome_completo_cliente: string | null
+          nome_solicitante: string | null
+          pesquisa_optin: boolean | null
+          phone_normalized: string | null
+          sms_optin: boolean | null
+          snapshot_id: string
+          telefone_cliente: string | null
+          telefone_solicitante: string | null
+          uf: string
+          uf_original: string | null
+          whatsapp_optin: boolean | null
+        }
+        Insert: {
+          api_id?: string | null
+          call_optin?: boolean | null
+          canal_solicitado_do_cliente?: string | null
+          cargo_solicitante?: string | null
+          cpf_cliente?: string | null
+          cpf_normalized?: string | null
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          departamento_solicitante?: string | null
+          email_cliente?: string | null
+          email_normalized?: string | null
+          email_optin?: boolean | null
+          email_solicitante?: string | null
+          id?: string
+          marca?: string | null
+          marca_api: string
+          nome_abreviado_cliente?: string | null
+          nome_completo_cliente?: string | null
+          nome_solicitante?: string | null
+          pesquisa_optin?: boolean | null
+          phone_normalized?: string | null
+          sms_optin?: boolean | null
+          snapshot_id: string
+          telefone_cliente?: string | null
+          telefone_solicitante?: string | null
+          uf: string
+          uf_original?: string | null
+          whatsapp_optin?: boolean | null
+        }
+        Update: {
+          api_id?: string | null
+          call_optin?: boolean | null
+          canal_solicitado_do_cliente?: string | null
+          cargo_solicitante?: string | null
+          cpf_cliente?: string | null
+          cpf_normalized?: string | null
+          data_conclusao?: string | null
+          data_inicio?: string | null
+          departamento_solicitante?: string | null
+          email_cliente?: string | null
+          email_normalized?: string | null
+          email_optin?: boolean | null
+          email_solicitante?: string | null
+          id?: string
+          marca?: string | null
+          marca_api?: string
+          nome_abreviado_cliente?: string | null
+          nome_completo_cliente?: string | null
+          nome_solicitante?: string | null
+          pesquisa_optin?: boolean | null
+          phone_normalized?: string | null
+          sms_optin?: boolean | null
+          snapshot_id?: string
+          telefone_cliente?: string | null
+          telefone_solicitante?: string | null
+          uf?: string
+          uf_original?: string | null
+          whatsapp_optin?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_optout_entries_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "external_optout_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_optout_snapshots: {
+        Row: {
+          fetch_duration_ms: number | null
+          fetched_at: string
+          fetched_at_date_sp: string
+          id: string
+          marca_api: string
+          status: string
+          total_records: number
+          uf: string
+          valid_until_date_sp: string
+        }
+        Insert: {
+          fetch_duration_ms?: number | null
+          fetched_at?: string
+          fetched_at_date_sp: string
+          id?: string
+          marca_api: string
+          status?: string
+          total_records?: number
+          uf: string
+          valid_until_date_sp: string
+        }
+        Update: {
+          fetch_duration_ms?: number | null
+          fetched_at?: string
+          fetched_at_date_sp?: string
+          id?: string
+          marca_api?: string
+          status?: string
+          total_records?: number
+          uf?: string
+          valid_until_date_sp?: string
+        }
+        Relationships: []
+      }
       feature_flag_empresas: {
         Row: {
           created_at: string
@@ -6511,6 +6648,17 @@ export type Database = {
       sync_leads_confirmacao: {
         Args: { p_evento_confirmacao_id: string; p_filtro_status?: string[] }
         Returns: Json
+      }
+      upsert_external_optout_snapshot: {
+        Args: {
+          p_entries: Json
+          p_fetch_duration_ms: number
+          p_marca_api: string
+          p_today_sp: string
+          p_total_records: number
+          p_uf: string
+        }
+        Returns: string
       }
       upsert_quarentena: {
         Args: {
