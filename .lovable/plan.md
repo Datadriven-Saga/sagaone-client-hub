@@ -1,108 +1,65 @@
+# Plano — Documento de Estrutura para Login de Terceiros
 
-# Opt-Out Externo no `process-import` (fail-closed)
+## Objetivo
+Gerar um único artefato `/mnt/documents/login-terceiros-estrutura.md` consolidando **a estrutura necessária** para habilitar login de terceiros (email/senha) ao lado do SSO Microsoft já existente. Base: análise prévia em `docs/login-terceiros-analise.md` (já aprovada).
 
-Objetivo: bloquear, antes de qualquer chamada a `bulk_upsert_contatos`, qualquer contato presente na lista externa de opt-out, consultando a API por marca/UF da empresa da importação. Nenhuma mudança em `bulk_upsert_contatos`, quarentena, schema ou triggers.
+Não é re-análise — é o **blueprint de implementação** estruturado por camadas, para servir de referência durante a implementação.
 
----
+## Estrutura do documento
 
-## 1. Pré-requisitos confirmados no codebase
+1. **Contexto e premissas**
+   - Estado atual: SSO Microsoft + hard-code `@gruposaga.com.br` em `AuthContext.isValidDomain`.
+   - Premissa: manter SSO intacto, adicionar trilha senha gerenciável.
 
-- `process-import/index.ts` resolve `empresa_id` e `prospeccao_id` a partir do `import_logs` (linhas 287–453). É lá que entra a nova camada.
-- Tabela `empresas` possui colunas `marca` e `uf` (confirmado via schema). `prospeccoes` não tem — então `marca` e `uf` virão da empresa da importação.
-- `bulk_upsert_contatos` é chamada em 3 pontos do `process-import` (timeout-handling, loop principal e finalização) — todas precisam receber só `allowedRows`.
-- `useBulkImport.ts` continua chamando `bulk_upsert_contatos` diretamente do frontend → será bloqueado (Opção B do briefing).
-- Secret `OPT_OUT_X_API_KEY` já configurado (validar via fetch_secrets ao iniciar build).
+2. **Camada de Banco**
+   - Tabela `allowed_login_domains` (campos, defaults, seed protegido `gruposaga.com.br`).
+   - Alterações em `profiles`: `is_external`, `is_active`, `external_created_by`.
+   - RPC `can_user_login(_user_id, _method)` — SECURITY DEFINER.
+   - Trigger guard contra delete/desativação do domínio raiz.
+   - Guard em `auto_provision_user_from_sso` (`WHERE is_external = false`).
+   - GRANTs + RLS de `allowed_login_domains` (leitura pública mínima do flag "existe domínio password ativo", escrita só admin).
 
----
+3. **Camada de Auth (frontend)**
+   - Patch em `AuthContext`: substituir `isValidDomain` por `can_user_login(user.id, method)`.
+   - Toasts: "Domínio não autorizado" vs "Conta desativada".
+   - Login.tsx: CTA Microsoft + collapse "Acessar como terceiro" (renderizado condicionalmente).
 
-## 2. Novo helper compartilhado
+4. **Camada de Permissões**
+   - Novas chaves em `PermissionRegistry` (módulo `usuarios`):
+     - `canCreateExternalUsers`
+     - `canToggleUserActive`
+     - `canManageLoginDomains`
+   - Defaults: Master/Admin. Granularidade via `departamento_permissoes`.
 
-Criar `supabase/functions/_shared/external-optout.ts` com:
+5. **Camada de Edge Functions**
+   - `manage-users` — branches `create_external` e `set_active`.
+   - Validação: JWT do caller → permission → domínio na allowlist → `auth.admin.createUser` / `signOut`.
 
-- Constantes: `API_BASE_URL`, `API_TIMEOUT_MS = 10000`, `MAX_RECORDS_GUARD = 10000`.
-- `MARCA_API_MAP` com `PEUGEOT`, `CITROEN`, `CITROËN` → `FRANCE`; helper `mapMarcaForApi(marca)`.
-- Normalizadores: `normalizePhone` (remove DDI 55 quando 12/13 dígitos, exige ≥10 dígitos, ignora `"None"`/`"null"`), `normalizeEmail` (lower+trim, exige `@`), `normalizeCpf` (11 dígitos exatos).
-- `fetchExternalOptOutIndex({ marca, uf })`:
-  - Valida secret `OPT_OUT_X_API_KEY` (Deno.env).
-  - Monta `GET {API}?marca={mapMarcaForApi(marca)}&uf={UF}` com header `x-api-key`.
-  - `AbortController` com timeout de 10s; mede `fetchDurationMs`.
-  - Valida `response.ok`, JSON, e que `dados` é array; guarda `> 10000`.
-  - Filtragem defensiva por marca/UF: trata `null`/vazio como `"TODAS"`; aceita `marca == apiMarca || marca == originalMarca || "TODAS"`; idem UF.
-  - Retorna `{ phones: Set, emails: Set, cpfs: Set, totalRecords, fetchDurationMs }`.
-- `isBlockedByExternalOptOut(contato, index, options?)`:
-  - V1 ignora `options.channel`, bloqueia se telefone OU email OU cpf (testar `contato.cpf` e `contato.documento`) baterem no índice.
+6. **Camada de UI gerencial** (`/administracao`)
+   - Aba **Domínios Permitidos** (gated `canManageLoginDomains`).
+   - Aba **Usuários Externos** (gated `canCreateExternalUsers` / `canToggleUserActive`).
+   - Fluxos: criar terceiro, toggle ativo, resetar senha (só externos).
 
----
+7. **Matriz de segurança**
+   - Tabela risco × mitigação (do doc original).
+   - Cenários: domínio raiz protegido, terceiro inativo, sessão revogada, multi-tenant, brute force.
 
-## 3. Integração no `process-import/index.ts`
+8. **Ordem de execução e checklist de QA**
+   - 8 passos sequenciais com gate de QA após patch do `AuthContext` (não quebrar SSO interno).
+   - Matriz de QA: SSO interno OK / terceiro ativo / terceiro inativo / domínio desativado / domínio raiz protegido / sem permission.
 
-### 3.1 Resolução de marca/UF (uma vez por invocação)
+9. **O que NÃO entra no escopo**
+   - Reescrita de roles, tabela paralela de usuários, novo OAuth provider, mexer em sessão 8h/1h.
 
-Depois de obter `log` do `import_logs`, buscar `empresas.marca` e `empresas.uf` por `log.empresa_id`. Se faltar marca ou UF → **fail-closed**: marcar `import_logs.status = 'error'` com mensagem `"Empresa sem marca/UF configurados — opt-out externo não pode ser validado"` e abortar antes de qualquer batch.
+10. **Referências**
+    - Link para `docs/login-terceiros-analise.md` (decisão técnica original).
+    - Memórias relevantes: `auth/session-and-inactivity-policy`, `auth/sso-automated-provisioning-logic`, `security/permissions/access-hierarchy-levels`.
 
-### 3.2 Buscar índice UMA VEZ por invocação
+## Entregável
+Um arquivo:
+- `/mnt/documents/login-terceiros-estrutura.md`
 
-```text
-optOutIndex = await fetchExternalOptOutIndex({ marca, uf });
-```
+Apresentado via `<presentation-artifact>` ao final.
 
-- Logar (sem PII): `importId`, `empresaId`, `prospeccaoId`, `marca`, `apiMarca`, `uf`, `totalRecords`, tamanhos dos Sets, `fetchDurationMs`.
-- Em qualquer erro do helper: setar `import_logs.status = 'error'`, `error_details = "Falha ao consultar opt-out externo. Importação bloqueada por segurança."`, e retornar 500 sem chamar `bulk_upsert_contatos`.
-- Aceitar re-fetch em self-chain (decisão V1 do briefing).
-
-### 3.3 Filtragem por batch (nos 3 pontos que chamam a RPC)
-
-Antes de cada chamada a `bulk_upsert_contatos` (timeout branch, loop principal, e finalização), particionar `batch` em `allowedRows`/`blockedRows` com `isBlockedByExternalOptOut`. Logar contagens por batch sem PII. Só chamar a RPC se `allowedRows.length > 0`, passando `allowedRows` no lugar de `batch`. Contabilizar `blockedRows.length` no acumulador de "ignorados/erros" no formato já usado pelo `processBatch`/`import_logs.error_details` (adicionar entrada do tipo `"N contato(s) bloqueado(s) por opt-out externo"`).
-
-### 3.4 Sem alteração de contrato
-
-- `MAX_RETRIES`, `BATCH_SIZE` adaptativo, `self-chain`, RPC, `upsert_quarentena`, `eventos_prospeccao`: intocados.
-
----
-
-## 4. Bloqueio do caminho direto `useBulkImport.ts`
-
-Em `src/hooks/useBulkImport.ts`, no `sendBatch` (antes da chamada `supabase.rpc('bulk_upsert_contatos', …)`), lançar erro:
-
-```text
-"Importação direta desabilitada. Use o fluxo de upload de planilha para garantir validação de opt-out."
-```
-
-Resultado: o erro é contabilizado no `progress.errorDetails` existente e exibido na UI. Nenhuma chamada à RPC é feita pelo frontend. Sem expor `OPT_OUT_X_API_KEY` no browser.
-
-(Observação: se durante a implementação algum fluxo legítimo do app quebrar por causa disso, paramos e reavaliamos a "alternativa menos drástica" do briefing — uma Edge Function wrapper. Não criamos essa wrapper agora.)
-
----
-
-## 5. Logs e `import_logs`
-
-- `console.log` com prefixo `[process-import][external-optout]` em três pontos: load do índice, falha de load, e por batch filtrado. Nenhum telefone/email/CPF/nome logado.
-- `import_logs.error_details`: usar string genérica `"X contato(s) bloqueado(s) por opt-out externo"` agregada ao final, no mesmo padrão atual. Sem coluna nova. Sem PII.
-
----
-
-## 6. Fora de escopo (não tocar)
-
-`bulk_upsert_contatos`, `upsert_quarentena`, `contato_quarentena`, `eventos_prospeccao`, schema, triggers, `statement_timeout`, batch size adaptativo, webhooks/n8n, DataLake. Secret nunca vai para o frontend.
-
----
-
-## 7. Validação após implementar
-
-Em ordem, e sem PII nos logs:
-
-1. Deploy do `process-import` e curl simulando `marca=VOLKSWAGEN, uf=GO` para confirmar índice carrega (`totalRecords`, `fetchDurationMs`).
-2. Importação real pequena (planilha de teste) com pelo menos 1 telefone, 1 email e 1 CPF presentes na API → conferir nos logs que foram bloqueados antes da RPC e que `import_logs.error_details` registra.
-3. Importação com `marca=PEUGEOT` → confirmar nos logs que `apiMarca=FRANCE`.
-4. Simular `OPT_OUT_X_API_KEY` ausente (em ambiente de teste) → `import_logs.status='error'`, RPC não chamada.
-5. Verificar no frontend que o caminho `useBulkImport` retorna o erro de bloqueio e que o app continua estável.
-
----
-
-## 8. Detalhes técnicos para revisão
-
-- A resolução de marca/UF é por `log.empresa_id` → `empresas.marca`, `empresas.uf` (única fonte disponível; `prospeccoes` não tem essas colunas).
-- O índice é em memória por invocação (Sets de strings normalizadas), conforme briefing — sem cache persistente entre chains.
-- Os 3 call-sites de `bulk_upsert_contatos` no `process-import` recebem o mesmo wrapper de particionamento; o `optOutIndex` é capturado no escopo da função principal e passado adiante.
-- Critérios de aceite do briefing (seção 12) são todos cobertos por este plano.
-
+## Fora de escopo
+- Nenhuma alteração de código, migration ou edge function. Apenas documentação.
