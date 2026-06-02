@@ -889,9 +889,15 @@ Deno.serve(async (req: Request) => {
     }
     const quarantineMsg = quarantined > 0 ? ` ${quarantined} em quarentena.` : '';
     const optOutMsg = totalOptOutBlocked > 0 ? ` ${totalOptOutBlocked} bloqueados por opt-out externo.` : '';
+    const rejectedMsgParts: string[] = [];
+    if (rejectedReasons.profile_inexistente > 0) rejectedMsgParts.push(`${rejectedReasons.profile_inexistente} sem usuário cadastrado`);
+    if (rejectedReasons.fora_da_equipe > 0) rejectedMsgParts.push(`${rejectedReasons.fora_da_equipe} fora da equipe do evento`);
+    const rejectedMsg = rejectedResponsavel > 0
+      ? ` ${rejectedResponsavel} não importados por responsável inválido (${rejectedMsgParts.join(', ')}).`
+      : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}${rejectedMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}${rejectedMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',
@@ -901,6 +907,8 @@ Deno.serve(async (req: Request) => {
       error_details: errorDetails,
       responsavel_applied: responsavelApplied,
       responsavel_skipped: responsavelSkipped,
+      rejected_responsavel: rejectedResponsavel,
+      rejected_reasons: rejectedReasons,
       warning_details: warningDetails,
       message: finalMessage,
     }).eq('id', import_log_id);
