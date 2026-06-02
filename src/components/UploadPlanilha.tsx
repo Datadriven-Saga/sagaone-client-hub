@@ -979,16 +979,16 @@ export const UploadPlanilha = ({
                   </p>
                 )}
 
-                {((importLog.responsavel_applied || 0) > 0 || (importLog.responsavel_skipped || 0) > 0) && (
+                {((importLog.responsavel_applied || 0) > 0 || (importLog.rejected_responsavel || 0) > 0) && (
                   <div className="flex flex-wrap gap-3 text-xs pt-1 border-t border-border/40">
                     {(importLog.responsavel_applied || 0) > 0 && (
                       <span className="text-emerald-600">
                         ✅ {(importLog.responsavel_applied || 0).toLocaleString('pt-BR')} atribuídos
                       </span>
                     )}
-                    {(importLog.responsavel_skipped || 0) > 0 && (
-                      <span className="text-amber-600">
-                        ⚠️ {(importLog.responsavel_skipped || 0).toLocaleString('pt-BR')} responsável não encontrado
+                    {(importLog.rejected_responsavel || 0) > 0 && (
+                      <span className="text-destructive">
+                        🚫 {(importLog.rejected_responsavel || 0).toLocaleString('pt-BR')} não importados (responsável inválido)
                       </span>
                     )}
                   </div>
