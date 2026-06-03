@@ -292,6 +292,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
         const successLeadIds: string[] = [];
         const failedLeadIds: string[] = [];
+        const failedReasons: Array<{ lead_id: string; nome?: string; telefone?: string; reason: string }> = [];
 
         if (isIALigacao) {
           // IA Ligação: enviar em sub-lotes de 100
@@ -459,7 +460,9 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                 successLeadIds.push(r.value);
               } else {
                 failedLeadIds.push(subBatch[ri].id);
-                console.error(`❌ [BG] Lead ${subBatch[ri].id} (${subBatch[ri].nome}): ${(r as PromiseRejectedResult).reason?.message || 'erro desconhecido'}`);
+                const reason = (r as PromiseRejectedResult).reason?.message || 'erro desconhecido';
+                failedReasons.push({ lead_id: subBatch[ri].id, nome: subBatch[ri].nome, telefone: subBatch[ri].telefone, reason });
+                console.error(`❌ [BG] Lead ${subBatch[ri].id} (${subBatch[ri].nome}): ${reason}`);
               }
             }
 
@@ -520,10 +523,29 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
           ? `${failedLeadIds.length} de ${leads.length} leads falharam` 
           : '';
 
+        // Persiste amostra dos retornos REAIS da Lambda + agrupamento por padrão de erro
+        let errorLogDetailed: string | null = batchError || null;
+        if (failedReasons.length > 0) {
+          const buckets = new Map<string, number>();
+          for (const fr of failedReasons) {
+            const key = (fr.reason || 'desconhecido').substring(0, 160);
+            buckets.set(key, (buckets.get(key) || 0) + 1);
+          }
+          const grouped = Array.from(buckets.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([msg, n]) => `  • ${n}x → ${msg}`)
+            .join('\n');
+          const samples = failedReasons.slice(0, 5)
+            .map(fr => `  - ${fr.nome || ''} (${fr.telefone || ''} / ${fr.lead_id}): ${fr.reason.substring(0, 200)}`)
+            .join('\n');
+          errorLogDetailed = `${batchError}\n\n[Top erros]\n${grouped}\n\n[Amostras]\n${samples}`.substring(0, 4000);
+        }
+
         await supabase.from('campaign_batches').update({
           status: batchStatus,
           processed_leads: successLeadIds.length,
-          error_log: batchError || null,
+          error_log: errorLogDetailed,
           completed_at: new Date().toISOString(),
           ...(failedLeadIds.length > 0 && successLeadIds.length === 0 
             ? { retry_count: (batch.retry_count || 0) + 1 } 
