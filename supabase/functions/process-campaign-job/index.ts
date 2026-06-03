@@ -459,7 +459,9 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                 successLeadIds.push(r.value);
               } else {
                 failedLeadIds.push(subBatch[ri].id);
-                console.error(`❌ [BG] Lead ${subBatch[ri].id} (${subBatch[ri].nome}): ${(r as PromiseRejectedResult).reason?.message || 'erro desconhecido'}`);
+                const reason = (r as PromiseRejectedResult).reason?.message || 'erro desconhecido';
+                failedReasons.push({ lead_id: subBatch[ri].id, nome: subBatch[ri].nome, telefone: subBatch[ri].telefone, reason });
+                console.error(`❌ [BG] Lead ${subBatch[ri].id} (${subBatch[ri].nome}): ${reason}`);
               }
             }
 
