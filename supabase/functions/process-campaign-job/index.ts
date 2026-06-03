@@ -292,6 +292,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
         const successLeadIds: string[] = [];
         const failedLeadIds: string[] = [];
+        const failedReasons: Array<{ lead_id: string; nome?: string; telefone?: string; reason: string }> = [];
 
         if (isIALigacao) {
           // IA Ligação: enviar em sub-lotes de 100
