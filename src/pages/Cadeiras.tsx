@@ -161,21 +161,6 @@ const Cadeiras = () => {
   }, [empresaId, user?.id]);
 
   // Domínios (admin only)
-  useEffect(() => {
-    if (!canManageLoginDomains) return;
-    supabase
-      .from("allowed_login_domains")
-      .select("id, dominio, tipo, ativo")
-      .order("dominio")
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("domains error:", error);
-          return;
-        }
-        setDomains((data as any) || []);
-      });
-  }, [canManageLoginDomains]);
-
   const activeSeatsCount = useMemo(
     () => seats.filter((s) => s.status === "active" && s.profiles?.is_active !== false).length,
     [seats]
@@ -266,38 +251,6 @@ const Cadeiras = () => {
     } catch (e) {
       toast.error("Erro: " + (e as Error).message);
     }
-  };
-
-  const handleAddDomain = async () => {
-    const d = newDomain.trim().toLowerCase();
-    if (!d) return;
-    setSavingDomain(true);
-    try {
-      const { error } = await supabase.from("allowed_login_domains").insert({
-        dominio: d,
-        tipo: newDomainTipo,
-        ativo: true,
-        criado_por: user?.id,
-      });
-      if (error) throw error;
-      toast.success("Domínio adicionado");
-      setNewDomain("");
-      const { data } = await supabase.from("allowed_login_domains").select("id, dominio, tipo, ativo").order("dominio");
-      setDomains((data as any) || []);
-    } catch (e) {
-      toast.error("Erro: " + (e as Error).message);
-    } finally {
-      setSavingDomain(false);
-    }
-  };
-
-  const handleToggleDomain = async (id: string, ativo: boolean) => {
-    const { error } = await supabase.from("allowed_login_domains").update({ ativo }).eq("id", id);
-    if (error) {
-      toast.error("Erro: " + error.message);
-      return;
-    }
-    setDomains((prev) => prev.map((d) => (d.id === id ? { ...d, ativo } : d)));
   };
 
   const copyToClipboard = async (text: string) => {
