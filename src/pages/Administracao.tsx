@@ -185,8 +185,8 @@ const Administracao = () => {
       permissionKey: "canAccessOptOutGlobal",
     },
     {
-      title: "Logs de Cadeiras",
-      description: "Auditoria de criação, renovação e desativação de cadeiras de terceiros",
+      title: "Cadeiras de Terceiros",
+      description: "Limite de cadeiras por loja e histórico de criação/renovação/ativação",
       icon: Armchair,
       route: "/administracao/logs-cadeiras",
       permissionKey: "canAccessAdminConfig",

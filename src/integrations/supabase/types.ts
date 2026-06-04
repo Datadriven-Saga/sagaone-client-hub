@@ -6833,6 +6833,15 @@ export type Database = {
         Returns: boolean
       }
       is_mfa_master: { Args: { check_user_id?: string }; Returns: boolean }
+      list_seat_usage: {
+        Args: never
+        Returns: {
+          empresa_id: string
+          in_use: number
+          max_seats: number
+          nome_empresa: string
+        }[]
+      }
       mark_stale_imports_as_error: { Args: never; Returns: number }
       mask_sensitive_data: {
         Args: {
@@ -6877,6 +6886,10 @@ export type Database = {
           status_atual: string
           telefone: string
         }[]
+      }
+      set_seat_limit: {
+        Args: { p_empresa_id: string; p_max_seats: number }
+        Returns: undefined
       }
       set_user_active_company: {
         Args: { new_empresa_id: string }
