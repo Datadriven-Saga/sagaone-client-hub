@@ -285,6 +285,11 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canAccessAlgoritmosCompra", label: "Acessar Algoritmos de Compra", moduleId: "algoritmos", action: "visualizar" },
   { key: "canAccessAlgoritmosVenda", label: "Acessar Algoritmos de Venda", moduleId: "algoritmos", action: "visualizar" },
   { key: "canAccessAlgoritmosPosVendas", label: "Acessar Algoritmos de Pós-Vendas", moduleId: "algoritmos", action: "visualizar" },
+
+  // ── Cadeiras / Login de Terceiros ──
+  { key: "canUseStoreSeat", label: "Usar cadeira de terceiro", moduleId: "usuarios", action: "executar", description: "Permite criar uma cadeira de acesso para terceiro na loja ativa" },
+  { key: "canManageStoreSeats", label: "Configurar cadeiras por loja", moduleId: "usuarios", action: "administrar", description: "Define limite de cadeiras por loja" },
+  { key: "canManageLoginDomains", label: "Gerenciar domínios de login", moduleId: "usuarios", action: "administrar", description: "Adiciona, edita ou desativa domínios permitidos de login (SSO/senha)" },
 ];
 
 export const TIPOS_ACESSO = [
@@ -487,6 +492,11 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canAccessAlgoritmosCompra = isAdmin;
   defaults.canAccessAlgoritmosVenda = isAdmin;
   defaults.canAccessAlgoritmosPosVendas = isAdmin;
+
+  // ── Cadeiras / Login de Terceiros ──
+  defaults.canUseStoreSeat = isAdmin || isTI || isMasterRole || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
+  defaults.canManageStoreSeats = isAdminOrTI;
+  defaults.canManageLoginDomains = isAdminOrTI;
 
   return defaults;
 }

@@ -10,7 +10,7 @@ const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour of inactivity
 const SESSION_START_KEY = 'session_start_time';
 const LAST_ACTIVITY_KEY = 'last_activity_time';
 const AUTH_REDIRECT_KEY = 'auth_redirect_path';
-const ALLOWED_DOMAIN = '@gruposaga.com.br';
+const INTERNAL_DOMAIN = '@gruposaga.com.br'; // usado apenas para fail-open em erros transitórios
 
 interface AuthContextType {
   user: User | null;
@@ -24,10 +24,9 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: any }>;
 }
 
-// Função para validar domínio do email
-const isValidDomain = (email: string | undefined): boolean => {
+const isInternalEmail = (email: string | undefined): boolean => {
   if (!email) return false;
-  return email.toLowerCase().endsWith(ALLOWED_DOMAIN.toLowerCase());
+  return email.toLowerCase().endsWith(INTERNAL_DOMAIN.toLowerCase());
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -205,22 +204,54 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     };
   }, [user, handleSessionExpired, startSessionTimer]);
 
-  // Validar domínio após autenticação
+  // Validar acesso após autenticação via RPC can_user_login.
+  // Fail-open APENAS para internos @gruposaga.com.br em caso de erro de rede transitório.
+  // Fail-closed para externos.
   const validateAndSetUser = useCallback(async (session: Session | null) => {
     if (session?.user) {
       const email = session.user.email;
-      
-      // Validar domínio
-      if (!isValidDomain(email)) {
-        console.log('Invalid domain detected:', email);
-        toast.error(`Acesso negado. Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos.`);
-        await clearSession();
-        setUser(null);
-        setSession(null);
-        navigate('/login', { replace: true });
-        return;
+      const internal = isInternalEmail(email);
+
+      try {
+        const { data: allowed, error } = await supabase.rpc('can_user_login', {
+          _user_id: session.user.id,
+          _method: null,
+        });
+
+        if (error) {
+          if (internal) {
+            console.warn('[auth] can_user_login error (fail-open interno):', error.message);
+          } else {
+            console.error('[auth] can_user_login error (fail-closed externo):', error.message);
+            toast.error('Não foi possível validar seu acesso. Tente novamente.');
+            await clearSession();
+            setUser(null);
+            setSession(null);
+            navigate('/login', { replace: true });
+            return;
+          }
+        } else if (allowed !== true) {
+          console.log('[auth] can_user_login denied for:', email);
+          toast.error('Acesso negado para este usuário.');
+          await clearSession();
+          setUser(null);
+          setSession(null);
+          navigate('/login', { replace: true });
+          return;
+        }
+      } catch (e) {
+        if (internal) {
+          console.warn('[auth] can_user_login threw (fail-open interno):', (e as Error).message);
+        } else {
+          console.error('[auth] can_user_login threw (fail-closed externo):', (e as Error).message);
+          await clearSession();
+          setUser(null);
+          setSession(null);
+          navigate('/login', { replace: true });
+          return;
+        }
       }
-      
+
       setSession(session);
       setUser(session.user);
     } else {
