@@ -17,6 +17,8 @@ import {
   Flag,
   ShieldBan,
   Plug
+  ,
+  Armchair
 } from "lucide-react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -181,6 +183,13 @@ const Administracao = () => {
       icon: ShieldBan,
       route: "/administracao/opt-out-global",
       permissionKey: "canAccessOptOutGlobal",
+    },
+    {
+      title: "Logs de Cadeiras",
+      description: "Auditoria de criação, renovação e desativação de cadeiras de terceiros",
+      icon: Armchair,
+      route: "/administracao/logs-cadeiras",
+      permissionKey: "canAccessAdminConfig",
     },
   ];
 
