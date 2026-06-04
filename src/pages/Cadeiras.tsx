@@ -53,13 +53,6 @@ type Prospeccao = {
   data_fim: string | null;
 };
 
-type LoginDomain = {
-  id: string;
-  dominio: string;
-  tipo: "sso" | "password" | "both";
-  ativo: boolean;
-};
-
 const Cadeiras = () => {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
@@ -67,7 +60,6 @@ const Cadeiras = () => {
 
   const canUseStoreSeat = !!permissions["canUseStoreSeat"];
   const canManageStoreSeats = !!permissions["canManageStoreSeats"] || isAdmin;
-  const canManageLoginDomains = !!permissions["canManageLoginDomains"] || isAdmin;
 
   const [flagEnabled, setFlagEnabled] = useState<boolean | null>(null);
   const [seatsLoading, setSeatsLoading] = useState(true);
@@ -87,12 +79,6 @@ const Cadeiras = () => {
   const [renewEventoId, setRenewEventoId] = useState<string>("");
   const [renewing, setRenewing] = useState(false);
   const [renewCredentials, setRenewCredentials] = useState<{ email: string; senha: string; evento: string } | null>(null);
-
-  // Admin: domínios
-  const [domains, setDomains] = useState<LoginDomain[]>([]);
-  const [newDomain, setNewDomain] = useState("");
-  const [newDomainTipo, setNewDomainTipo] = useState<"sso" | "password" | "both">("sso");
-  const [savingDomain, setSavingDomain] = useState(false);
 
   const empresaId = activeCompany?.id || null;
 
