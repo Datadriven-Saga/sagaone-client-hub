@@ -28,7 +28,7 @@ type Log = {
   created_at: string;
   empresas?: { nome_empresa: string } | null;
   prospeccoes?: { titulo: string } | null;
-  executor?: { nome_completo: string } | null;
+  executor?: { nome_completo: string; tipo_acesso?: string | null } | null;
   alvo?: { nome_completo: string } | null;
 };
 
@@ -58,6 +58,7 @@ export default function LogsCadeiras() {
   const [usageSearch, setUsageSearch] = useState("");
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [executorEmails, setExecutorEmails] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -67,7 +68,7 @@ export default function LogsCadeiras() {
         id, acao, empresa_id, prospeccao_id, profile_id, email, executado_por, metadata, created_at,
         empresas:empresa_id(nome_empresa),
         prospeccoes:prospeccao_id(titulo),
-        executor:executado_por(nome_completo),
+        executor:executado_por(nome_completo, tipo_acesso),
         alvo:profile_id(nome_completo)
       `)
       .order("created_at", { ascending: false })
@@ -77,7 +78,19 @@ export default function LogsCadeiras() {
     if (error) {
       toast.error("Erro ao carregar logs: " + error.message);
     } else {
-      setLogs((data as any) || []);
+      const rows = (data as any) || [];
+      setLogs(rows);
+      const ids = Array.from(
+        new Set(rows.map((r: any) => r.executado_por).filter(Boolean))
+      ) as string[];
+      if (ids.length) {
+        const { data: emails } = await supabase.rpc("get_users_emails", { user_ids: ids });
+        const map: Record<string, string> = {};
+        (emails || []).forEach((e: any) => { map[e.user_id] = e.email; });
+        setExecutorEmails(map);
+      } else {
+        setExecutorEmails({});
+      }
     }
     setLoading(false);
   };
@@ -131,12 +144,15 @@ export default function LogsCadeiras() {
   const filtered = logs.filter((l) => {
     if (!search.trim()) return true;
     const s = search.toLowerCase();
+    const execEmail = l.executado_por ? executorEmails[l.executado_por] : "";
     return (
       (l.email || "").toLowerCase().includes(s) ||
       (l.empresas?.nome_empresa || "").toLowerCase().includes(s) ||
       (l.prospeccoes?.titulo || "").toLowerCase().includes(s) ||
       (l.alvo?.nome_completo || "").toLowerCase().includes(s) ||
-      (l.executor?.nome_completo || "").toLowerCase().includes(s)
+      (l.executor?.nome_completo || "").toLowerCase().includes(s) ||
+      (l.executor?.tipo_acesso || "").toLowerCase().includes(s) ||
+      (execEmail || "").toLowerCase().includes(s)
     );
   });
 
@@ -328,7 +344,14 @@ export default function LogsCadeiras() {
                         <TableCell className="text-xs font-mono">{l.email || "—"}</TableCell>
                         <TableCell>{l.empresas?.nome_empresa || "—"}</TableCell>
                         <TableCell>{l.prospeccoes?.titulo || "—"}</TableCell>
-                        <TableCell>{l.executor?.nome_completo || "—"}</TableCell>
+                        <TableCell>
+                          <div>{l.executor?.nome_completo || "—"}</div>
+                          {(l.executado_por && (executorEmails[l.executado_por] || l.executor?.tipo_acesso)) && (
+                            <div className="text-xs text-muted-foreground">
+                              {[executorEmails[l.executado_por], l.executor?.tipo_acesso].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
