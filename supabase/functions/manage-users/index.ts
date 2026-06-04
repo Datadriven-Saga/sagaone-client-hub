@@ -847,6 +847,19 @@ Deno.serve(async (req: Request) => {
 
         console.log('[create_external] OK', { newUserId, seat_id: seat?.id, empresa_id, prospeccao_id });
 
+        // Audit log
+        try {
+          await supabaseAdmin.from('logs_cadeiras').insert({
+            acao: 'create',
+            empresa_id,
+            prospeccao_id,
+            profile_id: newUserId,
+            email,
+            executado_por: user.id,
+            metadata: { seat_id: seat?.id, evento_titulo: prospData.titulo, nome_completo },
+          });
+        } catch (logErr) { console.error('[create_external] log error:', logErr); }
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -999,6 +1012,19 @@ Deno.serve(async (req: Request) => {
         const { data: au } = await supabaseAdmin.auth.admin.getUserById(profile_id);
         const email = au?.user?.email || null;
 
+        // Audit log
+        try {
+          await supabaseAdmin.from('logs_cadeiras').insert({
+            acao: 'renew',
+            empresa_id,
+            prospeccao_id,
+            profile_id,
+            email,
+            executado_por: user.id,
+            metadata: { seat_id: seat?.id, evento_titulo: prospData.titulo },
+          });
+        } catch (logErr) { console.error('[renew_external_seat] log error:', logErr); }
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -1063,6 +1089,20 @@ Deno.serve(async (req: Request) => {
             console.error('[set_external_active] signOut error (refresh tokens may persist):', (e as Error).message);
           }
         }
+
+        // Audit log
+        try {
+          const { data: au } = await supabaseAdmin.auth.admin.getUserById(profile_id);
+          const { data: prof } = await supabaseAdmin.from('profiles').select('empresa_id').eq('id', profile_id).single();
+          await supabaseAdmin.from('logs_cadeiras').insert({
+            acao: is_active ? 'activate' : 'deactivate',
+            empresa_id: prof?.empresa_id ?? null,
+            profile_id,
+            email: au?.user?.email ?? null,
+            executado_por: user.id,
+            metadata: {},
+          });
+        } catch (logErr) { console.error('[set_external_active] log error:', logErr); }
 
         return new Response(
           JSON.stringify({ success: true }),
