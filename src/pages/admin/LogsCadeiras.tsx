@@ -10,14 +10,15 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Armchair, RefreshCw, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Armchair, RefreshCw, Loader2, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 type Log = {
   id: string;
-  acao: "create" | "renew" | "activate" | "deactivate";
+  acao: "create" | "renew" | "activate" | "deactivate" | "limit_change";
   empresa_id: string | null;
   prospeccao_id: string | null;
   profile_id: string | null;
@@ -36,6 +37,14 @@ const ACAO_LABEL: Record<Log["acao"], { label: string; variant: "default" | "sec
   renew: { label: "Renovação", variant: "secondary" },
   activate: { label: "Ativação", variant: "outline" },
   deactivate: { label: "Desativação", variant: "destructive" },
+  limit_change: { label: "Limite alterado", variant: "secondary" },
+};
+
+type SeatUsage = {
+  empresa_id: string;
+  nome_empresa: string;
+  max_seats: number;
+  in_use: number;
 };
 
 export default function LogsCadeiras() {
@@ -43,6 +52,12 @@ export default function LogsCadeiras() {
   const [loading, setLoading] = useState(true);
   const [acaoFilter, setAcaoFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+
+  const [usage, setUsage] = useState<SeatUsage[]>([]);
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [usageSearch, setUsageSearch] = useState("");
+  const [editing, setEditing] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -67,10 +82,51 @@ export default function LogsCadeiras() {
     setLoading(false);
   };
 
+  const loadUsage = async () => {
+    setUsageLoading(true);
+    const { data, error } = await supabase.rpc("list_seat_usage");
+    if (error) {
+      toast.error("Erro ao carregar limites: " + error.message);
+    } else {
+      setUsage((data as any) || []);
+    }
+    setUsageLoading(false);
+  };
+
+  const saveLimit = async (empresa_id: string) => {
+    const raw = editing[empresa_id];
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < 0) {
+      toast.error("Valor inválido");
+      return;
+    }
+    setSaving(empresa_id);
+    const { error } = await supabase.rpc("set_seat_limit", {
+      p_empresa_id: empresa_id,
+      p_max_seats: v,
+    });
+    setSaving(null);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+      return;
+    }
+    toast.success("Limite atualizado");
+    setEditing((p) => {
+      const n = { ...p };
+      delete n[empresa_id];
+      return n;
+    });
+    await Promise.all([loadUsage(), load()]);
+  };
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acaoFilter]);
+
+  useEffect(() => {
+    loadUsage();
+  }, []);
 
   const filtered = logs.filter((l) => {
     if (!search.trim()) return true;
@@ -84,6 +140,12 @@ export default function LogsCadeiras() {
     );
   });
 
+  const filteredUsage = usage.filter((u) =>
+    !usageSearch.trim()
+      ? true
+      : u.nome_empresa.toLowerCase().includes(usageSearch.toLowerCase())
+  );
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -91,21 +153,113 @@ export default function LogsCadeiras() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Armchair className="h-6 w-6" />
-              Logs de Cadeiras
+              Cadeiras de Terceiros
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Auditoria de criação, renovação, ativação e desativação de cadeiras de terceiros.
+              Limites por loja e histórico de criação, renovação e ativação/desativação.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={"h-4 w-4 mr-2 " + (loading ? "animate-spin" : "")} />
-            Atualizar
-          </Button>
         </div>
 
-        <Card>
+        <Tabs defaultValue="limites" className="w-full">
+          <TabsList>
+            <TabsTrigger value="limites">Limites por loja</TabsTrigger>
+            <TabsTrigger value="historico">Histórico</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="limites" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Limite de cadeiras por loja</CardTitle>
+                <Button variant="outline" size="sm" onClick={loadUsage} disabled={usageLoading}>
+                  <RefreshCw className={"h-4 w-4 mr-2 " + (usageLoading ? "animate-spin" : "")} />
+                  Atualizar
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Input
+                  placeholder="Buscar loja..."
+                  value={usageSearch}
+                  onChange={(e) => setUsageSearch(e.target.value)}
+                />
+                {usageLoading ? (
+                  <div className="p-10 flex justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Loja</TableHead>
+                        <TableHead className="w-32">Em uso</TableHead>
+                        <TableHead className="w-40">Limite</TableHead>
+                        <TableHead className="w-32">Ação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsage.map((u) => {
+                        const dirty = editing[u.empresa_id] !== undefined && Number(editing[u.empresa_id]) !== u.max_seats;
+                        const exceeded = u.in_use > u.max_seats;
+                        return (
+                          <TableRow key={u.empresa_id}>
+                            <TableCell>{u.nome_empresa}</TableCell>
+                            <TableCell>
+                              <Badge variant={exceeded ? "destructive" : "outline"}>
+                                {u.in_use}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={editing[u.empresa_id] ?? String(u.max_seats)}
+                                onChange={(e) =>
+                                  setEditing((p) => ({ ...p, [u.empresa_id]: e.target.value }))
+                                }
+                                className="h-8 w-24"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!dirty || saving === u.empresa_id}
+                                onClick={() => saveLimit(u.empresa_id)}
+                              >
+                                {saving === u.empresa_id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <><Save className="h-3 w-3 mr-1" /> Salvar</>
+                                )}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {filteredUsage.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
+                            Nenhuma loja encontrada.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="historico" className="space-y-4">
+            <Card>
           <CardHeader>
-            <CardTitle className="text-base">Filtros</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Filtros</CardTitle>
+              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                <RefreshCw className={"h-4 w-4 mr-2 " + (loading ? "animate-spin" : "")} />
+                Atualizar
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -119,6 +273,7 @@ export default function LogsCadeiras() {
                     <SelectItem value="renew">Renovação</SelectItem>
                     <SelectItem value="activate">Ativação</SelectItem>
                     <SelectItem value="deactivate">Desativação</SelectItem>
+                    <SelectItem value="limit_change">Limite alterado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -161,7 +316,14 @@ export default function LogsCadeiras() {
                         <TableCell className="text-xs whitespace-nowrap">
                           {format(new Date(l.created_at), "dd/MM/yyyy HH:mm:ss")}
                         </TableCell>
-                        <TableCell><Badge variant={a.variant}>{a.label}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant={a?.variant || "outline"}>{a?.label || l.acao}</Badge>
+                          {l.acao === "limit_change" && l.metadata && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {l.metadata.old ?? "—"} → {l.metadata.new ?? "—"}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell>{l.alvo?.nome_completo || "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{l.email || "—"}</TableCell>
                         <TableCell>{l.empresas?.nome_empresa || "—"}</TableCell>
@@ -175,6 +337,8 @@ export default function LogsCadeiras() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
