@@ -1069,13 +1069,63 @@ Deno.serve(async (req: Request) => {
 
         const { error: updErr } = await supabaseAdmin
           .from('profiles')
-          .update({ is_active })
+          .update({ is_active, status: is_active ? 'Ativo' : 'Inativo' })
           .eq('id', profile_id);
         if (updErr) {
           return new Response(
             JSON.stringify({ error: updErr.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
+        }
+
+        // Sincroniza cadeira: ao desativar, libera slot revogando seats active
+        let seatAction: { revoked_ids: string[]; reactivated_id?: string; reactivate_skipped?: string } = { revoked_ids: [] };
+        if (!is_active) {
+          const { data: revokedSeats } = await supabaseAdmin
+            .from('external_access_seats')
+            .update({ status: 'revoked', updated_at: new Date().toISOString() })
+            .eq('profile_id', profile_id)
+            .eq('status', 'active')
+            .select('id');
+          seatAction.revoked_ids = (revokedSeats ?? []).map((s: any) => s.id);
+        } else {
+          // Ao reativar, tenta restaurar a cadeira mais recente se o evento ainda for válido e houver slot
+          const { data: lastSeat } = await supabaseAdmin
+            .from('external_access_seats')
+            .select('id, empresa_id, prospeccao_id, status')
+            .eq('profile_id', profile_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastSeat && lastSeat.status !== 'active' && lastSeat.prospeccao_id && lastSeat.empresa_id) {
+            const today = new Date().toISOString().slice(0, 10);
+            const { data: prosp } = await supabaseAdmin
+              .from('prospeccoes')
+              .select('id, ativo, snapshot_realizado, data_fim')
+              .eq('id', lastSeat.prospeccao_id)
+              .single();
+            const eventoValido = prosp && prosp.ativo !== false && prosp.snapshot_realizado !== true && prosp.data_fim && prosp.data_fim >= today;
+            if (!eventoValido) {
+              seatAction.reactivate_skipped = 'evento_invalido';
+            } else {
+              const { data: limitData } = await supabaseAdmin.rpc('get_seats_limit', { p_empresa_id: lastSeat.empresa_id });
+              const maxSeats = Number(limitData ?? 5);
+              const { count: activeCount } = await supabaseAdmin
+                .from('external_access_seats')
+                .select('id', { count: 'exact', head: true })
+                .eq('empresa_id', lastSeat.empresa_id)
+                .eq('status', 'active');
+              if ((activeCount ?? 0) >= maxSeats) {
+                seatAction.reactivate_skipped = 'limite_atingido';
+              } else {
+                await supabaseAdmin
+                  .from('external_access_seats')
+                  .update({ status: 'active', updated_at: new Date().toISOString() })
+                  .eq('id', lastSeat.id);
+                seatAction.reactivated_id = lastSeat.id;
+              }
+            }
+          }
         }
 
         // Se desativando: revogar refresh tokens (access vive até ~1h)
@@ -1100,12 +1150,12 @@ Deno.serve(async (req: Request) => {
             profile_id,
             email: au?.user?.email ?? null,
             executado_por: user.id,
-            metadata: {},
+            metadata: seatAction,
           });
         } catch (logErr) { console.error('[set_external_active] log error:', logErr); }
 
         return new Response(
-          JSON.stringify({ success: true }),
+          JSON.stringify({ success: true, seat: seatAction }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
