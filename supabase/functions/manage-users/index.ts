@@ -990,7 +990,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Reativa profile + gera senha nova
-        await supabaseAdmin.from('profiles').update({ is_active: true }).eq('id', profile_id);
+        await supabaseAdmin.from('profiles').update({ is_active: true, status: 'Ativo' }).eq('id', profile_id);
 
         const passwordBytes = new Uint8Array(18);
         crypto.getRandomValues(passwordBytes);
