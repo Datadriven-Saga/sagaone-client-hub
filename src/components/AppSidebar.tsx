@@ -25,7 +25,8 @@ import {
   GitMerge,
   Tag,
   PackageOpen,
-  Database
+  Database,
+  Armchair
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -136,6 +137,7 @@ export function AppSidebar() {
   const canSeeClientes = p("canViewClientes") && p("canAddClientes");
   const canSeeAgentesIA = p("canAccessAgentesIA");
   const canSeeConfiguracoes = p("canAccessConfiguracoes");
+  const canSeeCadeiras = p("canUseStoreSeat") || p("canManageStoreSeats") || p("canManageLoginDomains");
   const canSeeRelatorios = p("canAccessRelatorios");
   const canSeeResultados = p("canAccessResultados");
   const canSeePosVendas = p("canAccessPosVendas");
@@ -145,6 +147,7 @@ export function AppSidebar() {
   const canSeeAlgoritmos = canSeeAlgCompra || canSeeAlgVenda || canSeeAlgPosVendas;
   
   const bottomMenuItems = [
+    ...(canSeeCadeiras ? [{ title: "Cadeiras", url: "/cadeiras", icon: Armchair }] : []),
     ...(canSeeConfiguracoes ? bottomMenuItemsPublic : []),
     ...(canSeeAdministracao ? bottomMenuItemsAdmin : []),
   ];

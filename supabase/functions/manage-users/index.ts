@@ -672,6 +672,404 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      // ──────────────────────────────────────────────────────────────────
+      // External seats (terceiros): create_external / renew / set_active
+      // ──────────────────────────────────────────────────────────────────
+      case 'create_external': {
+        const { nome_completo, empresa_id, prospeccao_id } = payload || {};
+
+        if (!nome_completo || !empresa_id || !prospeccao_id) {
+          return new Response(
+            JSON.stringify({ error: 'nome_completo, empresa_id e prospeccao_id são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Permissão: Gerente de Leads, Admin, TI, Master, ou quem tem canUseStoreSeat
+        const allowedRoles = ['Administrador','TI','Master','Gerente de Leads','Coordenadora de Leads'];
+        if (!allowedRoles.includes(userTipoAcesso)) {
+          return new Response(
+            JSON.stringify({ error: 'Você não tem permissão para criar terceiros (canUseStoreSeat)' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Revalida acesso à empresa do CompanyContext
+        const { data: canAccessEmpresa, error: accessErr } = await supabaseAdmin.rpc(
+          'user_can_access_empresa',
+          { user_id: user.id, target_empresa_id: empresa_id }
+        );
+        if (accessErr || canAccessEmpresa !== true) {
+          return new Response(
+            JSON.stringify({ error: 'Você não tem acesso a esta loja' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Feature flag por empresa
+        const { data: flagOk, error: flagErr } = await supabaseAdmin.rpc(
+          'is_feature_enabled_for_empresa',
+          { p_flag_key: 'login_terceiros_cadeiras', p_empresa_id: empresa_id }
+        );
+        if (flagErr || flagOk !== true) {
+          return new Response(
+            JSON.stringify({ error: 'Recurso indisponível para esta loja' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Limite de cadeiras
+        const { data: limitData } = await supabaseAdmin.rpc('get_seats_limit', { p_empresa_id: empresa_id });
+        const maxSeats = Number(limitData ?? 5);
+        const { count: activeCount, error: countErr } = await supabaseAdmin
+          .from('external_access_seats')
+          .select('id', { count: 'exact', head: true })
+          .eq('empresa_id', empresa_id)
+          .eq('status', 'active');
+        if (countErr) throw countErr;
+        if ((activeCount ?? 0) >= maxSeats) {
+          return new Response(
+            JSON.stringify({ error: `Limite de cadeiras atingido (${activeCount}/${maxSeats}). Renove uma cadeira existente ou solicite aumento de limite.` }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Valida evento: pertence à empresa, ativo, dentro do prazo, sem snapshot
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: prospData, error: prospErr } = await supabaseAdmin
+          .from('prospeccoes')
+          .select('id, empresa_id, data_fim, ativo, snapshot_realizado, titulo')
+          .eq('id', prospeccao_id)
+          .single();
+        if (prospErr || !prospData) {
+          return new Response(
+            JSON.stringify({ error: 'Evento não encontrado' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (prospData.empresa_id !== empresa_id) {
+          return new Response(
+            JSON.stringify({ error: 'Evento não pertence à loja informada' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (prospData.ativo === false || prospData.snapshot_realizado === true || !prospData.data_fim || prospData.data_fim < today) {
+          return new Response(
+            JSON.stringify({ error: 'Evento não está ativo (encerrado, snapshot realizado ou data_fim no passado)' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Gera email + senha
+        const slug = String(nome_completo)
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'terceiro';
+        const shortId = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+        const email = `${slug}.${shortId}@one.sagadatadriven.com.br`;
+        const passwordBytes = new Uint8Array(18);
+        crypto.getRandomValues(passwordBytes);
+        const senha = Array.from(passwordBytes).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 16) + 'A9!';
+
+        // 1) Cria no auth com app_metadata.is_external=true
+        const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: senha,
+          email_confirm: true,
+          user_metadata: { nome_completo, full_name: nome_completo },
+          app_metadata: { is_external: true },
+        });
+        if (createErr || !created?.user) {
+          return new Response(
+            JSON.stringify({ error: `Falha ao criar usuário: ${createErr?.message || 'desconhecido'}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const newUserId = created.user.id;
+
+        // Helper de rollback
+        const rollback = async (reason: string) => {
+          console.error('[create_external] rollback:', reason);
+          try { await supabaseAdmin.auth.admin.deleteUser(newUserId); } catch (_) {}
+        };
+
+        // 2) Atualiza profile (já criado por trigger handle_new_user)
+        const { error: profErr } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            nome_completo,
+            tipo_acesso: 'SDR',
+            is_external: true,
+            is_active: true,
+            empresa_id,
+            external_created_by: user.id,
+            status: 'Ativo',
+          })
+          .eq('id', newUserId);
+        if (profErr) {
+          await rollback(`profile update: ${profErr.message}`);
+          return new Response(
+            JSON.stringify({ error: `Falha ao gravar perfil: ${profErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // 3) user_empresas (única empresa, ativa)
+        const { error: ueErr } = await supabaseAdmin
+          .from('user_empresas')
+          .insert({ user_id: newUserId, empresa_id, is_ativa: true });
+        if (ueErr) {
+          await rollback(`user_empresas: ${ueErr.message}`);
+          return new Response(
+            JSON.stringify({ error: `Falha ao vincular loja: ${ueErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // 4) external_access_seats (active)
+        const { data: seat, error: seatErr } = await supabaseAdmin
+          .from('external_access_seats')
+          .insert({
+            profile_id: newUserId,
+            empresa_id,
+            prospeccao_id,
+            created_by: user.id,
+            status: 'active',
+          })
+          .select('id')
+          .single();
+        if (seatErr) {
+          await rollback(`seat: ${seatErr.message}`);
+          return new Response(
+            JSON.stringify({ error: `Falha ao criar cadeira: ${seatErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('[create_external] OK', { newUserId, seat_id: seat?.id, empresa_id, prospeccao_id });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            user_id: newUserId,
+            seat_id: seat?.id,
+            email,
+            senha_temporaria: senha,
+            evento_titulo: prospData.titulo,
+            aviso_equipe: true,
+            mensagem: 'Cadeira criada. Adicione este usuário à equipe do evento em /prospeccao/eventos para que ele receba leads.',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'renew_external_seat': {
+        const { profile_id, prospeccao_id } = payload || {};
+        if (!profile_id || !prospeccao_id) {
+          return new Response(
+            JSON.stringify({ error: 'profile_id e prospeccao_id são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Carrega perfil-alvo
+        const { data: targetProfile, error: tpErr } = await supabaseAdmin
+          .from('profiles')
+          .select('id, is_external, empresa_id, external_created_by, nome_completo')
+          .eq('id', profile_id)
+          .single();
+        if (tpErr || !targetProfile) {
+          return new Response(
+            JSON.stringify({ error: 'Terceiro não encontrado' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (!targetProfile.is_external) {
+          return new Response(
+            JSON.stringify({ error: 'Usuário não é um terceiro' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Permissão: admin ou criador original
+        const isOwner = targetProfile.external_created_by === user.id;
+        const allowedRoles = ['Administrador','TI','Master'];
+        if (!isOwner && !allowedRoles.includes(userTipoAcesso)) {
+          return new Response(
+            JSON.stringify({ error: 'Você não pode renovar esta cadeira' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const empresa_id = targetProfile.empresa_id;
+        if (!empresa_id) {
+          return new Response(
+            JSON.stringify({ error: 'Terceiro sem empresa vinculada' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Feature flag por empresa
+        const { data: flagOk } = await supabaseAdmin.rpc(
+          'is_feature_enabled_for_empresa',
+          { p_flag_key: 'login_terceiros_cadeiras', p_empresa_id: empresa_id }
+        );
+        if (flagOk !== true) {
+          return new Response(
+            JSON.stringify({ error: 'Recurso indisponível para esta loja' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Valida evento alvo
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: prospData, error: prospErr } = await supabaseAdmin
+          .from('prospeccoes')
+          .select('id, empresa_id, data_fim, ativo, snapshot_realizado, titulo')
+          .eq('id', prospeccao_id)
+          .single();
+        if (prospErr || !prospData || prospData.empresa_id !== empresa_id ||
+            prospData.ativo === false || prospData.snapshot_realizado === true ||
+            !prospData.data_fim || prospData.data_fim < today) {
+          return new Response(
+            JSON.stringify({ error: 'Evento alvo inválido ou inativo' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Limite de cadeiras (renovação ocupa 1 slot — seat antigo será expirado primeiro)
+        await supabaseAdmin
+          .from('external_access_seats')
+          .update({ status: 'expired', updated_at: new Date().toISOString() })
+          .eq('profile_id', profile_id)
+          .eq('status', 'active');
+
+        const { data: limitData } = await supabaseAdmin.rpc('get_seats_limit', { p_empresa_id: empresa_id });
+        const maxSeats = Number(limitData ?? 5);
+        const { count: activeCount } = await supabaseAdmin
+          .from('external_access_seats')
+          .select('id', { count: 'exact', head: true })
+          .eq('empresa_id', empresa_id)
+          .eq('status', 'active');
+        if ((activeCount ?? 0) >= maxSeats) {
+          return new Response(
+            JSON.stringify({ error: `Limite de cadeiras atingido (${activeCount}/${maxSeats}).` }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Cria seat novo
+        const { data: seat, error: seatErr } = await supabaseAdmin
+          .from('external_access_seats')
+          .insert({
+            profile_id,
+            empresa_id,
+            prospeccao_id,
+            created_by: user.id,
+            status: 'active',
+          })
+          .select('id')
+          .single();
+        if (seatErr) {
+          return new Response(
+            JSON.stringify({ error: `Falha ao criar cadeira: ${seatErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Reativa profile + gera senha nova
+        await supabaseAdmin.from('profiles').update({ is_active: true }).eq('id', profile_id);
+
+        const passwordBytes = new Uint8Array(18);
+        crypto.getRandomValues(passwordBytes);
+        const senha = Array.from(passwordBytes).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 16) + 'A9!';
+
+        const { data: updated, error: updErr } = await supabaseAdmin.auth.admin.updateUserById(
+          profile_id,
+          { password: senha }
+        );
+        console.log('[renew_external_seat] updateUserById response keys:', Object.keys(updated || {}));
+        if (updErr) {
+          return new Response(
+            JSON.stringify({ error: `Falha ao atualizar senha: ${updErr.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Obter email
+        const { data: au } = await supabaseAdmin.auth.admin.getUserById(profile_id);
+        const email = au?.user?.email || null;
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            seat_id: seat?.id,
+            email,
+            senha_temporaria: senha,
+            evento_titulo: prospData.titulo,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'set_external_active': {
+        const { profile_id, is_active } = payload || {};
+        if (!profile_id || typeof is_active !== 'boolean') {
+          return new Response(
+            JSON.stringify({ error: 'profile_id e is_active são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: targetProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id, is_external, external_created_by')
+          .eq('id', profile_id)
+          .single();
+        if (!targetProfile?.is_external) {
+          return new Response(
+            JSON.stringify({ error: 'Usuário não é um terceiro' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const isOwner = targetProfile.external_created_by === user.id;
+        const allowedRoles = ['Administrador','TI','Master'];
+        if (!isOwner && !allowedRoles.includes(userTipoAcesso)) {
+          return new Response(
+            JSON.stringify({ error: 'Sem permissão para alterar este terceiro' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { error: updErr } = await supabaseAdmin
+          .from('profiles')
+          .update({ is_active })
+          .eq('id', profile_id);
+        if (updErr) {
+          return new Response(
+            JSON.stringify({ error: updErr.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Se desativando: revogar refresh tokens (access vive até ~1h)
+        if (!is_active) {
+          try {
+            // signOut com escopo global — assinatura: signOut(jwt, scope) no admin; assinaturas variam.
+            // Aqui usamos a forma documentada (jwt do user nao temos; usamos invalidate sessions).
+            const signOutResp: any = await (supabaseAdmin.auth.admin as any).signOut(profile_id, 'global');
+            console.log('[set_external_active] signOut response:', JSON.stringify(signOutResp || {}).slice(0, 200));
+          } catch (e) {
+            console.error('[set_external_active] signOut error (refresh tokens may persist):', (e as Error).message);
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }

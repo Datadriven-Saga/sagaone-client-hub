@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ALLOWED_DOMAIN = '@gruposaga.com.br';
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -15,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Validating user domain...');
+    console.log('Validating user login (allowlist + can_user_login)...');
     
     // Get auth token
     const authHeader = req.headers.get('Authorization');
@@ -46,26 +44,38 @@ serve(async (req) => {
     }
 
     const email = user.email?.toLowerCase() || '';
-    console.log('Checking email domain for:', email);
+    console.log('Validating login for:', email);
 
-    // Validate domain
-    if (!email.endsWith(ALLOWED_DOMAIN.toLowerCase())) {
-      console.log('Invalid domain detected:', email);
-      
+    // Delegate validation to can_user_login (handles allowlist, method, external seats, flag)
+    const { data: allowed, error: rpcError } = await supabase.rpc('can_user_login', {
+      _user_id: user.id,
+      _method: null,
+    });
+
+    if (rpcError) {
+      console.error('can_user_login RPC error:', rpcError);
+      return new Response(
+        JSON.stringify({ valid: false, error: 'Falha ao validar acesso', details: rpcError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (allowed !== true) {
+      console.log('Login denied for:', email);
       // Sign out the user immediately
       await supabase.auth.signOut();
-      
+
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: `Acesso negado. Apenas emails do domínio ${ALLOWED_DOMAIN} são permitidos.`,
-          email: email
+        JSON.stringify({
+          valid: false,
+          error: 'Acesso não autorizado para este usuário.',
+          email,
         }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Domain validation passed for:', email);
+    console.log('Login validation passed for:', email);
     return new Response(
       JSON.stringify({ valid: true, email: email }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -35,6 +35,8 @@ const PosVendas = lazy(() => import("./pages/pos-vendas/PosVendas"));
 const DePara = lazy(() => import("./pages/DePara"));
 const EntraDados = lazy(() => import("./pages/EntraDados"));
 const AlgoritmoEmConstrucao = lazy(() => import("./pages/algoritmos/EmConstrucao"));
+const LoginTerceiros = lazy(() => import("./pages/LoginTerceiros"));
+const Cadeiras = lazy(() => import("./pages/Cadeiras"));
 
 // Admin pages - lazy
 const Empresas = lazy(() => import("./pages/admin/Empresas"));
@@ -81,6 +83,7 @@ const AppRoutes = () => {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/login/terceiros" element={<LoginTerceiros />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         {/* Rota pública — landing page de confirmação de presença (acessada por clientes finais) */}
         <Route path="/confirmar/:token" element={<ConfirmarPresenca />} />
@@ -106,6 +109,7 @@ const AppRoutes = () => {
         <Route path="/resultados/relatorios" element={<PermissionProtectedRoute permissionKey="canAccessResultados"><Resultados /></PermissionProtectedRoute>} />
         <Route path="/relatorios" element={<PermissionProtectedRoute permissionKey="canAccessRelatorios"><Relatorios /></PermissionProtectedRoute>} />
         <Route path="/configuracoes" element={<PermissionProtectedRoute permissionKey="canAccessConfiguracoes"><Configuracoes /></PermissionProtectedRoute>} />
+        <Route path="/cadeiras" element={<PermissionProtectedRoute permissionKey={["canUseStoreSeat","canManageStoreSeats","canManageLoginDomains"]}><Cadeiras /></PermissionProtectedRoute>} />
         <Route path="/minha-conta" element={<PermissionProtectedRoute permissionKey="canAccessMinhaConta"><MinhaConta /></PermissionProtectedRoute>} />
         <Route path="/ajuda" element={<PermissionProtectedRoute permissionKey="canAccessAjuda"><Ajuda /></PermissionProtectedRoute>} />
         <Route path="/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessGatilhos"><Gatilhos /></PermissionProtectedRoute>} />

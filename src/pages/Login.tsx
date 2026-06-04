@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import sagaOneLogo from "@/assets/saga-one-logo.png";
-import { Loader2 } from "lucide-react";
+import { Loader2, KeyRound } from "lucide-react";
 
 // TODO: Alterar para true quando Azure SSO estiver configurado
 const USE_SSO_LOGIN = true;
@@ -57,7 +57,7 @@ const Login = () => {
   // Renderiza login SSO - apenas Microsoft
   if (USE_SSO_LOGIN) {
     return (
-      <div className="min-h-screen bg-gradient-login dark:bg-gradient-to-br dark:from-[hsl(220,20%,18%)] dark:via-[hsl(220,15%,28%)] dark:to-[hsl(220,20%,18%)] flex items-center justify-center p-3 sm:p-4 overflow-x-hidden">
+      <div className="relative min-h-screen bg-gradient-login dark:bg-gradient-to-br dark:from-[hsl(220,20%,18%)] dark:via-[hsl(220,15%,28%)] dark:to-[hsl(220,20%,18%)] flex items-center justify-center p-3 sm:p-4 overflow-x-hidden">
         <div className="w-full max-w-md px-1">
           <div className="text-center mb-4 sm:mb-6">
             <div className="inline-block mb-1 bg-white dark:bg-white/95 p-4 sm:p-6 rounded-2xl shadow-lg max-w-[70vw] sm:max-w-xs">
@@ -103,7 +103,32 @@ const Login = () => {
           </Card>
 
           <p className="text-center text-foreground/60 dark:text-white/40 text-xs sm:text-sm mt-4 sm:mt-6">© 2025 SAGA One. Todos os direitos reservados.</p>
+
+          {/* Mobile: link discreto no rodapé do card */}
+          <div className="sm:hidden mt-4 text-center">
+            <Link
+              to="/login/terceiros"
+              className="inline-flex items-center gap-1 text-xs text-foreground/60 hover:text-foreground hover:underline dark:text-white/60 dark:hover:text-white"
+            >
+              <KeyRound className="h-3 w-3" />
+              <span>Login para terceiros</span>
+            </Link>
+          </div>
         </div>
+
+        {/* Desktop: canto inferior direito, fixo */}
+        <Link
+          to="/login/terceiros"
+          className="hidden sm:flex fixed bottom-4 right-4 max-w-[280px] flex-col items-end gap-0.5 text-right group"
+        >
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground/60 group-hover:text-foreground group-hover:underline dark:text-white/70 dark:group-hover:text-white">
+            <KeyRound className="h-3.5 w-3.5" />
+            Login para terceiros
+          </span>
+          <span className="text-[11px] leading-tight text-foreground/50 group-hover:text-foreground/70 dark:text-white/50 dark:group-hover:text-white/70">
+            Clique aqui se você recebeu um email e senha para entrar no SagaOne
+          </span>
+        </Link>
       </div>
     );
   }
