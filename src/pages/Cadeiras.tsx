@@ -88,10 +88,6 @@ const Cadeiras = () => {
   const [renewing, setRenewing] = useState(false);
   const [renewCredentials, setRenewCredentials] = useState<{ email: string; senha: string; evento: string } | null>(null);
 
-  // Admin: limite por loja
-  const [limitInput, setLimitInput] = useState<string>("");
-  const [savingLimit, setSavingLimit] = useState(false);
-
   // Admin: domínios
   const [domains, setDomains] = useState<LoginDomain[]>([]);
   const [newDomain, setNewDomain] = useState("");
