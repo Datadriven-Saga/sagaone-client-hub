@@ -81,7 +81,7 @@ export function CleanupInvalidUsersButton() {
         <DialogHeader>
           <DialogTitle>Remover Usuários com Domínio Inválido</DialogTitle>
           <DialogDescription>
-            Esta ação irá remover todos os usuários que não possuem email @gruposaga.com.br
+            Remove usuários cujo domínio não está autorizado em <code>allowed_login_domains</code>. Usuários externos (cadeiras) são preservados.
           </DialogDescription>
         </DialogHeader>
 
@@ -98,9 +98,9 @@ export function CleanupInvalidUsersButton() {
             <div className="text-sm text-muted-foreground">
               <p>Esta operação irá:</p>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Identificar usuários com email fora do domínio @gruposaga.com.br</li>
-                <li>Remover seus perfis e dados relacionados</li>
-                <li>Excluir permanentemente as contas de autenticação</li>
+                <li>Identificar usuários com domínio fora dos domínios autorizados</li>
+                <li>Preservar usuários externos (cadeiras de terceiros)</li>
+                <li>Remover perfis e contas de autenticação dos demais</li>
               </ul>
             </div>
             
