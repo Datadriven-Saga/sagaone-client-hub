@@ -155,6 +155,7 @@ const AppRoutes = () => {
         <Route path="/administracao/integracoes" element={<PermissionProtectedRoute permissionKey="canAccessAgentesIA"><Integracoes /></PermissionProtectedRoute>} />
         <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey={["canAccessAgentesIA", "canViewAuthenticator"]}><MFAGeral /></PermissionProtectedRoute>} />
         <Route path="/administracao/opt-out-global" element={<PermissionProtectedRoute permissionKey="canAccessOptOutGlobal"><OptOutGlobal /></PermissionProtectedRoute>} />
+        <Route path="/administracao/logs-cadeiras" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><LogsCadeiras /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
