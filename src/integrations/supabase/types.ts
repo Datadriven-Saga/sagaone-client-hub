@@ -979,6 +979,51 @@ export type Database = {
         }
         Relationships: []
       }
+      allowed_login_domains: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          criado_por: string | null
+          dominio: string
+          id: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          criado_por?: string | null
+          dominio: string
+          id?: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          criado_por?: string | null
+          dominio?: string
+          id?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allowed_login_domains_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "allowed_login_domains_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bases_importadas: {
         Row: {
           created_at: string
@@ -2269,6 +2314,82 @@ export type Database = {
         }
         Relationships: []
       }
+      external_access_seats: {
+        Row: {
+          created_at: string
+          created_by: string
+          empresa_id: string
+          id: string
+          profile_id: string
+          prospeccao_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          empresa_id: string
+          id?: string
+          profile_id: string
+          prospeccao_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          empresa_id?: string
+          id?: string
+          profile_id?: string
+          prospeccao_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_access_seats_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_access_seats_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_access_seats_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_access_seats_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_access_seats_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_access_seats_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_optout_entries: {
         Row: {
           api_id: string | null
@@ -2405,6 +2526,49 @@ export type Database = {
           valid_until_date_sp?: string
         }
         Relationships: []
+      }
+      external_seat_limits: {
+        Row: {
+          empresa_id: string
+          max_seats: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          empresa_id: string
+          max_seats?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          empresa_id?: string
+          max_seats?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_seat_limits_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: true
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_seat_limits_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_seat_limits_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       feature_flag_empresas: {
         Row: {
@@ -4196,9 +4360,12 @@ export type Database = {
           created_at: string | null
           departamento: string | null
           empresa_id: string | null
+          external_created_by: string | null
           foto_url: string | null
           gestor_imediato: string | null
           id: string
+          is_active: boolean
+          is_external: boolean
           nome_completo: string
           notificacao_email: boolean | null
           notificacao_whatsapp: boolean | null
@@ -4212,9 +4379,12 @@ export type Database = {
           created_at?: string | null
           departamento?: string | null
           empresa_id?: string | null
+          external_created_by?: string | null
           foto_url?: string | null
           gestor_imediato?: string | null
           id: string
+          is_active?: boolean
+          is_external?: boolean
           nome_completo: string
           notificacao_email?: boolean | null
           notificacao_whatsapp?: boolean | null
@@ -4228,9 +4398,12 @@ export type Database = {
           created_at?: string | null
           departamento?: string | null
           empresa_id?: string | null
+          external_created_by?: string | null
           foto_url?: string | null
           gestor_imediato?: string | null
           id?: string
+          is_active?: boolean
+          is_external?: boolean
           nome_completo?: string
           notificacao_email?: boolean | null
           notificacao_whatsapp?: boolean | null
@@ -4244,6 +4417,20 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_external_created_by_fkey"
+            columns: ["external_created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_external_created_by_fkey"
+            columns: ["external_created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
           {
@@ -6163,6 +6350,10 @@ export type Database = {
         Returns: Json
       }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
+      can_user_login: {
+        Args: { _method?: string; _user_id: string }
+        Returns: boolean
+      }
       check_contato_by_telefone: {
         Args: { p_empresa_id: string; p_telefone: string }
         Returns: Json
@@ -6541,6 +6732,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_seats_limit: { Args: { p_empresa_id: string }; Returns: number }
       get_user_accessible_clients: {
         Args: { user_id_param?: string }
         Returns: {
@@ -6634,6 +6826,7 @@ export type Database = {
       normalize_phone_br: { Args: { phone: string }; Returns: string }
       normalize_phone_canonical: { Args: { p_raw: string }; Returns: string }
       normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
+      password_login_enabled: { Args: never; Returns: boolean }
       phone_match_variants: { Args: { phone: string }; Returns: string[] }
       preview_importacao_conflitos: {
         Args: {
