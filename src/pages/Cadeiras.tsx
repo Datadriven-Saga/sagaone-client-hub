@@ -525,61 +525,6 @@ const Cadeiras = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Admin: domínios de login */}
-        {canManageLoginDomains && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Domínios de login (admin)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2 items-end flex-wrap">
-                <div className="flex-1 min-w-[200px] space-y-1.5">
-                  <Label>Novo domínio</Label>
-                  <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="exemplo.com.br" disabled={savingDomain} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Tipo</Label>
-                  <Select value={newDomainTipo} onValueChange={(v: any) => setNewDomainTipo(v)} disabled={savingDomain}>
-                    <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sso">SSO</SelectItem>
-                      <SelectItem value="password">Senha</SelectItem>
-                      <SelectItem value="both">Ambos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleAddDomain} disabled={savingDomain || !newDomain.trim()}>
-                  {savingDomain ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
-                </Button>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Domínio</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {domains.map((d) => (
-                    <TableRow key={d.id}>
-                      <TableCell className="font-mono">{d.dominio}</TableCell>
-                      <TableCell><Badge variant="outline">{d.tipo}</Badge></TableCell>
-                      <TableCell>{d.ativo ? <Badge>Sim</Badge> : <Badge variant="secondary">Não</Badge>}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => handleToggleDomain(d.id, !d.ativo)}>
-                          {d.ativo ? "Desativar" : "Ativar"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   );
