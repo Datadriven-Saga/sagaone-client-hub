@@ -195,7 +195,10 @@ const Cadeiras = () => {
       });
   }, [canManageLoginDomains]);
 
-  const activeSeatsCount = useMemo(() => seats.filter((s) => s.status === "active").length, [seats]);
+  const activeSeatsCount = useMemo(
+    () => seats.filter((s) => s.status === "active" && s.profiles?.is_active !== false).length,
+    [seats]
+  );
   const mySeats = useMemo(
     () => seats.filter((s) => isAdmin || s.profiles), // RLS já filtra; lista o que veio
     [seats, isAdmin]
