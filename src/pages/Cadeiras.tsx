@@ -348,6 +348,8 @@ const Cadeiras = () => {
   };
 
   const statusBadge = (s: Seat) => {
+    // Profile desativado tem prioridade sobre status do seat — usuário não consegue logar.
+    if (s.profiles?.is_active === false) return <Badge variant="outline">Desativado</Badge>;
     if (s.status === "active") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Ativo</Badge>;
     if (s.status === "expired") return <Badge variant="secondary">Expirado</Badge>;
     return <Badge variant="destructive">Revogado</Badge>;
@@ -514,9 +516,6 @@ const Cadeiras = () => {
                       <TableRow key={s.id}>
                         <TableCell>
                           {s.profiles?.nome_completo || "—"}
-                          {!profileActive && (
-                            <Badge variant="outline" className="ml-2">Desativado</Badge>
-                          )}
                         </TableCell>
                         <TableCell>{s.prospeccoes?.titulo || "—"}</TableCell>
                         <TableCell>{s.prospeccoes?.data_fim || "—"}</TableCell>
