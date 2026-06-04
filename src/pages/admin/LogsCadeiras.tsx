@@ -12,9 +12,12 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Armchair, RefreshCw, Loader2, Save } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserAccessType } from "@/hooks/useUserAccessType";
 
 type Log = {
   id: string;
@@ -47,7 +50,18 @@ type SeatUsage = {
   in_use: number;
 };
 
+type LoginDomain = {
+  id: string;
+  dominio: string;
+  tipo: "sso" | "password" | "both";
+  ativo: boolean;
+};
+
 export default function LogsCadeiras() {
+  const { user } = useAuth();
+  const { permissions, isAdmin } = useUserAccessType();
+  const canManageLoginDomains = !!permissions["canManageLoginDomains"] || isAdmin;
+
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [acaoFilter, setAcaoFilter] = useState<string>("all");
@@ -59,6 +73,54 @@ export default function LogsCadeiras() {
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [executorEmails, setExecutorEmails] = useState<Record<string, string>>({});
+
+  const [domains, setDomains] = useState<LoginDomain[]>([]);
+  const [newDomain, setNewDomain] = useState("");
+  const [newDomainTipo, setNewDomainTipo] = useState<"sso" | "password" | "both">("sso");
+  const [savingDomain, setSavingDomain] = useState(false);
+
+  const loadDomains = async () => {
+    const { data, error } = await supabase
+      .from("allowed_login_domains")
+      .select("id, dominio, tipo, ativo")
+      .order("dominio");
+    if (error) {
+      console.error("domains error:", error);
+      return;
+    }
+    setDomains((data as any) || []);
+  };
+
+  const handleAddDomain = async () => {
+    const d = newDomain.trim().toLowerCase();
+    if (!d) return;
+    setSavingDomain(true);
+    try {
+      const { error } = await supabase.from("allowed_login_domains").insert({
+        dominio: d,
+        tipo: newDomainTipo,
+        ativo: true,
+        criado_por: user?.id,
+      });
+      if (error) throw error;
+      toast.success("Domínio adicionado");
+      setNewDomain("");
+      await loadDomains();
+    } catch (e) {
+      toast.error("Erro: " + (e as Error).message);
+    } finally {
+      setSavingDomain(false);
+    }
+  };
+
+  const handleToggleDomain = async (id: string, ativo: boolean) => {
+    const { error } = await supabase.from("allowed_login_domains").update({ ativo }).eq("id", id);
+    if (error) {
+      toast.error("Erro: " + error.message);
+      return;
+    }
+    setDomains((prev) => prev.map((d) => (d.id === id ? { ...d, ativo } : d)));
+  };
 
   const load = async () => {
     setLoading(true);
@@ -141,6 +203,10 @@ export default function LogsCadeiras() {
     loadUsage();
   }, []);
 
+  useEffect(() => {
+    if (canManageLoginDomains) loadDomains();
+  }, [canManageLoginDomains]);
+
   const filtered = logs.filter((l) => {
     if (!search.trim()) return true;
     const s = search.toLowerCase();
@@ -181,6 +247,9 @@ export default function LogsCadeiras() {
           <TabsList>
             <TabsTrigger value="limites">Limites por loja</TabsTrigger>
             <TabsTrigger value="historico">Histórico</TabsTrigger>
+            {canManageLoginDomains && (
+              <TabsTrigger value="dominios">Domínios de login</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="limites" className="space-y-4">
