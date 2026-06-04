@@ -2925,6 +2925,42 @@ export type Database = {
           },
         ]
       }
+      logs_cadeiras: {
+        Row: {
+          acao: string
+          created_at: string
+          email: string | null
+          empresa_id: string | null
+          executado_por: string | null
+          id: string
+          metadata: Json
+          profile_id: string | null
+          prospeccao_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          email?: string | null
+          empresa_id?: string | null
+          executado_por?: string | null
+          id?: string
+          metadata?: Json
+          profile_id?: string | null
+          prospeccao_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          email?: string | null
+          empresa_id?: string | null
+          executado_por?: string | null
+          id?: string
+          metadata?: Json
+          profile_id?: string | null
+          prospeccao_id?: string | null
+        }
+        Relationships: []
+      }
       logs_disparos: {
         Row: {
           batch_index: number | null
