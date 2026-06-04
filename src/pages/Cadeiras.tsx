@@ -53,13 +53,6 @@ type Prospeccao = {
   data_fim: string | null;
 };
 
-type LoginDomain = {
-  id: string;
-  dominio: string;
-  tipo: "sso" | "password" | "both";
-  ativo: boolean;
-};
-
 const Cadeiras = () => {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
@@ -67,7 +60,6 @@ const Cadeiras = () => {
 
   const canUseStoreSeat = !!permissions["canUseStoreSeat"];
   const canManageStoreSeats = !!permissions["canManageStoreSeats"] || isAdmin;
-  const canManageLoginDomains = !!permissions["canManageLoginDomains"] || isAdmin;
 
   const [flagEnabled, setFlagEnabled] = useState<boolean | null>(null);
   const [seatsLoading, setSeatsLoading] = useState(true);
@@ -87,12 +79,6 @@ const Cadeiras = () => {
   const [renewEventoId, setRenewEventoId] = useState<string>("");
   const [renewing, setRenewing] = useState(false);
   const [renewCredentials, setRenewCredentials] = useState<{ email: string; senha: string; evento: string } | null>(null);
-
-  // Admin: domínios
-  const [domains, setDomains] = useState<LoginDomain[]>([]);
-  const [newDomain, setNewDomain] = useState("");
-  const [newDomainTipo, setNewDomainTipo] = useState<"sso" | "password" | "both">("sso");
-  const [savingDomain, setSavingDomain] = useState(false);
 
   const empresaId = activeCompany?.id || null;
 
@@ -175,21 +161,6 @@ const Cadeiras = () => {
   }, [empresaId, user?.id]);
 
   // Domínios (admin only)
-  useEffect(() => {
-    if (!canManageLoginDomains) return;
-    supabase
-      .from("allowed_login_domains")
-      .select("id, dominio, tipo, ativo")
-      .order("dominio")
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("domains error:", error);
-          return;
-        }
-        setDomains((data as any) || []);
-      });
-  }, [canManageLoginDomains]);
-
   const activeSeatsCount = useMemo(
     () => seats.filter((s) => s.status === "active" && s.profiles?.is_active !== false).length,
     [seats]
@@ -280,38 +251,6 @@ const Cadeiras = () => {
     } catch (e) {
       toast.error("Erro: " + (e as Error).message);
     }
-  };
-
-  const handleAddDomain = async () => {
-    const d = newDomain.trim().toLowerCase();
-    if (!d) return;
-    setSavingDomain(true);
-    try {
-      const { error } = await supabase.from("allowed_login_domains").insert({
-        dominio: d,
-        tipo: newDomainTipo,
-        ativo: true,
-        criado_por: user?.id,
-      });
-      if (error) throw error;
-      toast.success("Domínio adicionado");
-      setNewDomain("");
-      const { data } = await supabase.from("allowed_login_domains").select("id, dominio, tipo, ativo").order("dominio");
-      setDomains((data as any) || []);
-    } catch (e) {
-      toast.error("Erro: " + (e as Error).message);
-    } finally {
-      setSavingDomain(false);
-    }
-  };
-
-  const handleToggleDomain = async (id: string, ativo: boolean) => {
-    const { error } = await supabase.from("allowed_login_domains").update({ ativo }).eq("id", id);
-    if (error) {
-      toast.error("Erro: " + error.message);
-      return;
-    }
-    setDomains((prev) => prev.map((d) => (d.id === id ? { ...d, ativo } : d)));
   };
 
   const copyToClipboard = async (text: string) => {
@@ -586,61 +525,6 @@ const Cadeiras = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Admin: domínios de login */}
-        {canManageLoginDomains && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Domínios de login (admin)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2 items-end flex-wrap">
-                <div className="flex-1 min-w-[200px] space-y-1.5">
-                  <Label>Novo domínio</Label>
-                  <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="exemplo.com.br" disabled={savingDomain} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Tipo</Label>
-                  <Select value={newDomainTipo} onValueChange={(v: any) => setNewDomainTipo(v)} disabled={savingDomain}>
-                    <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sso">SSO</SelectItem>
-                      <SelectItem value="password">Senha</SelectItem>
-                      <SelectItem value="both">Ambos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleAddDomain} disabled={savingDomain || !newDomain.trim()}>
-                  {savingDomain ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
-                </Button>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Domínio</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {domains.map((d) => (
-                    <TableRow key={d.id}>
-                      <TableCell className="font-mono">{d.dominio}</TableCell>
-                      <TableCell><Badge variant="outline">{d.tipo}</Badge></TableCell>
-                      <TableCell>{d.ativo ? <Badge>Sim</Badge> : <Badge variant="secondary">Não</Badge>}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => handleToggleDomain(d.id, !d.ativo)}>
-                          {d.ativo ? "Desativar" : "Ativar"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </DashboardLayout>
   );
