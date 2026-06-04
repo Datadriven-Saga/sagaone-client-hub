@@ -164,7 +164,6 @@ const Cadeiras = () => {
     } else {
       const l = Number(limitRes.data ?? 5);
       setLimit(l);
-      setLimitInput(String(l));
     }
 
     setSeatsLoading(false);
@@ -280,28 +279,6 @@ const Cadeiras = () => {
       await loadAll();
     } catch (e) {
       toast.error("Erro: " + (e as Error).message);
-    }
-  };
-
-  const handleSaveLimit = async () => {
-    if (!empresaId) return;
-    const value = Number(limitInput);
-    if (!Number.isFinite(value) || value < 0) {
-      toast.error("Valor inválido");
-      return;
-    }
-    setSavingLimit(true);
-    try {
-      const { error } = await supabase
-        .from("external_seat_limits")
-        .upsert({ empresa_id: empresaId, max_seats: value, updated_by: user?.id }, { onConflict: "empresa_id" });
-      if (error) throw error;
-      toast.success("Limite salvo");
-      await loadAll();
-    } catch (e) {
-      toast.error("Erro ao salvar limite: " + (e as Error).message);
-    } finally {
-      setSavingLimit(false);
     }
   };
 
@@ -608,27 +585,6 @@ const Cadeiras = () => {
             )}
           </DialogContent>
         </Dialog>
-
-        {/* Admin: limite por loja */}
-        {canManageStoreSeats && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Configurar cadeiras por loja (admin)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 items-end max-w-xs">
-                <div className="flex-1 space-y-1.5">
-                  <Label>Limite na loja ativa</Label>
-                  <Input type="number" min={0} value={limitInput} onChange={(e) => setLimitInput(e.target.value)} disabled={savingLimit} />
-                </div>
-                <Button onClick={handleSaveLimit} disabled={savingLimit}>
-                  {savingLimit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">Default: 5 cadeiras por loja.</p>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Admin: domínios de login */}
         {canManageLoginDomains && (
