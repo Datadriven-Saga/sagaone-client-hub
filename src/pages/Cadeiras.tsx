@@ -325,7 +325,7 @@ const Cadeiras = () => {
                 <div>
                   <h3 className="font-medium">Já assistiu ao vídeo?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Clique no botão abaixo para abrir um email pré-preenchido para o time de TI solicitando a liberação para a loja <strong>{empresaNome}</strong>.
+                    Clique no botão abaixo para abrir um email pré-preenchido para a Equipe de Dados solicitando a liberação para a loja <strong>{empresaNome}</strong>.
                   </p>
                 </div>
                 <Button asChild>
