@@ -376,35 +376,76 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
               const responseBody = await response.text().catch(() => '');
               console.log(`📡 [BG] Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
 
-              if (response.ok && responseBody.length > 0) {
-                const isValidResponse = !responseBody.toLowerCase().includes('"error"') && 
-                                        !responseBody.toLowerCase().includes('workflow not found') &&
-                                        !responseBody.toLowerCase().includes('not active');
-                if (isValidResponse) {
-                  successLeadIds.push(...subIds);
+              const bodyLow = responseBody.toLowerCase();
+              const looksLikeError = bodyLow.includes('"error"') || bodyLow.includes('workflow not found') || bodyLow.includes('not active') || bodyLow.includes('disparo repetido');
+              const subFailLogs: any[] = [];
+              let subMarkIds: string[] = [];
+
+              if (response.ok && responseBody.length > 0 && !looksLikeError) {
+                successLeadIds.push(...subIds);
+                subMarkIds = subIds;
+              } else {
+                const { categoria, mensagem } = classifyError(response.status, responseBody);
+                if (categoria === 'duplicate') {
+                  duplicateLeadIds.push(...subIds);
+                  subMarkIds = subIds;
                 } else {
                   failedLeadIds.push(...subIds);
-                  console.error(`❌ [BG] Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
                 }
-              } else if (response.ok && responseBody.length === 0) {
-                failedLeadIds.push(...subIds);
-                console.error(`❌ [BG] Webhook retornou 200 mas body vazio`);
-              } else {
-                failedLeadIds.push(...subIds);
-                console.error(`❌ [BG] HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
+                for (const c of subContatos) {
+                  subFailLogs.push({
+                    job_id, batch_id: batch.id, empresa_id: job.empresa_id, prospeccao_id: job.prospeccao_id,
+                    contato_id: c.id, lead_id: c.lead_id || null, telefone: c.telefone_lead, nome: c.nome,
+                    categoria, mensagem, http_status: response.status,
+                  });
+                }
+                console.warn(`⚠️ [BG] Ligação sub ${Math.floor(i / LIGACAO_SUB_BATCH)} → ${categoria}: ${mensagem}`);
+              }
+
+              await flushSubBatch(subMarkIds, subFailLogs);
+
+              if (successLeadIds.length > 0 || duplicateLeadIds.length > 0) {
+                // Upsert incremental em cadencia_pri_voz para os sucessos+duplicates deste sub-lote
+                const okSet = new Set(subMarkIds);
+                const cadenciasSub = subContatos
+                  .filter(c => okSet.has(c.id))
+                  .map(c => ({
+                    telefone_lead: c.telefone_lead,
+                    telefone_pri: telefonePri,
+                    id_evento: parseInt(eventIdPri, 10),
+                    num_tentativas: 1,
+                    hora_primeira_tentativa: new Date().toISOString(),
+                    hora_ultima_tentativa: new Date().toISOString(),
+                    empresa_id: job.empresa_id,
+                    criado_em: new Date().toISOString(),
+                    atualizado_em: new Date().toISOString(),
+                  }));
+                if (cadenciasSub.length > 0) {
+                  await supabase.from('cadencia_pri_voz').upsert(cadenciasSub, { onConflict: 'telefone_lead,id_evento' });
+                }
               }
             } catch (err: any) {
               failedLeadIds.push(...subIds);
               const isTimeout = err.name === 'AbortError';
-              console.error(`❌ [BG] ${isTimeout ? 'Timeout' : 'Network error'}: ${err.message}`);
+              const categoria = isTimeout ? 'timeout' : 'network';
+              const mensagem = isTimeout ? 'Sem resposta do servidor (timeout)' : `Erro de rede: ${err.message}`;
+              console.error(`❌ [BG] ${categoria}: ${err.message}`);
+              const subFailLogs = subContatos.map(c => ({
+                job_id, batch_id: batch.id, empresa_id: job.empresa_id, prospeccao_id: job.prospeccao_id,
+                contato_id: c.id, lead_id: c.lead_id || null, telefone: c.telefone_lead, nome: c.nome,
+                categoria, mensagem, http_status: 0,
+              }));
+              await flushSubBatch([], subFailLogs);
             }
 
             // Progresso granular
             totalProcessed = batchBaseProcessed + successLeadIds.length;
             totalFailed = batchBaseFailed + failedLeadIds.length;
+            totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
             await supabase.from('campaign_jobs').update({
               processed_records: totalProcessed,
               failed_records: totalFailed,
+              duplicate_records: totalDuplicate,
               updated_at: new Date().toISOString(),
             }).eq('id', job_id);
           }
