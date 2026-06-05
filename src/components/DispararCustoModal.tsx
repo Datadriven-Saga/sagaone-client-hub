@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useToast } from "@/components/ui/use-toast";
+import { useActiveCampaignJob } from "@/hooks/useActiveCampaignJob";
 
 interface DispararCustoModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
   const { activeCompany } = useCompany();
   const { tipoAcesso } = useUserAccessType();
   const { toast } = useToast();
+  const { hasActiveJob } = useActiveCampaignJob(prospeccaoId);
   const [cotacao, setCotacao] = useState<CotacaoData>({
     cotacao: 0,
     data_cotacao: '',
@@ -273,15 +275,16 @@ const DispararCustoModal: React.FC<DispararCustoModalProps> = ({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={(!isLigacao && (cotacao.loading || !!cotacao.error)) || confirmando}
+            disabled={(!isLigacao && (cotacao.loading || !!cotacao.error)) || confirmando || hasActiveJob}
             className="flex-1 h-12 text-base"
+            title={hasActiveJob ? 'Já existe um disparo em andamento para esta prospecção' : undefined}
           >
             {confirmando ? (
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : (
               <Send className="w-5 h-5 mr-2" />
             )}
-            Confirmar Disparo
+            {hasActiveJob ? 'Disparo em andamento' : 'Confirmar Disparo'}
           </Button>
         </DialogFooter>
       </DialogContent>
