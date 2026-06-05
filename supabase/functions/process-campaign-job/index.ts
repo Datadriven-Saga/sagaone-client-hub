@@ -510,51 +510,70 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
                 const responseBody = await response.text().catch(() => '');
 
-                if (!response.ok) {
-                  throw new Error(`HTTP ${response.status}: ${responseBody.substring(0, 200)}`);
-                }
+                const bodyLow = (responseBody || '').toLowerCase();
+                const looksLikeError = bodyLow.includes('"error"') || bodyLow.includes('workflow not found') || bodyLow.includes('not active') || bodyLow.includes('disparo repetido');
 
-                if (responseBody.length === 0) {
-                  throw new Error('Webhook retornou 200 mas body vazio (workflow possivelmente inativo)');
+                if (response.ok && responseBody.length > 0 && !looksLikeError) {
+                  return lead.id;
                 }
-
-                const hasError = responseBody.toLowerCase().includes('"error"') ||
-                                 responseBody.toLowerCase().includes('workflow not found') ||
-                                 responseBody.toLowerCase().includes('not active');
-                if (hasError) {
-                  throw new Error(`Webhook retornou erro interno: ${responseBody.substring(0, 200)}`);
-                }
-
-                return lead.id;
+                const err: any = new Error(`HTTP ${response.status}`);
+                err.meta = { httpStatus: response.status, body: responseBody };
+                throw err;
               } catch (err) {
                 clearTimeout(timeoutId);
+                if (!(err as any).meta) {
+                  const isTimeout = (err as any)?.name === 'AbortError';
+                  (err as any).meta = { httpStatus: 0, body: isTimeout ? 'timeout' : ((err as any)?.message || '') };
+                }
                 throw err;
               }
             }));
 
+            const subMarkIds: string[] = [];
+            const subFailLogs: any[] = [];
             for (let ri = 0; ri < results.length; ri++) {
               const r = results[ri];
+              const lead = subBatch[ri];
               if (r.status === 'fulfilled') {
                 successLeadIds.push(r.value);
+                subMarkIds.push(r.value);
               } else {
-                failedLeadIds.push(subBatch[ri].id);
-                const reason = (r as PromiseRejectedResult).reason?.message || 'erro desconhecido';
-                failedReasons.push({ lead_id: subBatch[ri].id, nome: subBatch[ri].nome, telefone: subBatch[ri].telefone, reason });
-                console.error(`❌ [BG] Lead ${subBatch[ri].id} (${subBatch[ri].nome}): ${reason}`);
+                const meta = (r as PromiseRejectedResult).reason?.meta || { httpStatus: 0, body: '' };
+                const { categoria, mensagem } = classifyError(meta.httpStatus || 0, meta.body || '');
+                if (categoria === 'duplicate') {
+                  duplicateLeadIds.push(lead.id);
+                  subMarkIds.push(lead.id);
+                } else {
+                  failedLeadIds.push(lead.id);
+                  failedReasons.push({ lead_id: lead.id, nome: lead.nome, telefone: lead.telefone, reason: mensagem });
+                }
+                subFailLogs.push({
+                  job_id, batch_id: batch.id, empresa_id: job.empresa_id, prospeccao_id: job.prospeccao_id,
+                  contato_id: lead.id, lead_id: lead.lead_id || null, telefone: lead.telefone, nome: lead.nome,
+                  categoria, mensagem, http_status: meta.httpStatus || 0,
+                });
+                if (categoria !== 'duplicate') {
+                  console.error(`❌ [BG] Lead ${lead.id} (${lead.nome}): ${categoria} - ${mensagem}`);
+                }
               }
             }
+
+            // Flush por sub-lote: marca data_disparo_ia para sucessos+duplicates e grava falhas
+            await flushSubBatch(subMarkIds, subFailLogs);
 
             // Progresso granular a cada sub-lote
             totalProcessed = batchBaseProcessed + successLeadIds.length;
             totalFailed = batchBaseFailed + failedLeadIds.length;
+            totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
             await supabase.from('campaign_jobs').update({
               processed_records: totalProcessed,
               failed_records: totalFailed,
+              duplicate_records: totalDuplicate,
               updated_at: new Date().toISOString(),
             }).eq('id', job_id);
 
             if ((i / WA_BATCH_SIZE) % 20 === 0 || i + WA_BATCH_SIZE >= leads.length) {
-              console.log(`📊 [BG] WhatsApp progresso: ${successLeadIds.length} ok, ${failedLeadIds.length} falhas de ${leads.length} (${totalProcessed}/${job.total_records} total)`);
+              console.log(`📊 [BG] WhatsApp progresso: ${successLeadIds.length} ok, ${duplicateLeadIds.length} dup, ${failedLeadIds.length} falhas de ${leads.length} (${totalProcessed}/${job.total_records} total)`);
             }
           }
         }
