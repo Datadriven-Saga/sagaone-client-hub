@@ -1167,6 +1167,7 @@ export type Database = {
           canal: string
           completed_at: string | null
           created_at: string
+          duplicate_records: number
           empresa_id: string
           error_message: string | null
           failed_records: number
@@ -1184,6 +1185,7 @@ export type Database = {
           canal: string
           completed_at?: string | null
           created_at?: string
+          duplicate_records?: number
           empresa_id: string
           error_message?: string | null
           failed_records?: number
@@ -1201,6 +1203,7 @@ export type Database = {
           canal?: string
           completed_at?: string | null
           created_at?: string
+          duplicate_records?: number
           empresa_id?: string
           error_message?: string | null
           failed_records?: number
@@ -3098,6 +3101,69 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logs_disparos_falhas: {
+        Row: {
+          batch_id: string | null
+          categoria: string
+          contato_id: string | null
+          created_at: string
+          empresa_id: string
+          http_status: number | null
+          id: string
+          job_id: string | null
+          lead_id: string | null
+          mensagem: string | null
+          nome: string | null
+          prospeccao_id: string | null
+          telefone: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          categoria: string
+          contato_id?: string | null
+          created_at?: string
+          empresa_id: string
+          http_status?: number | null
+          id?: string
+          job_id?: string | null
+          lead_id?: string | null
+          mensagem?: string | null
+          nome?: string | null
+          prospeccao_id?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          categoria?: string
+          contato_id?: string | null
+          created_at?: string
+          empresa_id?: string
+          http_status?: number | null
+          id?: string
+          job_id?: string | null
+          lead_id?: string | null
+          mensagem?: string | null
+          nome?: string | null
+          prospeccao_id?: string | null
+          telefone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logs_disparos_falhas_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logs_disparos_falhas_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_jobs"
             referencedColumns: ["id"]
           },
         ]

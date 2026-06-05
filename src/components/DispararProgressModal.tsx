@@ -15,12 +15,23 @@ interface CampaignJob {
   total_records: number;
   processed_records: number;
   failed_records: number;
+  duplicate_records?: number | null;
   status: string;
   error_message: string | null;
   started_at: string | null;
   completed_at: string | null;
   updated_at: string | null;
 }
+
+const CATEGORIA_LABEL: Record<string, string> = {
+  duplicate: 'já disparados anteriormente',
+  timeout: 'sem resposta do servidor',
+  http_error: 'erro temporário no servidor',
+  workflow_inactive: 'workflow inativo',
+  empty_body: 'resposta vazia do servidor',
+  network: 'erro de rede',
+  outro: 'outros erros',
+};
 
 interface DispararProgressModalProps {
   isOpen: boolean;
@@ -38,6 +49,7 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
   const [job, setJob] = useState<CampaignJob | null>(null);
   const [dots, setDots] = useState('');
   const dotsRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [falhasAgg, setFalhasAgg] = useState<Array<{ categoria: string; total: number }>>([]);
 
   // Fetch initial job data
   useEffect(() => {
@@ -46,13 +58,33 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
     const fetchJob = async () => {
       const { data } = await supabase
         .from('campaign_jobs')
-        .select('id, total_records, processed_records, failed_records, status, error_message, started_at, completed_at, updated_at')
+        .select('id, total_records, processed_records, failed_records, duplicate_records, status, error_message, started_at, completed_at, updated_at')
         .eq('id', jobId)
         .single();
       if (data) setJob(data as CampaignJob);
     };
     fetchJob();
   }, [isOpen, jobId]);
+
+  // Carrega agregado por categoria de logs_disparos_falhas
+  useEffect(() => {
+    if (!isOpen || !jobId) return;
+    const fetchAgg = async () => {
+      const { data } = await supabase
+        .from('logs_disparos_falhas')
+        .select('categoria')
+        .eq('job_id', jobId);
+      if (!data) return;
+      const map = new Map<string, number>();
+      for (const r of data as Array<{ categoria: string }>) {
+        map.set(r.categoria, (map.get(r.categoria) || 0) + 1);
+      }
+      setFalhasAgg(Array.from(map.entries()).map(([categoria, total]) => ({ categoria, total })).sort((a, b) => b.total - a.total));
+    };
+    fetchAgg();
+    const interval = setInterval(fetchAgg, 5000);
+    return () => clearInterval(interval);
+  }, [isOpen, jobId, job?.status, job?.processed_records, job?.failed_records, job?.duplicate_records]);
 
   // Subscribe to Realtime updates
   useEffect(() => {
@@ -107,7 +139,9 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
   const [forceCompleting, setForceCompleting] = useState(false);
 
   const totalContatos = job?.total_records || 0;
-  const displayedCount = job?.processed_records || 0;
+  const successCount = job?.processed_records || 0;
+  const duplicateCount = job?.duplicate_records || 0;
+  const displayedCount = successCount + duplicateCount;
   const failedCount = job?.failed_records || 0;
   const isCompleted = job?.status === 'completed';
   const isFailed = job?.status === 'failed';
@@ -115,6 +149,7 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
   const isProcessing = job?.status === 'processing' || job?.status === 'pending';
   const progress = totalContatos > 0 ? (displayedCount / totalContatos) * 100 : 0;
   const hasRetryable = isFailed && failedCount > 0;
+  const onlyDuplicates = (isCompleted || isCancelled || isFailed) && successCount === 0 && failedCount === 0 && duplicateCount > 0;
 
   // Detect stuck jobs: processing for 10+ minutes without completing
   const isStuck = isProcessing && (job?.updated_at || job?.started_at) && 
@@ -188,14 +223,15 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
           <div className="text-center space-y-2">
             {isCompleted || isCancelled ? (
               <p className="text-xl font-semibold text-green-600 dark:text-green-400">
-                {failedCount > 0 
-                  ? `Concluído com ${failedCount} falha(s)`
-                  : 'Todos os disparos foram realizados!'
-                }
+                {onlyDuplicates
+                  ? 'Todos os leads já haviam sido disparados'
+                  : failedCount > 0
+                    ? `Concluído (${failedCount} sem entrega)`
+                    : 'Todos os disparos foram realizados!'}
               </p>
             ) : isFailed ? (
-              <p className="text-lg font-semibold text-destructive">
-                {job?.error_message || `${failedCount} registros falharam`}
+              <p className="text-lg font-semibold text-muted-foreground">
+                {onlyDuplicates ? 'Todos os leads já haviam sido disparados' : (job?.error_message || `${failedCount} sem entrega`)}
               </p>
             ) : isStuck ? (
               <>
@@ -235,12 +271,18 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
             <p className="text-center text-sm text-muted-foreground mt-1">
               {isCompleted ? 'contatos disparados' : 'contatos processados'}
             </p>
-            {failedCount > 0 && (
-              <p className="text-center text-sm text-destructive mt-1">
-                {failedCount.toLocaleString('pt-BR')} falha(s)
-              </p>
-            )}
           </div>
+
+          {falhasAgg.length > 0 && (
+            <div className="w-full bg-muted/50 rounded-lg px-4 py-3 space-y-1 text-sm text-muted-foreground">
+              {falhasAgg.map(({ categoria, total }) => (
+                <div key={categoria} className="flex items-center justify-between">
+                  <span>{CATEGORIA_LABEL[categoria] || categoria}</span>
+                  <span className="tabular-nums font-medium">{total.toLocaleString('pt-BR')}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Barra de progresso */}
           <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
