@@ -272,25 +272,66 @@ const Cadeiras = () => {
 
   // Empresa não habilitada
   if (flagEnabled === false) {
+    const empresaNome = activeCompany?.nome_empresa || "—";
+    const empresaIdStr = activeCompany?.id || "—";
+    const userEmail = user?.email || "—";
+    const subject = `Solicitação de liberação: Login de Terceiros + Cadeiras — ${empresaNome}`;
+    const body =
+      `Olá time de TI,\n\n` +
+      `Assisti ao vídeo explicativo sobre "Login de Terceiros + Cadeiras" e entendo como o recurso funciona.\n\n` +
+      `Gostaria de solicitar a liberação da feature para a loja abaixo:\n\n` +
+      `• Loja: ${empresaNome}\n` +
+      `• Empresa ID: ${empresaIdStr}\n` +
+      `• Solicitante: ${userEmail}\n\n` +
+      `Obrigado!`;
+    const mailto =
+      `mailto:luiz.candrade@gruposaga.com.br` +
+      `?cc=${encodeURIComponent("fabricio.pmoreira@gruposaga.com.br,douglas.rsouza@gruposaga.com.br")}` +
+      `&subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+
     return (
       <DashboardLayout>
-        <div className="p-6">
+        <div className="p-6 max-w-3xl mx-auto">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Armchair className="h-5 w-5" />
-                Cadeiras
+                Login de Terceiros + Cadeiras
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-5">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Recurso não habilitado para esta loja</AlertTitle>
                 <AlertDescription>
-                  Fale com o time de TI para habilitar o "Login de Terceiros + Cadeiras" para a empresa{" "}
-                  <strong>{activeCompany?.nome_empresa}</strong>.
+                  Assista ao vídeo abaixo para entender como funciona o recurso{" "}
+                  <strong>Login de Terceiros + Cadeiras</strong> e, em seguida, solicite a liberação para a loja{" "}
+                  <strong>{empresaNome}</strong>.
                 </AlertDescription>
               </Alert>
+
+              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }} className="rounded-md border bg-muted">
+                <iframe
+                  src="https://saganet-my.sharepoint.com/personal/luiz_candrade_gruposaga_com_br/_layouts/15/embed.aspx?UniqueId=17263046-d595-4694-a566-5009036e1af4&embed=%7B%22ust%22%3Afalse%2C%22hv%22%3A%22CopyEmbedCode%22%7D&referrer=StreamWebApp&referrerScenario=EmbedDialog.Create"
+                  title="SagaOne - Login de Terceiros"
+                  loading="lazy"
+                  allowFullScreen
+                  style={{ border: "none", position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
+                />
+              </div>
+
+              <div className="rounded-md border p-4 space-y-3">
+                <div>
+                  <h3 className="font-medium">Já assistiu ao vídeo?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Clique no botão abaixo para abrir um email pré-preenchido para o time de TI solicitando a liberação para a loja <strong>{empresaNome}</strong>.
+                  </p>
+                </div>
+                <Button asChild>
+                  <a href={mailto}>Solicitar liberação</a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
