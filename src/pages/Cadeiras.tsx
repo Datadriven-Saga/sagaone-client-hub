@@ -104,25 +104,13 @@ const Cadeiras = () => {
       });
   }, [empresaId]);
 
-  // Carrega signed URL do vídeo tutorial quando a flag estiver desabilitada
+  // Carrega URL pública do vídeo tutorial quando a flag estiver desabilitada
   useEffect(() => {
     if (flagEnabled !== false) return;
-    let cancelled = false;
-    supabase.storage
+    const { data } = supabase.storage
       .from("videos-tutoriais")
-      .createSignedUrl("SagaOne - Login Terceiros.mp4", 60 * 60)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("video signed url error:", error);
-          setVideoUrl(null);
-          return;
-        }
-        setVideoUrl(data?.signedUrl || null);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .getPublicUrl("SagaOne - Login Terceiros.mp4");
+    setVideoUrl(data?.publicUrl || null);
   }, [flagEnabled]);
 
   // Carrega seats + eventos da empresa ativa + limite
