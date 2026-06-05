@@ -271,12 +271,18 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
             <p className="text-center text-sm text-muted-foreground mt-1">
               {isCompleted ? 'contatos disparados' : 'contatos processados'}
             </p>
-            {failedCount > 0 && (
-              <p className="text-center text-sm text-destructive mt-1">
-                {failedCount.toLocaleString('pt-BR')} falha(s)
-              </p>
-            )}
           </div>
+
+          {falhasAgg.length > 0 && (
+            <div className="w-full bg-muted/50 rounded-lg px-4 py-3 space-y-1 text-sm text-muted-foreground">
+              {falhasAgg.map(({ categoria, total }) => (
+                <div key={categoria} className="flex items-center justify-between">
+                  <span>{CATEGORIA_LABEL[categoria] || categoria}</span>
+                  <span className="tabular-nums font-medium">{total.toLocaleString('pt-BR')}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Barra de progresso */}
           <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
