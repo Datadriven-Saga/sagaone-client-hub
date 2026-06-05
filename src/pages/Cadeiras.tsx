@@ -107,10 +107,30 @@ const Cadeiras = () => {
   // Carrega URL pública do vídeo tutorial quando a flag estiver desabilitada
   useEffect(() => {
     if (flagEnabled !== false) return;
-    const { data } = supabase.storage
-      .from("videos-tutoriais")
-      .getPublicUrl("SagaOne - Login Terceiros.mp4");
-    setVideoUrl(data?.publicUrl || null);
+
+    let cancelled = false;
+
+    const loadTutorialVideo = async () => {
+      const { data, error } = await supabase.functions.invoke("get-tutorial-video-url", {
+        body: {},
+      });
+
+      if (cancelled) return;
+
+      if (error || !data?.url) {
+        console.error("tutorial video url error:", error || data);
+        setVideoUrl(null);
+        return;
+      }
+
+      setVideoUrl(data.url);
+    };
+
+    loadTutorialVideo();
+
+    return () => {
+      cancelled = true;
+    };
   }, [flagEnabled]);
 
   // Carrega seats + eventos da empresa ativa + limite
