@@ -50,8 +50,8 @@ function normalizePhone(raw: string): string {
 }
 
 function getAuthToken(req: Request): string {
-  const h = req.headers.get("authorization") || "";
-  if (h.toLowerCase().startsWith("bearer ")) return h.slice(7).trim();
+  const auth = req.headers.get("authorization")?.trim() || "";
+  if (auth) return auth;
   return req.headers.get("x-admin-token")?.trim() || "";
 }
 
