@@ -708,6 +708,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       status: finalStatus,
       processed_records: totalProcessed,
       failed_records: totalFailed,
+      duplicate_records: totalDuplicate,
       completed_at: new Date().toISOString(),
       error_message: totalFailed > 0 ? `${totalFailed} registros falharam` : null,
     }).eq('id', job_id);
