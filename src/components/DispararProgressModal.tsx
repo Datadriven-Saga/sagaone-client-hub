@@ -223,14 +223,15 @@ const DispararProgressModal: React.FC<DispararProgressModalProps> = ({
           <div className="text-center space-y-2">
             {isCompleted || isCancelled ? (
               <p className="text-xl font-semibold text-green-600 dark:text-green-400">
-                {failedCount > 0 
-                  ? `Concluído com ${failedCount} falha(s)`
-                  : 'Todos os disparos foram realizados!'
-                }
+                {onlyDuplicates
+                  ? 'Todos os leads já haviam sido disparados'
+                  : failedCount > 0
+                    ? `Concluído (${failedCount} sem entrega)`
+                    : 'Todos os disparos foram realizados!'}
               </p>
             ) : isFailed ? (
-              <p className="text-lg font-semibold text-destructive">
-                {job?.error_message || `${failedCount} registros falharam`}
+              <p className="text-lg font-semibold text-muted-foreground">
+                {onlyDuplicates ? 'Todos os leads já haviam sido disparados' : (job?.error_message || `${failedCount} sem entrega`)}
               </p>
             ) : isStuck ? (
               <>
