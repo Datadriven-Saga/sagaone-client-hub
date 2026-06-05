@@ -66,6 +66,7 @@ const Cadeiras = () => {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [eventos, setEventos] = useState<Prospeccao[]>([]);
   const [limit, setLimit] = useState<number | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   // Modal: criar cadeira
   const [openCreate, setOpenCreate] = useState(false);
@@ -102,6 +103,27 @@ const Cadeiras = () => {
         setFlagEnabled(data === true);
       });
   }, [empresaId]);
+
+  // Carrega signed URL do vídeo tutorial quando a flag estiver desabilitada
+  useEffect(() => {
+    if (flagEnabled !== false) return;
+    let cancelled = false;
+    supabase.storage
+      .from("videos-tutoriais")
+      .createSignedUrl("SagaOne - Login Terceiros.mp4", 60 * 60)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("video signed url error:", error);
+          setVideoUrl(null);
+          return;
+        }
+        setVideoUrl(data?.signedUrl || null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [flagEnabled]);
 
   // Carrega seats + eventos da empresa ativa + limite
   const loadAll = async () => {
@@ -312,13 +334,18 @@ const Cadeiras = () => {
               </Alert>
 
               <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }} className="rounded-md border bg-muted">
-                <iframe
-                  src="https://saganet-my.sharepoint.com/personal/luiz_candrade_gruposaga_com_br/_layouts/15/embed.aspx?UniqueId=17263046-d595-4694-a566-5009036e1af4&embed=%7B%22ust%22%3Afalse%2C%22hv%22%3A%22CopyEmbedCode%22%7D&referrer=StreamWebApp&referrerScenario=EmbedDialog.Create"
-                  title="SagaOne - Login de Terceiros"
-                  loading="lazy"
-                  allowFullScreen
-                  style={{ border: "none", position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
-                />
+                {videoUrl ? (
+                  <video
+                    src={videoUrl}
+                    controls
+                    preload="metadata"
+                    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                    Carregando vídeo...
+                  </div>
+                )}
               </div>
 
               <div className="rounded-md border p-4 space-y-3">
