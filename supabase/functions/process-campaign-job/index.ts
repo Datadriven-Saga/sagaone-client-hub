@@ -211,8 +211,10 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
     let totalProcessed = job.processed_records || 0;
     let totalFailed = job.failed_records || 0;
+    let totalDuplicate = (job as any).duplicate_records || 0;
     let batchBaseProcessed = totalProcessed;
     let batchBaseFailed = totalFailed;
+    let batchBaseDuplicate = totalDuplicate;
 
     for (const batch of batches) {
       // Verificar se job foi cancelado
@@ -303,8 +305,31 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
         console.log(`📤 [BG] Batch ${batch.batch_index}: enviando ${leads.length} leads via ${isIALigacao ? 'Ligação' : 'WhatsApp'}`);
 
         const successLeadIds: string[] = [];
+        const duplicateLeadIds: string[] = [];
         const failedLeadIds: string[] = [];
         const failedReasons: Array<{ lead_id: string; nome?: string; telefone?: string; reason: string }> = [];
+        const pendingFailLogs: any[] = [];
+
+        // Helper: persiste data_disparo_ia para um conjunto de ids (sucessos + duplicates)
+        // e insere falhas reais em logs_disparos_falhas. Chamado a cada sub-lote.
+        const flushSubBatch = async (markIds: string[], failLogs: any[]) => {
+          if (markIds.length > 0) {
+            const ts = new Date().toISOString();
+            for (let k = 0; k < markIds.length; k += 200) {
+              const chunk = markIds.slice(k, k + 200);
+              await supabase.from('contatos').update({ data_disparo_ia: ts }).in('id', chunk);
+              await supabase.from('eventos_prospeccao')
+                .update({ data_disparo_ia: ts })
+                .eq('prospeccao_id', job.prospeccao_id)
+                .in('contato_id', chunk);
+            }
+          }
+          if (failLogs.length > 0) {
+            await supabase.from('logs_disparos_falhas').insert(failLogs).then(({ error }) => {
+              if (error) console.warn(`⚠️ [BG] Falha ao inserir logs_disparos_falhas:`, error.message);
+            });
+          }
+        };
 
         if (isIALigacao) {
           // IA Ligação: enviar em sub-lotes de 100
