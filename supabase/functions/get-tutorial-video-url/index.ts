@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -60,14 +61,22 @@ serve(async (req) => {
 
     if (error || !data?.signedUrl) {
       console.error("[get-tutorial-video-url] signed url error:", error);
-      return json({ error: error?.message || "Falha ao gerar URL do vídeo" }, 500);
+      return json(
+        { error: error?.message || "Falha ao gerar URL do vídeo" },
+        500,
+      );
     }
 
     return json({ url: data.signedUrl });
   } catch (error) {
     console.error("[get-tutorial-video-url] unexpected error:", error);
     return json(
-      { error: error instanceof Error ? error.message : "Erro inesperado ao gerar URL do vídeo" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro inesperado ao gerar URL do vídeo",
+      },
       500,
     );
   }

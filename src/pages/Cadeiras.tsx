@@ -29,7 +29,15 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Armchair, Copy, Loader2, Plus, RefreshCw, AlertCircle, Power } from "lucide-react";
+import {
+  Armchair,
+  Copy,
+  Loader2,
+  Plus,
+  RefreshCw,
+  AlertCircle,
+  Power,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,8 +51,18 @@ type Seat = {
   prospeccao_id: string;
   status: "active" | "expired" | "revoked";
   created_at: string;
-  prospeccoes?: { id: string; titulo: string; data_fim: string | null; snapshot_realizado: boolean | null; ativo: boolean | null } | null;
-  profiles?: { id: string; nome_completo: string; is_active: boolean | null } | null;
+  prospeccoes?: {
+    id: string;
+    titulo: string;
+    data_fim: string | null;
+    snapshot_realizado: boolean | null;
+    ativo: boolean | null;
+  } | null;
+  profiles?: {
+    id: string;
+    nome_completo: string;
+    is_active: boolean | null;
+  } | null;
 };
 
 type Prospeccao = {
@@ -73,13 +91,21 @@ const Cadeiras = () => {
   const [createNome, setCreateNome] = useState("");
   const [createEventoId, setCreateEventoId] = useState<string>("");
   const [creating, setCreating] = useState(false);
-  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; senha: string; evento: string } | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    email: string;
+    senha: string;
+    evento: string;
+  } | null>(null);
 
   // Modal: renovar
   const [renewSeat, setRenewSeat] = useState<Seat | null>(null);
   const [renewEventoId, setRenewEventoId] = useState<string>("");
   const [renewing, setRenewing] = useState(false);
-  const [renewCredentials, setRenewCredentials] = useState<{ email: string; senha: string; evento: string } | null>(null);
+  const [renewCredentials, setRenewCredentials] = useState<{
+    email: string;
+    senha: string;
+    evento: string;
+  } | null>(null);
 
   const empresaId = activeCompany?.id || null;
 
@@ -111,9 +137,12 @@ const Cadeiras = () => {
     let cancelled = false;
 
     const loadTutorialVideo = async () => {
-      const { data, error } = await supabase.functions.invoke("get-tutorial-video-url", {
-        body: {},
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "get-tutorial-video-url",
+        {
+          body: {},
+        },
+      );
 
       if (cancelled) return;
 
@@ -143,11 +172,13 @@ const Cadeiras = () => {
     const [seatsRes, eventosRes, limitRes] = await Promise.all([
       supabase
         .from("external_access_seats")
-        .select(`
+        .select(
+          `
           id, profile_id, empresa_id, prospeccao_id, status, created_at,
           prospeccoes:prospeccao_id(id, titulo, data_fim, snapshot_realizado, ativo),
           profiles:profile_id(id, nome_completo, is_active)
-        `)
+        `,
+        )
         .eq("empresa_id", empresaId)
         .order("created_at", { ascending: false }),
       supabase
@@ -170,9 +201,15 @@ const Cadeiras = () => {
       console.error("eventos error:", eventosRes.error);
     } else {
       const filtered = (eventosRes.data || []).filter(
-        (e: any) => e.ativo !== false && e.snapshot_realizado !== true
+        (e: any) => e.ativo !== false && e.snapshot_realizado !== true,
       );
-      setEventos(filtered.map((e: any) => ({ id: e.id, titulo: e.titulo, data_fim: e.data_fim })));
+      setEventos(
+        filtered.map((e: any) => ({
+          id: e.id,
+          titulo: e.titulo,
+          data_fim: e.data_fim,
+        })),
+      );
     }
 
     if (limitRes.error) {
@@ -192,12 +229,15 @@ const Cadeiras = () => {
 
   // Domínios (admin only)
   const activeSeatsCount = useMemo(
-    () => seats.filter((s) => s.status === "active" && s.profiles?.is_active !== false).length,
-    [seats]
+    () =>
+      seats.filter(
+        (s) => s.status === "active" && s.profiles?.is_active !== false,
+      ).length,
+    [seats],
   );
   const mySeats = useMemo(
     () => seats.filter((s) => isAdmin || s.profiles), // RLS já filtra; lista o que veio
-    [seats, isAdmin]
+    [seats, isAdmin],
   );
 
   const handleCreate = async () => {
@@ -294,9 +334,14 @@ const Cadeiras = () => {
 
   const statusBadge = (s: Seat) => {
     // Profile desativado tem prioridade sobre status do seat — usuário não consegue logar.
-    if (s.profiles?.is_active === false) return <Badge variant="outline">Desativado</Badge>;
-    if (s.status === "active") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Ativo</Badge>;
-    if (s.status === "expired") return <Badge variant="secondary">Expirado</Badge>;
+    if (s.profiles?.is_active === false)
+      return <Badge variant="outline">Desativado</Badge>;
+    if (s.status === "active")
+      return (
+        <Badge className="bg-emerald-600 hover:bg-emerald-600">Ativo</Badge>
+      );
+    if (s.status === "expired")
+      return <Badge variant="secondary">Expirado</Badge>;
     return <Badge variant="destructive">Revogado</Badge>;
   };
 
@@ -336,18 +381,35 @@ const Cadeiras = () => {
                 <AlertTitle>Recurso não habilitado para esta loja</AlertTitle>
                 <AlertDescription>
                   Assista ao vídeo abaixo para entender como funciona o recurso{" "}
-                  <strong>Login de Terceiros + Cadeiras</strong> e, em seguida, solicite a liberação para a loja{" "}
+                  <strong>Login de Terceiros + Cadeiras</strong> e, em seguida,
+                  solicite a liberação para a loja{" "}
                   <strong>{empresaNome}</strong>.
                 </AlertDescription>
               </Alert>
 
-              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }} className="rounded-md border bg-muted">
+              <div
+                style={{
+                  position: "relative",
+                  paddingBottom: "56.25%",
+                  height: 0,
+                  overflow: "hidden",
+                }}
+                className="rounded-md border bg-muted"
+              >
                 {videoUrl ? (
                   <video
                     src={videoUrl}
                     controls
                     preload="metadata"
-                    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
@@ -360,7 +422,9 @@ const Cadeiras = () => {
                 <div>
                   <h3 className="font-medium">Já assistiu ao vídeo?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Clique no botão abaixo para abrir um email pré-preenchido para a Equipe de Dados solicitando a liberação para a loja <strong>{empresaNome}</strong>.
+                    Clique no botão abaixo para abrir um email pré-preenchido
+                    para a Equipe de Dados solicitando a liberação para a loja{" "}
+                    <strong>{empresaNome}</strong>.
                   </p>
                 </div>
                 <Button asChild>
@@ -384,16 +448,30 @@ const Cadeiras = () => {
               Cadeiras
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Empresa ativa: <strong>{activeCompany?.nome_empresa || "—"}</strong>
+              Empresa ativa:{" "}
+              <strong>{activeCompany?.nome_empresa || "—"}</strong>
               {limit !== null && (
                 <>
-                  {" · "}Cadeiras ativas: <strong>{activeSeatsCount}/{limit}</strong>
+                  {" · "}Cadeiras ativas:{" "}
+                  <strong>
+                    {activeSeatsCount}/{limit}
+                  </strong>
                 </>
               )}
             </p>
           </div>
           {canUseStoreSeat && (
-            <Dialog open={openCreate} onOpenChange={(o) => { setOpenCreate(o); if (!o) { setCreateNome(""); setCreateEventoId(""); setCreatedCredentials(null); } }}>
+            <Dialog
+              open={openCreate}
+              onOpenChange={(o) => {
+                setOpenCreate(o);
+                if (!o) {
+                  setCreateNome("");
+                  setCreateEventoId("");
+                  setCreatedCredentials(null);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
@@ -404,7 +482,8 @@ const Cadeiras = () => {
                 <DialogHeader>
                   <DialogTitle>Criar acesso de terceiro</DialogTitle>
                   <DialogDescription>
-                    Gera um email e senha temporária para o terceiro acessar o SagaOne durante o evento.
+                    Gera um email e senha temporária para o terceiro acessar o
+                    SagaOne durante o evento.
                   </DialogDescription>
                 </DialogHeader>
                 {createdCredentials ? (
@@ -413,14 +492,24 @@ const Cadeiras = () => {
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>Adicione este usuário à equipe</AlertTitle>
                       <AlertDescription>
-                        Vá em <strong>/prospeccao/eventos</strong> e adicione o terceiro à equipe do evento <strong>{createdCredentials.evento}</strong> para que ele receba leads.
+                        Vá em <strong>/prospeccao/eventos</strong> e adicione o
+                        terceiro à equipe do evento{" "}
+                        <strong>{createdCredentials.evento}</strong> para que
+                        ele receba leads.
                       </AlertDescription>
                     </Alert>
                     <div className="space-y-2">
                       <Label>Email</Label>
                       <div className="flex gap-2">
                         <Input readOnly value={createdCredentials.email} />
-                        <Button type="button" size="icon" variant="outline" onClick={() => copyToClipboard(createdCredentials.email)}>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() =>
+                            copyToClipboard(createdCredentials.email)
+                          }
+                        >
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
@@ -428,44 +517,90 @@ const Cadeiras = () => {
                     <div className="space-y-2">
                       <Label>Senha temporária</Label>
                       <div className="flex gap-2">
-                        <Input readOnly value={createdCredentials.senha} className="font-mono" />
-                        <Button type="button" size="icon" variant="outline" onClick={() => copyToClipboard(createdCredentials.senha)}>
+                        <Input
+                          readOnly
+                          value={createdCredentials.senha}
+                          className="font-mono"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() =>
+                            copyToClipboard(createdCredentials.senha)
+                          }
+                        >
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Esta senha aparece apenas uma vez. Compartilhe com o terceiro de forma segura.
+                        Esta senha aparece apenas uma vez. Compartilhe com o
+                        terceiro de forma segura.
                       </p>
                     </div>
                     <div className="flex justify-end">
-                      <Button onClick={() => setOpenCreate(false)}>Fechar</Button>
+                      <Button onClick={() => setOpenCreate(false)}>
+                        Fechar
+                      </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="nome">Nome do terceiro</Label>
-                      <Input id="nome" value={createNome} onChange={(e) => setCreateNome(e.target.value)} placeholder="Ex: João da Silva" disabled={creating} />
+                      <Input
+                        id="nome"
+                        value={createNome}
+                        onChange={(e) => setCreateNome(e.target.value)}
+                        placeholder="Ex: João da Silva"
+                        disabled={creating}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="evento">Evento</Label>
-                      <Select value={createEventoId} onValueChange={setCreateEventoId} disabled={creating}>
-                        <SelectTrigger id="evento"><SelectValue placeholder="Selecione um evento ativo" /></SelectTrigger>
+                      <Select
+                        value={createEventoId}
+                        onValueChange={setCreateEventoId}
+                        disabled={creating}
+                      >
+                        <SelectTrigger id="evento">
+                          <SelectValue placeholder="Selecione um evento ativo" />
+                        </SelectTrigger>
                         <SelectContent>
                           {eventos.length === 0 ? (
-                            <div className="p-3 text-sm text-muted-foreground">Nenhum evento ativo na loja</div>
-                          ) : eventos.map((ev) => (
-                            <SelectItem key={ev.id} value={ev.id}>
-                              {ev.titulo} {ev.data_fim ? `(até ${ev.data_fim})` : ""}
-                            </SelectItem>
-                          ))}
+                            <div className="p-3 text-sm text-muted-foreground">
+                              Nenhum evento ativo na loja
+                            </div>
+                          ) : (
+                            eventos.map((ev) => (
+                              <SelectItem key={ev.id} value={ev.id}>
+                                {ev.titulo}{" "}
+                                {ev.data_fim ? `(até ${ev.data_fim})` : ""}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setOpenCreate(false)} disabled={creating}>Cancelar</Button>
-                      <Button onClick={handleCreate} disabled={creating || !createNome.trim() || !createEventoId}>
-                        {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar acesso"}
+                      <Button
+                        variant="outline"
+                        onClick={() => setOpenCreate(false)}
+                        disabled={creating}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        onClick={handleCreate}
+                        disabled={
+                          creating || !createNome.trim() || !createEventoId
+                        }
+                      >
+                        {creating ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Criar acesso"
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -512,8 +647,19 @@ const Cadeiras = () => {
                         <TableCell>{s.prospeccoes?.data_fim || "—"}</TableCell>
                         <TableCell>{statusBadge(s)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {(s.status !== "active" || (s.prospeccoes?.data_fim && s.prospeccoes.data_fim < new Date().toISOString().slice(0, 10))) && (
-                            <Button size="sm" variant="outline" onClick={() => { setRenewSeat(s); setRenewEventoId(""); setRenewCredentials(null); }}>
+                          {(s.status !== "active" ||
+                            (s.prospeccoes?.data_fim &&
+                              s.prospeccoes.data_fim <
+                                new Date().toISOString().slice(0, 10))) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setRenewSeat(s);
+                                setRenewEventoId("");
+                                setRenewCredentials(null);
+                              }}
+                            >
                               <RefreshCw className="h-3.5 w-3.5 mr-1" />
                               Renovar
                             </Button>
@@ -521,7 +667,9 @@ const Cadeiras = () => {
                           <Button
                             size="sm"
                             variant={profileActive ? "outline" : "default"}
-                            onClick={() => handleToggleActive(s, !profileActive)}
+                            onClick={() =>
+                              handleToggleActive(s, !profileActive)
+                            }
                           >
                             <Power className="h-3.5 w-3.5 mr-1" />
                             {profileActive ? "Desativar" : "Reativar"}
@@ -537,7 +685,15 @@ const Cadeiras = () => {
         </Card>
 
         {/* Renovação modal */}
-        <Dialog open={!!renewSeat} onOpenChange={(o) => { if (!o) { setRenewSeat(null); setRenewCredentials(null); } }}>
+        <Dialog
+          open={!!renewSeat}
+          onOpenChange={(o) => {
+            if (!o) {
+              setRenewSeat(null);
+              setRenewCredentials(null);
+            }
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Renovar acesso</DialogTitle>
@@ -551,7 +707,11 @@ const Cadeiras = () => {
                   <Label>Email</Label>
                   <div className="flex gap-2">
                     <Input readOnly value={renewCredentials.email} />
-                    <Button size="icon" variant="outline" onClick={() => copyToClipboard(renewCredentials.email)}>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => copyToClipboard(renewCredentials.email)}
+                    >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
@@ -559,8 +719,16 @@ const Cadeiras = () => {
                 <div className="space-y-2">
                   <Label>Nova senha</Label>
                   <div className="flex gap-2">
-                    <Input readOnly value={renewCredentials.senha} className="font-mono" />
-                    <Button size="icon" variant="outline" onClick={() => copyToClipboard(renewCredentials.senha)}>
+                    <Input
+                      readOnly
+                      value={renewCredentials.senha}
+                      className="font-mono"
+                    />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => copyToClipboard(renewCredentials.senha)}
+                    >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
@@ -573,34 +741,60 @@ const Cadeiras = () => {
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label>Terceiro</Label>
-                  <Input readOnly value={renewSeat?.profiles?.nome_completo || "—"} />
+                  <Input
+                    readOnly
+                    value={renewSeat?.profiles?.nome_completo || "—"}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Novo evento</Label>
-                  <Select value={renewEventoId} onValueChange={setRenewEventoId} disabled={renewing}>
-                    <SelectTrigger><SelectValue placeholder="Selecione um evento ativo" /></SelectTrigger>
+                  <Select
+                    value={renewEventoId}
+                    onValueChange={setRenewEventoId}
+                    disabled={renewing}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um evento ativo" />
+                    </SelectTrigger>
                     <SelectContent>
                       {eventos.length === 0 ? (
-                        <div className="p-3 text-sm text-muted-foreground">Nenhum evento ativo</div>
-                      ) : eventos.map((ev) => (
-                        <SelectItem key={ev.id} value={ev.id}>
-                          {ev.titulo} {ev.data_fim ? `(até ${ev.data_fim})` : ""}
-                        </SelectItem>
-                      ))}
+                        <div className="p-3 text-sm text-muted-foreground">
+                          Nenhum evento ativo
+                        </div>
+                      ) : (
+                        eventos.map((ev) => (
+                          <SelectItem key={ev.id} value={ev.id}>
+                            {ev.titulo}{" "}
+                            {ev.data_fim ? `(até ${ev.data_fim})` : ""}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setRenewSeat(null)} disabled={renewing}>Cancelar</Button>
-                  <Button onClick={handleRenew} disabled={renewing || !renewEventoId}>
-                    {renewing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Renovar"}
+                  <Button
+                    variant="outline"
+                    onClick={() => setRenewSeat(null)}
+                    disabled={renewing}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleRenew}
+                    disabled={renewing || !renewEventoId}
+                  >
+                    {renewing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Renovar"
+                    )}
                   </Button>
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
-
       </div>
     </DashboardLayout>
   );
