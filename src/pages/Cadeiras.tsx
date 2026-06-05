@@ -348,20 +348,33 @@ const Cadeiras = () => {
   // Empresa não habilitada
   if (flagEnabled === false) {
     const empresaNome = activeCompany?.nome_empresa || "—";
-    const empresaIdStr = activeCompany?.id || "—";
+    const marca = activeCompany?.marca || "—";
+    const uf = activeCompany?.uf || "—";
     const userEmail = user?.email || "—";
-    const subject = `Solicitação de liberação: Login de Terceiros + Cadeiras — ${empresaNome}`;
+    const subject = `SagaOne - Solicitação de liberação: Login de Terceiros + Cadeiras — ${marca}/${uf}`;
     const body =
-      `Olá Equipe de Dados,\n\n` +
+      `Olá Equipe,\n\n` +
       `Assisti ao vídeo explicativo sobre "Login de Terceiros + Cadeiras" e entendo como o recurso funciona.\n\n` +
-      `Gostaria de solicitar a liberação da feature para a loja abaixo:\n\n` +
-      `• Loja: ${empresaNome}\n` +
-      `• Empresa ID: ${empresaIdStr}\n` +
+      `Gostaria de solicitar a liberação da feature para todas as lojas da marca/UF abaixo:\n\n` +
+      `• Marca: ${marca}\n` +
+      `• UF: ${uf}\n` +
+      `• Loja (referência): ${empresaNome}\n` +
       `• Solicitante: ${userEmail}\n\n` +
       `Obrigado!`;
+    const to = [
+      "joao.clara@gruposaga.com.br",
+      "johnattan.palves@gruposaga.com.br",
+      "moroni.sribeiro@gruposaga.com.br",
+      "pedro.lbraga@gruposaga.com.br",
+    ].join(",");
+    const cc = [
+      "fabricio.pmoreira@gruposaga.com.br",
+      "douglas.rsouza@gruposaga.com.br",
+      "silvio.cmoreira@gruposaga.com.br",
+    ].join(",");
     const mailto =
-      `mailto:luiz.candrade@gruposaga.com.br` +
-      `?cc=${encodeURIComponent("fabricio.pmoreira@gruposaga.com.br,douglas.rsouza@gruposaga.com.br")}` +
+      `mailto:${to}` +
+      `?cc=${encodeURIComponent(cc)}` +
       `&subject=${encodeURIComponent(subject)}` +
       `&body=${encodeURIComponent(body)}`;
 
