@@ -277,7 +277,7 @@ const Cadeiras = () => {
     const userEmail = user?.email || "—";
     const subject = `Solicitação de liberação: Login de Terceiros + Cadeiras — ${empresaNome}`;
     const body =
-      `Olá time de TI,\n\n` +
+      `Olá Equipe de Dados,\n\n` +
       `Assisti ao vídeo explicativo sobre "Login de Terceiros + Cadeiras" e entendo como o recurso funciona.\n\n` +
       `Gostaria de solicitar a liberação da feature para a loja abaixo:\n\n` +
       `• Loja: ${empresaNome}\n` +
@@ -325,7 +325,7 @@ const Cadeiras = () => {
                 <div>
                   <h3 className="font-medium">Já assistiu ao vídeo?</h3>
                   <p className="text-sm text-muted-foreground">
-                    Clique no botão abaixo para abrir um email pré-preenchido para o time de TI solicitando a liberação para a loja <strong>{empresaNome}</strong>.
+                    Clique no botão abaixo para abrir um email pré-preenchido para a Equipe de Dados solicitando a liberação para a loja <strong>{empresaNome}</strong>.
                   </p>
                 </div>
                 <Button asChild>
