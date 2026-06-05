@@ -1,66 +1,33 @@
-## Objetivo
+# Vídeo + Solicitar acesso na tela "Recurso não habilitado"
 
-Criar uma API pública para subir imagens de template no SagaOne usando o token da Pri. Você envia o telefone do agente + o arquivo binário (multipart) e recebe de volta a URL pública do bucket `whatsapp-templates`.
+## Onde
 
-## Endpoint
+`src/pages/Cadeiras.tsx` — bloco renderizado quando `flagEnabled === false` (linhas 273-299). Apenas frontend, sem mudança de schema, RLS ou edge function.
 
-`POST https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/upload-template-image`
+## O que muda
 
-### Headers
-- `Authorization: Bearer <SAGA_ONE_ADMIN_TOKEN>` (obrigatório)
-- `Content-Type: multipart/form-data` (automático)
+Substituir o `Alert` atual por uma tela com:
 
-### Body (multipart/form-data)
-- `idpri` (string) — telefone do agente (com ou sem DDI/9, será normalizado)
-- `file` (binário) — a imagem (JPG/PNG/WebP/GIF), máx. 5 MB
-
-### Resposta 200
-```json
-{
-  "url": "https://karcxgnfiymlrkbzhewo.supabase.co/storage/v1/object/public/whatsapp-templates/templates-api/<idpri>/<timestamp>-<rand>.jpg",
-  "path": "templates-api/<idpri>/<timestamp>-<rand>.jpg",
-  "size": 123456,
-  "mime_type": "image/jpeg"
-}
-```
-
-### Erros
-- `401` token ausente/inválido
-- `400` `idpri` ou `file` faltando, mime não permitido, arquivo > 5 MB
-- `404` agente não encontrado
-- `500` falha no upload
-
-## Validações
-
-1. **Auth**: bate `Authorization` com `SAGA_ONE_ADMIN_TOKEN`. Sem match → 401.
-2. **Agente**: normaliza `idpri` (remove DDI 55 + 9º dígito quando aplicável) e procura em `agentes_ia.telefone` **ou** `controle_agentes.telefone`. Se não achar → 404.
-3. **Arquivo**: aceita `image/jpeg`, `image/png`, `image/webp`, `image/gif`. Limite 5 MB.
-
-## Storage
-
-- Bucket: `whatsapp-templates` (já existe, público).
-- Path: `templates-api/<idpri_normalizado>/<timestamp>-<random>.<ext>`.
-- Upload via `service_role` (sem `upsert`).
-- Retorna `getPublicUrl()`.
+1. **Título e descrição curta** explicando o que é "Login de Terceiros + Cadeiras".
+2. **Vídeo embedado do SharePoint** (iframe responsivo 16:9, max-width 720px) usando a URL fornecida pelo usuário.
+3. **Bloco de solicitação de acesso** abaixo do vídeo:
+   - Texto: "Após assistir ao vídeo, solicite a liberação para o time de TI."
+   - Botão **"Solicitar liberação"** que abre `mailto:` no cliente de email do usuário com:
+     - **Para:** `luiz.candrade@gruposaga.com.br`
+     - **Cópia:** `fabricio.pmoreira@gruposaga.com.br`, `douglas.rsouza@gruposaga.com.br`
+     - **Assunto:** `Solicitação de liberação: Login de Terceiros + Cadeiras — {nome_empresa}`
+     - **Corpo:** mensagem padrão informando que o solicitante assistiu ao vídeo, entende como funciona, e está pedindo a liberação da feature `login_terceiros_cadeiras` para a loja **{nome_empresa}** (incluindo `empresa_id` e o nome do usuário logado para rastreio).
 
 ## Detalhes técnicos
 
-- Arquivo: `supabase/functions/upload-template-image/index.ts`.
-- CORS liberado (mesmo padrão das outras edges públicas).
-- `verify_jwt = false` (auth é feita manualmente pelo token admin).
-- Usa `Deno.env.get('SAGA_ONE_ADMIN_TOKEN')` e `SUPABASE_SERVICE_ROLE_KEY` (já disponíveis).
-- Reaproveita a regra de normalização de telefone já documentada (DDI 55 + 9º dígito).
+- Iframe com wrapper `position: relative; padding-bottom: 56.25%` para manter aspect ratio responsivo, como na tag fornecida.
+- Atributos: `allowfullscreen`, `title="SagaOne - Login de Terceiros"`, `loading="lazy"`.
+- `mailto` montado via `encodeURIComponent` para subject/body; CCs via `?cc=...`.
+- Usar `activeCompany?.nome_empresa` e `user?.email` no corpo do email.
+- Usar tokens semânticos (Card, Button, texto `text-muted-foreground`) — sem cores hardcoded.
 
-## Exemplo cURL
+## Fora de escopo
 
-```bash
-curl -X POST https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/upload-template-image \
-  -H "Authorization: Bearer $SAGA_ONE_ADMIN_TOKEN" \
-  -F "idpri=11999998888" \
-  -F "file=@/caminho/imagem.jpg"
-```
-
-## Fora do escopo
-
-- Não cria template na PRI nem envia mídia para a Meta — só sobe a imagem e devolve a URL pública.
-- Não mexe em UI nem no fluxo atual do `TemplatesPaty.tsx`.
+- Sidebar continua exibindo "Cadeiras" via permissão de usuário (comportamento atual mantido).
+- Sem edge function de envio automático — usuário pediu para abrir o cliente de email.
+- Sem mudança no fluxo de quem já tem a flag habilitada.
