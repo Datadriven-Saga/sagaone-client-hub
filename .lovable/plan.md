@@ -1,48 +1,66 @@
-## Problema
+## Objetivo
 
-`POST manage-users` → 409 ao criar terceiro na EMPRESA ADMIN.
+Criar uma API pública para subir imagens de template no SagaOne usando o token da Pri. Você envia o telefone do agente + o arquivo binário (multipart) e recebe de volta a URL pública do bucket `whatsapp-templates`.
 
-Causa real (confirmada no banco):
-- Limite de cadeiras = 5
-- 5 seats `status='active'` na empresa, mas **4 perfis estão `is_active=false`** (julia, juia, maria costa, carol)
-- `set_external_active(is_active=false)` só atualiza `profiles.is_active` — não toca `external_access_seats.status` → slot continua ocupado
-- A contagem do limite (`manage-users` linha 724-728) filtra `seat.status='active'`, então cadeiras de terceiros desativados continuam bloqueando
+## Endpoint
 
-A edge function não parou; está retornando 409 corretamente segundo a lógica atual.
+`POST https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/upload-template-image`
 
-## Correção (3 partes)
+### Headers
+- `Authorization: Bearer <SAGA_ONE_ADMIN_TOKEN>` (obrigatório)
+- `Content-Type: multipart/form-data` (automático)
 
-### 1. Edge function `manage-users` — sincronizar seat ao desativar/reativar
-No case `set_external_active`:
-- Se `is_active=false` → também `UPDATE external_access_seats SET status='revoked' WHERE profile_id=? AND status='active'`
-- Se `is_active=true` → reativar a cadeira correspondente apenas se o evento (`prospeccao_id`) ainda estiver válido (ativo, dentro do `data_fim`, sem snapshot); caso contrário manter `revoked` e devolver mensagem orientando usar "Renovar"
-- Registrar a mudança no `logs_cadeiras.metadata` (seat_ids afetados)
+### Body (multipart/form-data)
+- `idpri` (string) — telefone do agente (com ou sem DDI/9, será normalizado)
+- `file` (binário) — a imagem (JPG/PNG/WebP/GIF), máx. 5 MB
 
-### 2. Backfill (migration de dados)
-`UPDATE external_access_seats SET status='revoked' WHERE status='active' AND profile_id IN (SELECT id FROM profiles WHERE is_external=true AND is_active=false)`
-- Libera os 4 slots da EMPRESA ADMIN imediatamente
-- Aplica também em outras empresas que estejam no mesmo estado inconsistente
+### Resposta 200
+```json
+{
+  "url": "https://karcxgnfiymlrkbzhewo.supabase.co/storage/v1/object/public/whatsapp-templates/templates-api/<idpri>/<timestamp>-<rand>.jpg",
+  "path": "templates-api/<idpri>/<timestamp>-<rand>.jpg",
+  "size": 123456,
+  "mime_type": "image/jpeg"
+}
+```
 
-### 3. Alinhar `profiles.status` ao `is_active` (do plano anterior)
-- No `set_external_active`: também setar `status = is_active ? 'Ativo' : 'Inativo'`
-- No `renew_external_seat`: também setar `status='Ativo'`
-- Backfill: `UPDATE profiles SET status='Inativo' WHERE is_external=true AND is_active=false AND status='Ativo'`
-- UI defensiva em `/administracao/acessos` (badge e filtro) — tratar `is_active=false` como Inativo mesmo se status divergir
+### Erros
+- `401` token ausente/inválido
+- `400` `idpri` ou `file` faltando, mime não permitido, arquivo > 5 MB
+- `404` agente não encontrado
+- `500` falha no upload
 
-## O que NÃO alterar
-- Schema de `external_access_seats` (sem novas colunas/constraints)
-- `get_seats_limit`, RLS, fluxo de criação (`create_external`)
-- `/cadeiras` UI — continua chamando `set_external_active`; a sincronização passa a ser server-side
-- Login gate (`can_user_login`) — continua em `is_active`
+## Validações
 
-## Testes obrigatórios
-1. EMPRESA ADMIN após backfill: contagem de seats ativos = 1 (só maria da silva)
-2. Criar novo terceiro na EMPRESA ADMIN → sucesso (slot 2/5)
-3. Desativar terceiro em `/cadeiras` → seat vira `revoked`, slot liberado, `/administracao/acessos` mostra Inativo
-4. Reativar terceiro com evento válido → seat volta a `active`, slot ocupa
-5. Reativar terceiro com evento expirado → mensagem orientando renovar; seat permanece `revoked`
-6. Renovar cadeira existente → segue funcionando (sem regressão)
+1. **Auth**: bate `Authorization` com `SAGA_ONE_ADMIN_TOKEN`. Sem match → 401.
+2. **Agente**: normaliza `idpri` (remove DDI 55 + 9º dígito quando aplicável) e procura em `agentes_ia.telefone` **ou** `controle_agentes.telefone`. Se não achar → 404.
+3. **Arquivo**: aceita `image/jpeg`, `image/png`, `image/webp`, `image/gif`. Limite 5 MB.
 
-## Riscos
-- Baixo. Mudança escopada a terceiros (`is_external=true`). Nenhuma alteração em RLS/schema.
-- Rollback: reverter edge function + `UPDATE external_access_seats SET status='active'` nos ids logados pelo backfill (capturar lista antes via SELECT).
+## Storage
+
+- Bucket: `whatsapp-templates` (já existe, público).
+- Path: `templates-api/<idpri_normalizado>/<timestamp>-<random>.<ext>`.
+- Upload via `service_role` (sem `upsert`).
+- Retorna `getPublicUrl()`.
+
+## Detalhes técnicos
+
+- Arquivo: `supabase/functions/upload-template-image/index.ts`.
+- CORS liberado (mesmo padrão das outras edges públicas).
+- `verify_jwt = false` (auth é feita manualmente pelo token admin).
+- Usa `Deno.env.get('SAGA_ONE_ADMIN_TOKEN')` e `SUPABASE_SERVICE_ROLE_KEY` (já disponíveis).
+- Reaproveita a regra de normalização de telefone já documentada (DDI 55 + 9º dígito).
+
+## Exemplo cURL
+
+```bash
+curl -X POST https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/upload-template-image \
+  -H "Authorization: Bearer $SAGA_ONE_ADMIN_TOKEN" \
+  -F "idpri=11999998888" \
+  -F "file=@/caminho/imagem.jpg"
+```
+
+## Fora do escopo
+
+- Não cria template na PRI nem envia mídia para a Meta — só sobe a imagem e devolve a URL pública.
+- Não mexe em UI nem no fluxo atual do `TemplatesPaty.tsx`.
