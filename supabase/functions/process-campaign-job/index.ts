@@ -23,6 +23,18 @@ const normalizePhone = (phone: string | null): string => {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Classifica retorno do webhook (Lambda/n8n) em categorias amigáveis.
+// `duplicate` = anti-dup eterno da Lambda (mesmo número+template); NÃO é falha.
+function classifyError(httpStatus: number, body: string): { categoria: string; mensagem: string } {
+  const b = (body || '').toLowerCase();
+  if (b.includes('disparo repetido')) return { categoria: 'duplicate', mensagem: 'Já disparado anteriormente' };
+  if (b.includes('workflow not found') || b.includes('not active')) return { categoria: 'workflow_inactive', mensagem: 'Workflow inativo' };
+  if (httpStatus === 0) return { categoria: 'timeout', mensagem: 'Sem resposta do servidor' };
+  if (httpStatus >= 400) return { categoria: 'http_error', mensagem: `Erro HTTP ${httpStatus}` };
+  if (!body) return { categoria: 'empty_body', mensagem: 'Resposta vazia' };
+  return { categoria: 'outro', mensagem: (body || '').substring(0, 200) };
+}
+
 function resolveVariableMapping(
   mapping: Record<string, string> | null,
   lead: any,
