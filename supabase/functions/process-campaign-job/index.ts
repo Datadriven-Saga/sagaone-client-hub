@@ -578,39 +578,11 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
           }
         }
 
-        // ========== PERSISTÊNCIA EM LOTE: SUCESSOS ==========
-        if (successLeadIds.length > 0) {
-          const dataDisparoIA = new Date().toISOString();
-          
-          if (isIALigacao) {
-            const successLeadSet = new Set(successLeadIds);
-            const cadenciasBackup = leads
-              .filter((lead: any) => successLeadSet.has(lead.id))
-              .map((lead: any) => ({
-                telefone_lead: normalizePhone(lead.telefone),
-                telefone_pri: telefonePri,
-                id_evento: parseInt(eventIdPri, 10),
-                num_tentativas: 1,
-                hora_primeira_tentativa: dataDisparoIA,
-                hora_ultima_tentativa: dataDisparoIA,
-                empresa_id: job.empresa_id,
-                criado_em: dataDisparoIA,
-                atualizado_em: dataDisparoIA,
-              }));
-            for (let i = 0; i < cadenciasBackup.length; i += 100) {
-              await supabase.from('cadencia_pri_voz').upsert(cadenciasBackup.slice(i, i + 100), { onConflict: 'telefone_lead,id_evento' });
-            }
-          } else {
-            for (let i = 0; i < successLeadIds.length; i += 100) {
-              const chunk = successLeadIds.slice(i, i + 100);
-              await supabase.from('contatos').update({ data_disparo_ia: dataDisparoIA }).in('id', chunk);
-              await supabase.from('eventos_prospeccao').update({ data_disparo_ia: dataDisparoIA }).eq('prospeccao_id', job.prospeccao_id).in('contato_id', chunk);
-            }
-          }
-        }
+        // Persistência incremental já foi feita por sub-lote dentro do loop (flushSubBatch).
+        // Sucessos e duplicates já tiveram data_disparo_ia gravado; falhas reais já estão em logs_disparos_falhas.
 
         // Determinar status do batch
-        const batchStatus = failedLeadIds.length === 0 
+        const batchStatus = failedLeadIds.length === 0
           ? 'completed' 
           : successLeadIds.length === 0 
             ? 'failed' 
@@ -641,7 +613,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
         await supabase.from('campaign_batches').update({
           status: batchStatus,
-          processed_leads: successLeadIds.length,
+          processed_leads: successLeadIds.length + duplicateLeadIds.length,
           error_log: errorLogDetailed,
           completed_at: new Date().toISOString(),
           ...(failedLeadIds.length > 0 && successLeadIds.length === 0 
@@ -651,12 +623,15 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
         totalProcessed = batchBaseProcessed + successLeadIds.length;
         totalFailed = batchBaseFailed + failedLeadIds.length;
+        totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
         batchBaseProcessed = totalProcessed;
         batchBaseFailed = totalFailed;
+        batchBaseDuplicate = totalDuplicate;
 
         await supabase.from('campaign_jobs').update({
           processed_records: totalProcessed,
           failed_records: totalFailed,
+          duplicate_records: totalDuplicate,
           updated_at: new Date().toISOString(),
         }).eq('id', job_id);
 
