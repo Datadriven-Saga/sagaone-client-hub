@@ -1,76 +1,56 @@
-## Objetivo
+# Corrigir RLS de `departamento_permissoes` para que overrides do Permission Flags valham para todos os perfis
 
-Quando um template é sincronizado (ex.: id_meta `1350467496960761` / id_pri `1675` na Paty Hyundai GO empresa Admin), o preview do WhatsApp deve montar 100% (header de mídia, body, footer e botões) a partir dos dados retornados pela API de sync.
+## Problema
 
-## Contrato esperado da API de sync (padrão Meta)
+A tabela `departamento_permissoes` armazena os overrides do Permission Flags. Hoje só **Admin/Master/TI** conseguem fazer `SELECT` (RLS restritiva). O hook `useUserAccessType` lê essa tabela no cliente para montar as permissões do usuário logado.
 
-A API deve devolver, além do `id_meta`/`id_pri`, o array `components` no shape Meta. Exemplo mínimo:
+Quando um CRM (ou Vendedor, SDR, Gerente, Recepcionista, Diretor, Proprietário, Coordenadora) carrega o app, o `SELECT` volta vazio por RLS, e o resolvedor cai nos **defaults** do `PermissionRegistry`. Resultado: qualquer toggle ligado/desligado no Permission Flags para esses perfis é silenciosamente ignorado em runtime.
 
-```json
-{
-  "id_meta": "1350467496960761",
-  "id_pri": "1675",
-  "name": "nome_template",
-  "language": "pt_BR",
-  "category": "MARKETING",
-  "status": "APPROVED",
-  "components": [
-    {
-      "type": "HEADER",
-      "format": "IMAGE",
-      "example": {
-        "header_handle": [
-          "https://karcxgnfiymlrkbzhewo.supabase.co/storage/v1/object/public/whatsapp-templates/templates-api/6230302248/1780942410984-bniu1ngt.jpg"
-        ]
-      }
-    },
-    { "type": "BODY", "text": "Olá {{1}}, ..." },
-    { "type": "FOOTER", "text": "Saga" },
-    {
-      "type": "BUTTONS",
-      "buttons": [
-        { "type": "QUICK_REPLY", "text": "Sim" },
-        { "type": "URL", "text": "Saber mais", "url": "https://..." }
-      ]
-    }
-  ]
-}
+Sintoma reportado: CRM com `canUseStoreSeat = true` configurado não vê o menu "Cadeiras" nem consegue acessar `/cadeiras`.
+
+## Correção
+
+### 1. Migração de RLS
+
+Trocar a política única (FOR ALL Admin/Master/TI) por duas políticas:
+
+- **SELECT**: liberado para `authenticated` (a tabela é configuração pública do app; não contém dados sensíveis — só flags por perfil).
+- **INSERT / UPDATE / DELETE**: restrito a Admin/Master/TI (comportamento atual).
+
+```sql
+DROP POLICY IF EXISTS departamento_permissoes_admin_master_ti
+  ON public.departamento_permissoes;
+
+CREATE POLICY departamento_permissoes_select_authenticated
+  ON public.departamento_permissoes
+  FOR SELECT TO authenticated
+  USING (true);
+
+CREATE POLICY departamento_permissoes_write_admin_master_ti
+  ON public.departamento_permissoes
+  FOR ALL TO authenticated
+  USING (get_current_user_access_type() = ANY (ARRAY['Administrador'::tipo_acesso,'Master'::tipo_acesso,'TI'::tipo_acesso]))
+  WITH CHECK (get_current_user_access_type() = ANY (ARRAY['Administrador'::tipo_acesso,'Master'::tipo_acesso,'TI'::tipo_acesso]));
 ```
 
-Regras:
-- `HEADER` pode ser `IMAGE`, `VIDEO` ou `TEXT`. Para mídia, a URL pública do bucket `whatsapp-templates` em `header_handle[0]` é suficiente (bucket é público, confirmado).
-- `BODY.text` é obrigatório — vira `conteudo`. Pode conter `{{N}}`.
-- `FOOTER.text` é opcional.
-- `BUTTONS.buttons[]` aceita `QUICK_REPLY`, `URL`, `PHONE_NUMBER`. Cada um precisa de `text` (e `url`/`phone_number` quando aplicável).
+Confirmar que os GRANTs já existem para `authenticated` (a tabela já é usada por Admin/Master/TI). Se faltar, adicionar `GRANT SELECT ON public.departamento_permissoes TO authenticated;`.
 
-## Mudanças no SagaOne
+### 2. Sem alteração de código frontend
 
-### 1) `src/pages/pos-vendas/TemplatesPaty.tsx` (fluxo de sync)
-- Ao receber a resposta da API externa, passar `components` por `transformMetaToPriComponents` (já existe em `src/lib/metaTemplateSync.ts`).
-- Persistir em `whatsapp_templates`:
-  - `formato` ← retorno (`texto`/`botao`/`imagem`/`video`)
-  - `conteudo` ← `body` text
-  - `card_data` ← `{ imagemUrl, videoUrl, textoCabecalho, rodape, botoes }`
-  - `id_meta`, `id_pri`, `categoria` (via `mapMetaCategory`), `status`
-  - `components_pri` ← `priComponents` (para disparo posterior)
-- Pular `downloadMediaAsBase64`: como a URL já é do nosso bucket público, não precisa rebaixar/re-upar.
+`useUserAccessType` já lê a tabela inteira e resolve overrides corretamente. Após a migração, o CRM passará a enxergar o override e o item "Cadeiras" aparecerá automaticamente (basta recarregar a sessão).
 
-### 2) `src/lib/metaTemplateSync.ts`
-- Já cobre o caso. Confirmar que `cardData.botoes` mantém `{ nome, buttonId }` (compatível com `TemplatePreview`).
-- Nenhuma alteração estrutural — só validar com um template real.
+### 3. Validação
 
-### 3) `TemplatePreview.tsx`
-- Sem mudanças. Já lida com `imagemUrl`, `videoUrl`, `rodape`, `botoes`, `textoCabecalho`.
+- CRM logado → menu **Cadeiras** aparece, rota `/cadeiras` abre.
+- Vendedor/SDR sem override permanecem sem o menu (defaults inalterados).
+- Admin/Master/TI continuam podendo editar Permission Flags; demais perfis recebem erro de RLS se tentarem escrever (esperado).
 
-## Validação
+## Riscos
 
-Testar com o template já sincronizado (id_pri `1675`):
-1. Reexecutar sync → verificar `whatsapp_templates` populado com `card_data` correto.
-2. Abrir preview em `/pos-vendas/templates` → conferir mídia, body, footer e botões.
-3. Repetir com template `formato: video` e `formato: texto` puro.
+- **Exposição**: `departamento_permissoes` passa a ser legível por qualquer usuário autenticado. Conteúdo é apenas `{departamento, permissao, ativo, valor}` — não há PII nem segredos. Aceitável.
+- **Cache**: usuários logados precisam recarregar para reler os overrides (comportamento normal do hook).
 
 ## Fora de escopo
 
-- Disparo do template (já usa `components_pri`).
-- Mudanças no bucket / RLS (já público).
-- API externa em si — só estamos definindo o contrato que ela deve cumprir.
+- Mudar defaults do `PermissionRegistry`.
+- Mover a resolução de permissões para o servidor (RPC SECURITY DEFINER) — alternativa mais robusta, mas maior. Pode entrar como follow-up se quisermos esconder a config do cliente.
