@@ -13,18 +13,33 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const BUCKET = "whatsapp-templates";
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5 MB (limite Meta para imagem)
+const VIDEO_MAX_SIZE = 16 * 1024 * 1024; // 16 MB (limite Meta para vídeo)
 const ALLOWED_MIME = new Set([
+  // imagem
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
+  // vídeo
+  "video/mp4",
+  "video/3gpp",
 ]);
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
+  "video/mp4": "mp4",
+  "video/3gpp": "3gp",
+};
+const MAX_SIZE_BY_MIME: Record<string, number> = {
+  "image/jpeg": IMAGE_MAX_SIZE,
+  "image/png": IMAGE_MAX_SIZE,
+  "image/webp": IMAGE_MAX_SIZE,
+  "image/gif": IMAGE_MAX_SIZE,
+  "video/mp4": VIDEO_MAX_SIZE,
+  "video/3gpp": VIDEO_MAX_SIZE,
 };
 
 function json(body: unknown, status = 200) {
@@ -97,9 +112,11 @@ serve(async (req) => {
       400,
     );
   }
-  if (file.size > MAX_SIZE) {
+  const maxSize = MAX_SIZE_BY_MIME[mime] ?? IMAGE_MAX_SIZE;
+  if (file.size > maxSize) {
+    const maxMb = Math.round(maxSize / (1024 * 1024));
     return json(
-      { error: `Arquivo excede 5 MB (${file.size} bytes)` },
+      { error: `Arquivo excede ${maxMb} MB (${file.size} bytes)` },
       400,
     );
   }

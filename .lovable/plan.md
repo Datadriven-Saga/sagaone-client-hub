@@ -1,65 +1,60 @@
 ## Objetivo
 
-Alterar o botão "Sincronizar" individual em `/pos-vendas/templates` para que ele apenas dispare o webhook `criar-template-pri-from-meta` com `pri_telefone` e `id_meta`. O webhook é quem recria a V2 e devolve os identificadores. O front só persiste o resultado em `whatsapp_templates` e atualiza a lista.
+Estender a edge function `upload-template-image` para aceitar **imagem e vídeo**, renomeando conceitualmente para upload de mídia de templates. Mantém auth via `SAGA_ONE_ADMIN_TOKEN` (header `x-admin-token` ou `Authorization`) e retorna URL pública + tamanho exato.
 
-## Comportamento atual (a remover)
+## Mudanças
 
-Hoje `handleSincronizarTemplate` faz no front:
-1. `transformMetaToPriComponents` + download de mídia em base64
-2. Chamada extra `upload-media-meta` para gerar `media_id`
-3. Chamada `criar-template-pri-from-meta` com `components`, `conteudo`, `tem_vars`, `categoria`, `language`, `nome`
-4. INSERT em `whatsapp_templates`
+### `supabase/functions/upload-template-image/index.ts`
 
-## Comportamento novo
+1. **Ampliar allowlist de MIME**:
+   - Imagem (mantém): `image/jpeg`, `image/png`, `image/webp`, `image/gif`
+   - Vídeo (novo): `video/mp4`, `video/3gpp`
+2. **Limites por tipo** (alinhado com Meta WhatsApp):
+   - Imagem: 5 MB
+   - Vídeo: 16 MB
+3. **Extensões novas**: `video/mp4` → `mp4`, `video/3gpp` → `3gp`
+4. **Path no bucket**: continua `templates-api/{idpri}/{timestamp}-{rand}.{ext}` — funciona para os dois tipos
+5. **Validação de agente**: mantém lookup em `agentes_ia` + `controle_agentes` por telefone normalizado
+6. **Resposta**: já retorna o necessário — manter
+   ```json
+   { "url": "<public_url>", "path": "...", "bucket": "whatsapp-templates", "size": <bytes>, "mime_type": "...", "idpri": "..." }
+   ```
 
-`handleSincronizarTemplate(meta)` passa a ter um único caminho:
+### `supabase/config.toml`
 
-```text
-Front
-  └─ supabase.functions.invoke("external-webhook-proxy", {
-       endpoint: "criar-template-pri-from-meta",
-       pri_telefone: priTelefone,
-       id_meta: meta.id
-     })
-  ── resposta no MESMO formato do retorno de criação de template:
-       {
-         template_id_pri,
-         id_meta,        // novo id da V2
-         status_meta,    // ex: PENDING/APPROVED
-         category_meta,
-         nome,           // nome v2 retornado pelo webhook
-         conteudo,
-         formato,        // texto/botao/imagem/video
-         card_data,      // estrutura usada pelo TemplatePreview
-         categoria       // marketing/utilidade/autenticacao
-         // (campos opcionais: webhook_status, webhook_ok, raw_response, error_*)
-       }
-  └─ INSERT em whatsapp_templates com os campos retornados
-  └─ refetchTemplates() + remover de metaOnlyTemplates
+Adicionar entrada (atualmente não tem) para a função, com `verify_jwt = false` — auth é via admin token customizado:
+
+```toml
+[functions.upload-template-image]
+verify_jwt = false
 ```
 
-Erros HTTP (webhook_ok=false / webhook_status≠200) seguem a mesma convenção de `handleSave`: toast com `error_user_title`/`error_user_msg`/`raw_response`, sem inserir.
+## Contrato da API
 
-## Arquivos alterados
+**Endpoint**: `POST https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/upload-template-image`
 
-- `src/pages/pos-vendas/TemplatesPaty.tsx`
-  - Reescrever `handleSincronizarTemplate` para o fluxo único acima.
-  - Remover do arquivo o uso de `transformMetaToPriComponents`, `downloadMediaAsBase64`, `mapMetaCategory` e a chamada `upload-media-meta` **apenas dentro deste handler** (as funções permanecem no `metaTemplateSync.ts` caso sejam usadas em outro lugar — confirmar antes de remover imports).
+**Headers**:
+- `x-admin-token: <SAGA_ONE_ADMIN_TOKEN>` (ou `Authorization: <token>`)
 
-## Campos do INSERT em `whatsapp_templates`
+**Body** (`multipart/form-data`):
+- `idpri` (ou `telefone`): telefone da PRI (com ou sem DDI/9º dígito — normalizado automaticamente para 10 dígitos)
+- `file`: binário (imagem ou vídeo)
 
-Preenchidos com a resposta do webhook (sem mais derivar do `meta.*`):
+**Resposta 200**:
+```json
+{
+  "url": "https://.../storage/v1/object/public/whatsapp-templates/templates-api/<idpri>/<ts>-<rand>.<ext>",
+  "path": "templates-api/<idpri>/<ts>-<rand>.<ext>",
+  "bucket": "whatsapp-templates",
+  "size": 1234567,
+  "mime_type": "video/mp4",
+  "idpri": "<10 dígitos>"
+}
+```
 
-- `empresa_id` = `activeCompany.id`
-- `agente_id` = `selectedAgenteId`
-- `pri_telefone` = `priTelefone`
-- `nome`, `categoria`, `category_meta`, `formato`, `conteudo`, `card_data`, `id_meta`, `template_id_pri`, `status_meta` ← resposta do webhook
-- `status` = `"aprovado"` se `status_meta === "APPROVED"`, senão `"pendente"` (mesmo critério de `handleSave`)
-- `ativo` = `true`
-- `variable_mapping` = `{}`
+**Erros**: 400 (MIME inválido / tamanho excedido / campos faltando), 401 (token), 404 (agente não encontrado), 500 (storage/config).
 
-## Pontos a confirmar com o usuário
+## Pontos a confirmar
 
-1. O webhook realmente devolverá `nome`, `conteudo`, `formato`, `card_data`, `categoria` prontos? Se algum desses não vier, precisamos definir fallback (ex.: derivar `categoria` de `category_meta` via `mapMetaCategory`).
-2. Como tratar quando `status_meta` voltar `PENDING` (não-aprovado ainda)? Manter `status='pendente'` e deixar o template aparecer na lista normalmente, igual hoje em `handleSave`?
-3. Manter `metaOnlyTemplates`/botão "Sincronizar com Meta" intactos — só o handler individual muda. Confirma?
+1. O bucket `whatsapp-templates` precisa estar **público** (a função usa `getPublicUrl`). Vou assumir que já está — se não, preciso torná-lo público antes.
+2. Manter o nome `upload-template-image` (já em uso) ou renomear para `upload-template-media`? Renomear quebra qualquer integração já apontando para a URL atual.
