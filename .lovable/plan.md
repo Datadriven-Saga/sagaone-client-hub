@@ -1,26 +1,49 @@
-# Apagar 7 templates sincronizados para re-sync com o fix
+# Fix: imagem some no preview após sincronizar template da Meta
 
-Estado atual em `whatsapp_templates`:
+## Causa raiz
 
-| id_pri | nome | formato | imagemUrl |
-|--------|------|---------|-----------|
-| 1685 | entrega_agendada_test | imagem | `"h"` ❌ |
-| 1684 | teste2 | imagem | URL válida ✅ |
-| 1683 | agendamento_confirmado_v2 | botao | — |
-| 1679 | aviso_24h_v2 | imagem | `"4"` ❌ |
-| 1677 | boas_vindas_v3 | texto | — |
-| 1676 | vamos_agendar_test | texto | — |
-| 1675 | prep_veiculo_test_v2 | texto | — |
+O webhook `criar-template-pri-from-meta` devolve o `header_handle` da imagem como **string** simples:
 
-Conforme pedido ("pode fazer isso para todos esses... vou rodar todos novamente"), excluir os 7 registros para que reapareçam na lista "Templates só na Meta" e sejam re-sincronizados pelo UI já corrigido (merge com `meta.components` quando o webhook devolve URL inválida).
+```json
+"example": { "header_handle": "https://.../1780952940983-boexqt65.jpg" }
+```
 
-## Ação
+Mas `transformMetaToPriComponents` em `src/lib/metaTemplateSync.ts` assume o shape oficial da Meta Graph API (`header_handle: string[]`) e faz:
 
-`DELETE FROM public.whatsapp_templates WHERE id IN (<7 ids>)` via insert tool.
+```ts
+const headerUrl = comp.example?.header_handle?.[0] || "";
+```
+
+Em string, `[0]` retorna `"h"` (primeiro caractere). O guard `isValidUrl` no `handleSincronizarTemplate` rejeita corretamente esse `"h"`, mas como o fallback (`fromMeta.imagemUrl`) também é `"h"`, o `card_data.imagemUrl` é salvo como `""` e o preview mostra placeholder.
+
+Confirmado no banco para `template_id_pri=1686` / `entrega_agendada_test_v2`:
+```
+card_data.imagemUrl = ""   (formato=imagem)
+```
+
+## Mudança
+
+### `src/lib/metaTemplateSync.ts`
+
+Normalizar `header_handle` aceitando string OU array:
+
+```ts
+const rawHandle = comp.example?.header_handle;
+const headerUrl = Array.isArray(rawHandle)
+  ? (rawHandle[0] || "")
+  : (typeof rawHandle === "string" ? rawHandle : "");
+```
+
+Ajustar também o tipo `MetaComponent.example.header_handle` para `string | string[]`.
+
+Nenhuma outra parte do código precisa mudar — o `handleSincronizarTemplate` já tem o merge correto com `isValidUrl`, ele só estava recebendo `"h"` em ambos os lados.
+
+## Correção do registro existente (1686)
+
+Após o fix de código, posso atualizar o registro `550dfc92-feb1-4e84-9e51-96bd1be6864a` setando `card_data.imagemUrl` para a URL pública correta (`https://karcxgnfiymlrkbzhewo.supabase.co/storage/v1/object/public/whatsapp-templates/templates-api/6230302248/1780952940983-boexqt65.jpg`) via migration de UPDATE, sem precisar re-sincronizar. Confirmar com você antes de rodar.
 
 ## Validação
 
-Após o delete:
-- Os 7 templates voltam a aparecer no card "Sincronizar templates da Meta".
-- Re-sincronizar cada um pelo botão do UI.
-- Conferir no banco que `card_data.imagemUrl` (quando formato=imagem) é URL `https://...` completa.
+1. Re-sincronizar um template novo com header IMAGE → `card_data.imagemUrl` deve conter URL `https://...` completa.
+2. Abrir preview → imagem aparece.
+3. Conferir que templates sem header continuam funcionando (string vazia / undefined).

@@ -13,7 +13,7 @@ export interface MetaComponent {
   format?: "IMAGE" | "VIDEO" | "TEXT" | "DOCUMENT" | string;
   text?: string;
   example?: {
-    header_handle?: string[];
+    header_handle?: string | string[];
     body_text?: string[][];
   };
   buttons?: MetaButton[];
@@ -76,7 +76,10 @@ export function transformMetaToPriComponents(
             ],
           });
 
-          const headerUrl = comp.example?.header_handle?.[0] || "";
+          const rawHandle = comp.example?.header_handle;
+          const headerUrl = Array.isArray(rawHandle)
+            ? (rawHandle[0] || "")
+            : (typeof rawHandle === "string" ? rawHandle : "");
           if (headerUrl) {
             mediaInfo = {
               type: mediaType,
