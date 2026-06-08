@@ -1552,13 +1552,43 @@ export default function TemplatesPaty() {
         : null;
 
       const conteudo = res.conteudo ?? transformed?.conteudo ?? "";
-      const formato =
-        (res.formato as "texto" | "botao" | "imagem" | "video") ||
-        transformed?.formato ||
-        "texto";
-      const cardData =
-        res.card_data ??
-        (transformed?.cardData ? { ...transformed.cardData, corpoTexto: transformed.conteudo } : {});
+      const isValidUrl = (v: unknown): v is string =>
+        typeof v === "string" && /^https?:\/\//i.test(v);
+
+      const base = (res.card_data ?? {}) as Record<string, any>;
+      const fromMeta = (transformed?.cardData ?? {}) as Record<string, any>;
+
+      // Mescla card_data do webhook com o derivado de meta.components[].
+      // URLs de mídia inválidas (ex.: "h" truncado) devolvidas pelo webhook
+      // são substituídas pela URL pública do header_handle quando disponível.
+      const cardData: Record<string, any> = {
+        ...fromMeta,
+        ...base,
+        corpoTexto: base.corpoTexto ?? transformed?.conteudo ?? "",
+        imagemUrl: isValidUrl(base.imagemUrl)
+          ? base.imagemUrl
+          : (isValidUrl(fromMeta.imagemUrl) ? fromMeta.imagemUrl : ""),
+        videoUrl: isValidUrl(base.videoUrl)
+          ? base.videoUrl
+          : (isValidUrl(fromMeta.videoUrl) ? fromMeta.videoUrl : ""),
+        textoCabecalho: base.textoCabecalho || fromMeta.textoCabecalho || "",
+        rodape: base.rodape || fromMeta.rodape || "",
+        botoes: (Array.isArray(base.botoes) && base.botoes.length > 0)
+          ? base.botoes
+          : (Array.isArray(fromMeta.botoes) ? fromMeta.botoes : []),
+      };
+
+      // Se webhook errou o formato (ex.: "texto") mas meta.components indicam mídia
+      // com URL válida, prevalece o formato derivado da Meta.
+      const hasValidMedia =
+        (transformed?.formato === "imagem" && isValidUrl(cardData.imagemUrl)) ||
+        (transformed?.formato === "video" && isValidUrl(cardData.videoUrl));
+      const formato: "texto" | "botao" | "imagem" | "video" =
+        hasValidMedia
+          ? (transformed!.formato as "imagem" | "video")
+          : ((res.formato as "texto" | "botao" | "imagem" | "video") ||
+             transformed?.formato ||
+             "texto");
 
       const { error: insErr } = await supabase.from("whatsapp_templates").insert({
         empresa_id: activeCompany.id,

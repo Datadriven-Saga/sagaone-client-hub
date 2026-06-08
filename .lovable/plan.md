@@ -1,56 +1,70 @@
-# Corrigir RLS de `departamento_permissoes` para que overrides do Permission Flags valham para todos os perfis
+# Corrigir extração de mídia no `handleSincronizarTemplate` (Pós-Vendas › Templates Paty)
 
 ## Problema
 
-A tabela `departamento_permissoes` armazena os overrides do Permission Flags. Hoje só **Admin/Master/TI** conseguem fazer `SELECT` (RLS restritiva). O hook `useUserAccessType` lê essa tabela no cliente para montar as permissões do usuário logado.
+Template `entrega_agendada_test` (id_pri 1685) sincronizado tem `card_data.imagemUrl = "h"` no banco. O `TemplatePreview` tenta renderizar `<img src="h">`, falha, e mostra o placeholder cinza.
 
-Quando um CRM (ou Vendedor, SDR, Gerente, Recepcionista, Diretor, Proprietário, Coordenadora) carrega o app, o `SELECT` volta vazio por RLS, e o resolvedor cai nos **defaults** do `PermissionRegistry`. Resultado: qualquer toggle ligado/desligado no Permission Flags para esses perfis é silenciosamente ignorado em runtime.
+Causa: o webhook externo `criar-template-pri-from-meta` está devolvendo um `card_data` com `imagemUrl` quebrado/truncado (provavelmente lendo `url[0]` de uma string em vez de `header_handle[0]` de um array). No nosso código (`src/pages/pos-vendas/TemplatesPaty.tsx`, linha ~1559), confiamos cegamente em `res.card_data`:
 
-Sintoma reportado: CRM com `canUseStoreSeat = true` configurado não vê o menu "Cadeiras" nem consegue acessar `/cadeiras`.
+```ts
+const cardData =
+  res.card_data ??
+  (transformed?.cardData ? { ...transformed.cardData, corpoTexto: transformed.conteudo } : {});
+```
+
+Quando o webhook devolve `card_data = { imagemUrl: "h", corpoTexto: "..." }`, ignoramos o `transformed` (que foi montado a partir de `meta.components` da própria listagem da Meta e tem a URL pública correta em `header_handle[0]`).
 
 ## Correção
 
-### 1. Migração de RLS
+### 1. Preferir/mesclar a URL de mídia derivada de `meta.components`
 
-Trocar a política única (FOR ALL Admin/Master/TI) por duas políticas:
+Em `src/pages/pos-vendas/TemplatesPaty.tsx`, ajustar a montagem de `cardData` para:
 
-- **SELECT**: liberado para `authenticated` (a tabela é configuração pública do app; não contém dados sensíveis — só flags por perfil).
-- **INSERT / UPDATE / DELETE**: restrito a Admin/Master/TI (comportamento atual).
+1. Calcular `transformed` a partir de `res.components ?? meta.components` (já é feito).
+2. Tomar `res.card_data` como base, **mas sobrescrever `imagemUrl`/`videoUrl` quando a URL do webhook não for válida** (não é string que começa com `http`) e existir uma URL válida em `transformed.cardData`.
+3. Mesmo tratamento para `textoCabecalho`, `rodape`, `botoes` — se vierem vazios do webhook e existirem no `transformed`, usar o do `transformed`.
 
-```sql
-DROP POLICY IF EXISTS departamento_permissoes_admin_master_ti
-  ON public.departamento_permissoes;
+Pseudocódigo:
 
-CREATE POLICY departamento_permissoes_select_authenticated
-  ON public.departamento_permissoes
-  FOR SELECT TO authenticated
-  USING (true);
+```ts
+const isValidUrl = (v: unknown) => typeof v === "string" && /^https?:\/\//i.test(v);
 
-CREATE POLICY departamento_permissoes_write_admin_master_ti
-  ON public.departamento_permissoes
-  FOR ALL TO authenticated
-  USING (get_current_user_access_type() = ANY (ARRAY['Administrador'::tipo_acesso,'Master'::tipo_acesso,'TI'::tipo_acesso]))
-  WITH CHECK (get_current_user_access_type() = ANY (ARRAY['Administrador'::tipo_acesso,'Master'::tipo_acesso,'TI'::tipo_acesso]));
+const base = (res.card_data ?? {}) as Record<string, any>;
+const fromMeta = transformed?.cardData ?? {};
+
+const cardData = {
+  ...fromMeta,
+  ...base,
+  corpoTexto: base.corpoTexto ?? transformed?.conteudo ?? "",
+  imagemUrl: isValidUrl(base.imagemUrl) ? base.imagemUrl : (fromMeta as any).imagemUrl || "",
+  videoUrl: isValidUrl(base.videoUrl) ? base.videoUrl : (fromMeta as any).videoUrl || "",
+  textoCabecalho: base.textoCabecalho || (fromMeta as any).textoCabecalho || "",
+  rodape: base.rodape || (fromMeta as any).rodape || "",
+  botoes: (Array.isArray(base.botoes) && base.botoes.length > 0)
+    ? base.botoes
+    : ((fromMeta as any).botoes || []),
+};
 ```
 
-Confirmar que os GRANTs já existem para `authenticated` (a tabela já é usada por Admin/Master/TI). Se faltar, adicionar `GRANT SELECT ON public.departamento_permissoes TO authenticated;`.
+Mesma lógica para `formato`: se `res.formato` vier mas `transformed.formato` for "imagem"/"video" e tivermos URL válida no transformed, manter a do transformed (cobre o caso de o webhook devolver `"texto"` por erro).
 
-### 2. Sem alteração de código frontend
+### 2. Corrigir o registro já gravado no banco
 
-`useUserAccessType` já lê a tabela inteira e resolve overrides corretamente. Após a migração, o CRM passará a enxergar o override e o item "Cadeiras" aparecerá automaticamente (basta recarregar a sessão).
+Para o template `27625cf5-588b-4424-b1ed-d80f5345e61d` (id_pri 1685), fazer um `UPDATE` em `whatsapp_templates.card_data` substituindo `imagemUrl="h"` pela URL pública correta do header da Meta. A URL exata sai de uma chamada nova ao webhook ou da listagem `meta.components[].example.header_handle[0]` no front. Como já foi sincronizado e some da lista de "templates só na Meta", o caminho mais simples é: clicar de novo no botão de sincronizar após o fix — mas como já existe registro, vamos:
 
-### 3. Validação
+- Apagar o registro local (`DELETE` pontual) e re-sincronizar pelo UI corrigido; **ou**
+- `UPDATE` direto setando a URL correta, que o usuário fornecerá ou que buscamos pela Meta.
 
-- CRM logado → menu **Cadeiras** aparece, rota `/cadeiras` abre.
-- Vendedor/SDR sem override permanecem sem o menu (defaults inalterados).
-- Admin/Master/TI continuam podendo editar Permission Flags; demais perfis recebem erro de RLS se tentarem escrever (esperado).
-
-## Riscos
-
-- **Exposição**: `departamento_permissoes` passa a ser legível por qualquer usuário autenticado. Conteúdo é apenas `{departamento, permissao, ativo, valor}` — não há PII nem segredos. Aceitável.
-- **Cache**: usuários logados precisam recarregar para reler os overrides (comportamento normal do hook).
+Recomendo apagar o registro e re-sincronizar pelo UI já corrigido — é determinístico e valida o fix.
 
 ## Fora de escopo
 
-- Mudar defaults do `PermissionRegistry`.
-- Mover a resolução de permissões para o servidor (RPC SECURITY DEFINER) — alternativa mais robusta, mas maior. Pode entrar como follow-up se quisermos esconder a config do cliente.
+- Mudar o webhook externo `criar-template-pri-from-meta` (fora do repo).
+- Mexer no `TemplatePreview` ou no `transformMetaToPriComponents`.
+- Tocar em outros templates que não tenham o mesmo sintoma.
+
+## Validação
+
+- Sincronizar `entrega_agendada_test` novamente → `card_data.imagemUrl` recebe URL pública completa do bucket (`https://.../templates-api/.../*.jpg`).
+- Preview abre com a imagem renderizada (sem placeholder cinza).
+- Templates "texto puro" continuam funcionando (não recebem `imagemUrl` espúrio).
