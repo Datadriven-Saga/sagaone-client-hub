@@ -1471,93 +1471,98 @@ export default function TemplatesPaty() {
     }
     setSyncingMetaId(meta.id);
     try {
-      const transformed = transformMetaToPriComponents(meta.components || []);
-
-      // 1) Upload de mídia (se HEADER IMAGE/VIDEO)
-      if (transformed.mediaInfo) {
-        const dl = await downloadMediaAsBase64(transformed.mediaInfo.url);
-        if (!dl) {
-          toast.error(
-            "A mídia deste template expirou na Meta. Recrie o template ou faça upload manual."
-          );
-          return;
-        }
-        const { data: upRes, error: upErr } = await supabase.functions.invoke(
-          "external-webhook-proxy",
-          {
-            body: {
-              endpoint: "upload-media-meta",
-              idpri: priTelefone,
-              base64: dl.base64,
-              mime_type: dl.mime_type,
-            },
-          }
-        );
-        if (upErr) throw upErr;
-        const mediaId = (upRes as any)?.media_id || (upRes as any)?.id;
-        if (!mediaId) {
-          toast.error("Webhook upload-media-meta não retornou media_id.");
-          return;
-        }
-        // Preencher media_id no header
-        for (const c of transformed.priComponents.components) {
-          if (c.type === "header" && Array.isArray(c.parameters)) {
-            const p = c.parameters[0];
-            if (p?.image) p.image.id = mediaId;
-            if (p?.video) p.video.id = mediaId;
-          }
-        }
-      }
-
-      // 2) Criar template na PRI
+      // Delega a recriação V2 totalmente ao webhook. O webhook recebe
+      // pri_telefone + id_meta e devolve o mesmo formato do retorno de
+      // criação de template novo.
       const { data: priRes, error: priErr } = await supabase.functions.invoke(
         "external-webhook-proxy",
         {
           body: {
             endpoint: "criar-template-pri-from-meta",
-            idpri: priTelefone,
-            agente_id: selectedAgenteId,
-            nome: meta.name,
+            pri_telefone: priTelefone,
             id_meta: meta.id,
-            categoria: (meta.category || "MARKETING").toUpperCase(),
-            language: meta.language || "pt_BR",
-            conteudo: transformed.conteudo,
-            tem_vars: transformed.temVars,
-            components: transformed.priComponents,
           },
         }
       );
       if (priErr) throw priErr;
-      const templateIdPri =
-        (priRes as any)?.template_id ||
-        (priRes as any)?.template_id_pri ||
-        (priRes as any)?.id;
-      if (!templateIdPri) {
-        toast.error("Webhook criar-template-pri-from-meta não retornou template_id.");
+
+      const res: any = priRes ?? {};
+
+      // Validação de HTTP/erro Meta — mesmo padrão do handleSave
+      const webhookOk = res?.webhook_ok;
+      const webhookStatus = res?.webhook_status;
+      const httpFailed =
+        (typeof webhookOk === "boolean" && !webhookOk) ||
+        (typeof webhookStatus === "number" && webhookStatus !== 200);
+      if (httpFailed) {
+        let errorUserTitle: string | undefined;
+        let errorUserMsg: string | undefined;
+        let errorMessage: string | undefined;
+        try {
+          const raw = res?.raw_response;
+          if (raw && typeof raw === "string") {
+            const parsed = JSON.parse(raw);
+            const err = parsed?.error || parsed?.data?.error || parsed;
+            errorUserTitle = err?.error_user_title;
+            errorUserMsg = err?.error_user_msg;
+            errorMessage = err?.message;
+          }
+        } catch {
+          // ignore
+        }
+        const metaMsg =
+          res?.error_user_msg ||
+          errorUserMsg ||
+          res?.error_message ||
+          errorMessage ||
+          res?.raw_response ||
+          "Erro desconhecido retornado pela Meta.";
+        const fullMsg = (res?.error_user_title || errorUserTitle)
+          ? `${res?.error_user_title || errorUserTitle}: ${metaMsg}`
+          : metaMsg;
+        toast.error(`Falha ao sincronizar (HTTP ${webhookStatus ?? "?"}) — ${fullMsg}`, {
+          duration: 12000,
+        });
         return;
       }
 
-      // 3) INSERT no whatsapp_templates do SagaOne
+      const templateIdPri =
+        res.template_id_pri || res.template_id || res.id;
+      if (!templateIdPri) {
+        toast.error("Webhook criar-template-pri-from-meta não retornou template_id_pri.");
+        return;
+      }
+
+      const newIdMeta = res.id_meta || res.id || null;
+      const statusMeta = res.status_meta || res.status || "PENDING";
+      const categoryMeta = res.category_meta || res.category || meta.category || null;
+      const categoria =
+        res.categoria || mapMetaCategory(categoryMeta || "MARKETING");
+      const nome = res.nome || res.name || meta.name;
+      const conteudo = res.conteudo ?? "";
+      const formato = (res.formato as "texto" | "botao" | "imagem" | "video") || "texto";
+      const cardData = res.card_data ?? {};
+
       const { error: insErr } = await supabase.from("whatsapp_templates").insert({
         empresa_id: activeCompany.id,
         agente_id: selectedAgenteId,
         pri_telefone: priTelefone,
-        nome: meta.name,
-        categoria: mapMetaCategory(meta.category),
-        category_meta: meta.category || null,
-        formato: transformed.formato,
-        conteudo: transformed.conteudo,
-        card_data: transformed.cardData,
-        status: "aprovado",
-        status_meta: meta.status || "APPROVED",
-        id_meta: meta.id,
+        nome,
+        categoria,
+        category_meta: categoryMeta,
+        formato,
+        conteudo,
+        card_data: cardData,
+        status: String(statusMeta).toUpperCase() === "APPROVED" ? "aprovado" : "pendente",
+        status_meta: statusMeta,
+        id_meta: newIdMeta ? String(newIdMeta) : null,
         template_id_pri: String(templateIdPri),
         ativo: true,
         variable_mapping: {},
       });
       if (insErr) throw insErr;
 
-      toast.success(`Template "${meta.name}" sincronizado!`);
+      toast.success(`Template "${nome}" sincronizado!`);
       setMetaOnlyTemplates(prev => prev.filter(m => m.id !== meta.id));
       refetchTemplates();
     } catch (err: any) {
