@@ -130,3 +130,6 @@ verify_jwt = false
 
 [functions.external-optout-register]
 verify_jwt = true
+
+[functions.upload-template-image]
+verify_jwt = false
