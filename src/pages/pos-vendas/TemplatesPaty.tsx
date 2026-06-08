@@ -63,7 +63,6 @@ import { normalizePhone } from "@/lib/utils";
 import { useVideoCompression, MAX_VIDEO_SIZE_BYTES } from "@/hooks/useVideoCompression";
 import {
   transformMetaToPriComponents,
-  downloadMediaAsBase64,
   mapMetaCategory,
   type MetaTemplate,
 } from "@/lib/metaTemplateSync";
