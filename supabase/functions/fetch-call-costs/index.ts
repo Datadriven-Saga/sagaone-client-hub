@@ -457,7 +457,8 @@ serve(async (req) => {
     }
 
     if (source === "vapi" || source === "unified") {
-      warnings.push(...await fetchVapiAggregated(phone || "", startDate, endDate, summary, dailyCosts));
+      // Vapi integration disabled — no calls to api.vapi.ai are made.
+      warnings.push("Integração Vapi desativada. Nenhuma chamada foi feita à api.vapi.ai.");
     }
 
     console.log("=== FINAL ===");

@@ -248,6 +248,27 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Vapi integration disabled — short-circuit before any call to api.vapi.ai.
+  return new Response(
+    JSON.stringify({
+      disabled: true,
+      error: "Integração Vapi desativada.",
+      calls: [],
+      summary: {
+        totalCalls: 0,
+        totalCost: 0,
+        totalDuration: 0,
+        endedCount: 0,
+        costBreakdown: { stt: 0, llm: 0, tts: 0, transport: 0, vapi: 0 },
+        isPartial: false,
+      },
+      dailyChart: [],
+      warnings: ["Integração Vapi desativada. Nenhuma chamada foi feita à api.vapi.ai."],
+      source: "disabled",
+    }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+
   try {
     const apiKey = Deno.env.get("VAPI_API_KEY");
     if (!apiKey) throw new Error("VAPI_API_KEY not configured");
