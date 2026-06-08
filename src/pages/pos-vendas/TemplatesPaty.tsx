@@ -1538,9 +1538,27 @@ export default function TemplatesPaty() {
       const categoria =
         res.categoria || mapMetaCategory(categoryMeta || "MARKETING");
       const nome = res.nome || res.name || meta.name;
-      const conteudo = res.conteudo ?? "";
-      const formato = (res.formato as "texto" | "botao" | "imagem" | "video") || "texto";
-      const cardData = res.card_data ?? {};
+
+      // Preferimos derivar conteudo/formato/cardData a partir do shape Meta
+      // (components[]) quando o webhook devolve. Os campos planos (res.conteudo,
+      // res.formato, res.card_data) seguem como fallback de compatibilidade.
+      const metaComponents = Array.isArray(res.components)
+        ? res.components
+        : Array.isArray(meta.components)
+          ? meta.components
+          : null;
+      const transformed = metaComponents
+        ? transformMetaToPriComponents(metaComponents)
+        : null;
+
+      const conteudo = res.conteudo ?? transformed?.conteudo ?? "";
+      const formato =
+        (res.formato as "texto" | "botao" | "imagem" | "video") ||
+        transformed?.formato ||
+        "texto";
+      const cardData =
+        res.card_data ??
+        (transformed?.cardData ? { ...transformed.cardData, corpoTexto: transformed.conteudo } : {});
 
       const { error: insErr } = await supabase.from("whatsapp_templates").insert({
         empresa_id: activeCompany.id,

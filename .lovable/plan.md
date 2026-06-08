@@ -1,60 +1,76 @@
 ## Objetivo
 
-Estender a edge function `upload-template-image` para aceitar **imagem e vídeo**, renomeando conceitualmente para upload de mídia de templates. Mantém auth via `SAGA_ONE_ADMIN_TOKEN` (header `x-admin-token` ou `Authorization`) e retorna URL pública + tamanho exato.
+Quando um template é sincronizado (ex.: id_meta `1350467496960761` / id_pri `1675` na Paty Hyundai GO empresa Admin), o preview do WhatsApp deve montar 100% (header de mídia, body, footer e botões) a partir dos dados retornados pela API de sync.
 
-## Mudanças
+## Contrato esperado da API de sync (padrão Meta)
 
-### `supabase/functions/upload-template-image/index.ts`
+A API deve devolver, além do `id_meta`/`id_pri`, o array `components` no shape Meta. Exemplo mínimo:
 
-1. **Ampliar allowlist de MIME**:
-   - Imagem (mantém): `image/jpeg`, `image/png`, `image/webp`, `image/gif`
-   - Vídeo (novo): `video/mp4`, `video/3gpp`
-2. **Limites por tipo** (alinhado com Meta WhatsApp):
-   - Imagem: 5 MB
-   - Vídeo: 16 MB
-3. **Extensões novas**: `video/mp4` → `mp4`, `video/3gpp` → `3gp`
-4. **Path no bucket**: continua `templates-api/{idpri}/{timestamp}-{rand}.{ext}` — funciona para os dois tipos
-5. **Validação de agente**: mantém lookup em `agentes_ia` + `controle_agentes` por telefone normalizado
-6. **Resposta**: já retorna o necessário — manter
-   ```json
-   { "url": "<public_url>", "path": "...", "bucket": "whatsapp-templates", "size": <bytes>, "mime_type": "...", "idpri": "..." }
-   ```
-
-### `supabase/config.toml`
-
-Adicionar entrada (atualmente não tem) para a função, com `verify_jwt = false` — auth é via admin token customizado:
-
-```toml
-[functions.upload-template-image]
-verify_jwt = false
-```
-
-## Contrato da API
-
-**Endpoint**: `POST https://karcxgnfiymlrkbzhewo.supabase.co/functions/v1/upload-template-image`
-
-**Headers**:
-- `x-admin-token: <SAGA_ONE_ADMIN_TOKEN>` (ou `Authorization: <token>`)
-
-**Body** (`multipart/form-data`):
-- `idpri` (ou `telefone`): telefone da PRI (com ou sem DDI/9º dígito — normalizado automaticamente para 10 dígitos)
-- `file`: binário (imagem ou vídeo)
-
-**Resposta 200**:
 ```json
 {
-  "url": "https://.../storage/v1/object/public/whatsapp-templates/templates-api/<idpri>/<ts>-<rand>.<ext>",
-  "path": "templates-api/<idpri>/<ts>-<rand>.<ext>",
-  "bucket": "whatsapp-templates",
-  "size": 1234567,
-  "mime_type": "video/mp4",
-  "idpri": "<10 dígitos>"
+  "id_meta": "1350467496960761",
+  "id_pri": "1675",
+  "name": "nome_template",
+  "language": "pt_BR",
+  "category": "MARKETING",
+  "status": "APPROVED",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "IMAGE",
+      "example": {
+        "header_handle": [
+          "https://karcxgnfiymlrkbzhewo.supabase.co/storage/v1/object/public/whatsapp-templates/templates-api/6230302248/1780942410984-bniu1ngt.jpg"
+        ]
+      }
+    },
+    { "type": "BODY", "text": "Olá {{1}}, ..." },
+    { "type": "FOOTER", "text": "Saga" },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        { "type": "QUICK_REPLY", "text": "Sim" },
+        { "type": "URL", "text": "Saber mais", "url": "https://..." }
+      ]
+    }
+  ]
 }
 ```
 
-**Erros**: 400 (MIME inválido / tamanho excedido / campos faltando), 401 (token), 404 (agente não encontrado), 500 (storage/config).
+Regras:
+- `HEADER` pode ser `IMAGE`, `VIDEO` ou `TEXT`. Para mídia, a URL pública do bucket `whatsapp-templates` em `header_handle[0]` é suficiente (bucket é público, confirmado).
+- `BODY.text` é obrigatório — vira `conteudo`. Pode conter `{{N}}`.
+- `FOOTER.text` é opcional.
+- `BUTTONS.buttons[]` aceita `QUICK_REPLY`, `URL`, `PHONE_NUMBER`. Cada um precisa de `text` (e `url`/`phone_number` quando aplicável).
 
-## Pontos a confirmar
+## Mudanças no SagaOne
 
-1. O bucket `whatsapp-templates` precisa estar **público** (a função usa `getPublicUrl`). Vou assumir que já está — se não, preciso torná-lo público antes.
-2. Manter o nome `upload-template-image` (já em uso) ou renomear para `upload-template-media`? Renomear quebra qualquer integração já apontando para a URL atual.
+### 1) `src/pages/pos-vendas/TemplatesPaty.tsx` (fluxo de sync)
+- Ao receber a resposta da API externa, passar `components` por `transformMetaToPriComponents` (já existe em `src/lib/metaTemplateSync.ts`).
+- Persistir em `whatsapp_templates`:
+  - `formato` ← retorno (`texto`/`botao`/`imagem`/`video`)
+  - `conteudo` ← `body` text
+  - `card_data` ← `{ imagemUrl, videoUrl, textoCabecalho, rodape, botoes }`
+  - `id_meta`, `id_pri`, `categoria` (via `mapMetaCategory`), `status`
+  - `components_pri` ← `priComponents` (para disparo posterior)
+- Pular `downloadMediaAsBase64`: como a URL já é do nosso bucket público, não precisa rebaixar/re-upar.
+
+### 2) `src/lib/metaTemplateSync.ts`
+- Já cobre o caso. Confirmar que `cardData.botoes` mantém `{ nome, buttonId }` (compatível com `TemplatePreview`).
+- Nenhuma alteração estrutural — só validar com um template real.
+
+### 3) `TemplatePreview.tsx`
+- Sem mudanças. Já lida com `imagemUrl`, `videoUrl`, `rodape`, `botoes`, `textoCabecalho`.
+
+## Validação
+
+Testar com o template já sincronizado (id_pri `1675`):
+1. Reexecutar sync → verificar `whatsapp_templates` populado com `card_data` correto.
+2. Abrir preview em `/pos-vendas/templates` → conferir mídia, body, footer e botões.
+3. Repetir com template `formato: video` e `formato: texto` puro.
+
+## Fora de escopo
+
+- Disparo do template (já usa `components_pri`).
+- Mudanças no bucket / RLS (já público).
+- API externa em si — só estamos definindo o contrato que ela deve cumprir.
