@@ -19,8 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Campos disponíveis para mapeamento de variáveis
-export const availableFields = [
+// Campos disponíveis para mapeamento de variáveis (default = Pri/POSITIONAL)
+export interface AvailableField {
+  value: string;
+  label: string;
+  example: string;
+}
+
+export const availableFields: AvailableField[] = [
   { value: "nome_cliente", label: "Nome do Cliente", example: "João Silva" },
 ];
 
@@ -36,6 +42,10 @@ interface TemplateVariablesEditorProps {
   onVariablesChange: (variables: VariableMapping[]) => void;
   onInsertVariable: () => void;
   maxVariables?: number;
+  /** Campos disponíveis. Default = `availableFields` (Pri / POSITIONAL). */
+  availableFields?: AvailableField[];
+  /** "positional" (Pri, default) ou "named" (Paty). Cosmético no editor; afeta os helpers de payload. */
+  mode?: "positional" | "named";
 }
 
 /**
@@ -48,7 +58,10 @@ export function TemplateVariablesEditor({
   onVariablesChange,
   onInsertVariable,
   maxVariables = 10,
+  availableFields: availableFieldsProp,
+  mode = "positional",
 }: TemplateVariablesEditorProps) {
+  const fields = availableFieldsProp ?? availableFields;
   // Detectar variáveis no texto (formato {{1}}, {{2}}, etc.)
   const detectedVariables = useMemo(() => {
     const regex = /\{\{(\d+)\}\}/g;
@@ -93,7 +106,7 @@ export function TemplateVariablesEditor({
 
   // Atualizar campo mapeado
   const handleFieldChange = (position: number, field: string) => {
-    const fieldInfo = availableFields.find(f => f.value === field);
+    const fieldInfo = fields.find(f => f.value === field);
     const updatedVariables = variables.map((v) =>
       v.position === position 
         ? { ...v, field, example: fieldInfo?.example || "" } 
@@ -207,7 +220,7 @@ export function TemplateVariablesEditor({
                   <SelectValue placeholder="Campo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableFields.map((field) => (
+                  {fields.map((field) => (
                     <SelectItem key={field.value} value={field.value}>
                       {field.label}
                     </SelectItem>
