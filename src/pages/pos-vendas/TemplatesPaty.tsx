@@ -1920,6 +1920,8 @@ export default function TemplatesPaty() {
 
           {/* Editor de variáveis dinâmicas {{1}}, {{2}}, etc. */}
           <TemplateVariablesEditor
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
             text={formData.conteudo}
             variables={variableMappings}
             onVariablesChange={setVariableMappings}
@@ -2216,7 +2218,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
@@ -2355,7 +2359,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
@@ -2535,7 +2541,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
@@ -2719,7 +2727,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
