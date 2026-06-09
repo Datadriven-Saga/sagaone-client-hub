@@ -1490,21 +1490,33 @@ export default function TemplatesPaty() {
       // Validação de HTTP/erro Meta — mesmo padrão do handleSave
       const webhookOk = res?.webhook_ok;
       const webhookStatus = res?.webhook_status;
+      // O proxy externo sempre devolve 200 com o body cru do n8n; quando a Meta
+      // recusa o template, o n8n repassa um objeto { error: { ... } } estilo Graph API.
+      // Detectamos esse erro mesmo sem webhook_ok/webhook_status presentes.
+      const metaErrorObj =
+        (res?.error && typeof res.error === "object" ? res.error : null) ||
+        (res?.data?.error && typeof res.data.error === "object" ? res.data.error : null);
       const httpFailed =
         (typeof webhookOk === "boolean" && !webhookOk) ||
-        (typeof webhookStatus === "number" && webhookStatus !== 200);
+        (typeof webhookStatus === "number" && webhookStatus !== 200) ||
+        !!metaErrorObj;
       if (httpFailed) {
         let errorUserTitle: string | undefined;
         let errorUserMsg: string | undefined;
         let errorMessage: string | undefined;
+        if (metaErrorObj) {
+          errorUserTitle = metaErrorObj.error_user_title;
+          errorUserMsg = metaErrorObj.error_user_msg;
+          errorMessage = metaErrorObj.message;
+        }
         try {
           const raw = res?.raw_response;
           if (raw && typeof raw === "string") {
             const parsed = JSON.parse(raw);
             const err = parsed?.error || parsed?.data?.error || parsed;
-            errorUserTitle = err?.error_user_title;
-            errorUserMsg = err?.error_user_msg;
-            errorMessage = err?.message;
+            errorUserTitle = errorUserTitle || err?.error_user_title;
+            errorUserMsg = errorUserMsg || err?.error_user_msg;
+            errorMessage = errorMessage || err?.message;
           }
         } catch {
           // ignore
@@ -1519,7 +1531,8 @@ export default function TemplatesPaty() {
         const fullMsg = (res?.error_user_title || errorUserTitle)
           ? `${res?.error_user_title || errorUserTitle}: ${metaMsg}`
           : metaMsg;
-        toast.error(`Falha ao sincronizar (HTTP ${webhookStatus ?? "?"}) — ${fullMsg}`, {
+        const statusLabel = webhookStatus ?? metaErrorObj?.code ?? "?";
+        toast.error(`Falha ao sincronizar (HTTP ${statusLabel}) — ${fullMsg}`, {
           duration: 12000,
         });
         return;
