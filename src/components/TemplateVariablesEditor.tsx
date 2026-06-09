@@ -304,3 +304,49 @@ export function buildVariableMappingPayload(
   }
   return mapping;
 }
+
+/**
+ * Substitui `{{N}}` por `{{nome_canonico}}` no texto, com base no mapeamento de variáveis.
+ * Posições sem `field` mapeado são deixadas como `{{N}}` (caller deve validar antes).
+ */
+export function replacePositionalWithNamed(
+  text: string,
+  variables: VariableMapping[]
+): string {
+  if (!text) return text;
+  const byPos = new Map<number, string>();
+  for (const v of variables) {
+    if (v.field) byPos.set(v.position, v.field);
+  }
+  return text.replace(/\{\{(\d+)\}\}/g, (full, n) => {
+    const named = byPos.get(parseInt(n, 10));
+    return named ? `{{${named}}}` : full;
+  });
+}
+
+/**
+ * Constrói `example.body_text_named_params` para a Meta (formato NAMED).
+ * Retorna `undefined` se algum campo/exemplo estiver vazio.
+ */
+export function buildNamedParamsPayload(
+  variables: VariableMapping[]
+): { body_text_named_params: Array<{ param_name: string; example: string }> } | undefined {
+  if (variables.length === 0) return undefined;
+  const sorted = [...variables].sort((a, b) => a.position - b.position);
+  if (sorted.some((v) => !v.field || !v.example.trim())) return undefined;
+  return {
+    body_text_named_params: sorted.map((v) => ({
+      param_name: v.field,
+      example: v.example,
+    })),
+  };
+}
+
+/**
+ * Remove qualquer `{{...}}` de um texto de HEADER e dá trim.
+ * Header não pode ter variável no fluxo NAMED.
+ */
+export function stripHeaderVariables(text: string): string {
+  if (!text) return "";
+  return text.replace(/\s*\{\{.*?\}\}/g, "").trim();
+}
