@@ -50,9 +50,11 @@ import {
 import { TemplatePreview } from "@/components/TemplatePreview";
 import { 
   TemplateVariablesEditor, 
-  buildBodyExamplePayload, 
-  buildVariableMappingPayload,
-  VariableMapping 
+  buildNamedParamsPayload,
+  replacePositionalWithNamed,
+  stripHeaderVariables,
+  VariableMapping,
+  type AvailableField,
 } from "@/components/TemplateVariablesEditor";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,7 +139,20 @@ const formatOptions = [
   },
 ];
 
-// Campos de variáveis agora gerenciados em TemplateVariablesEditor
+// Vocabulário canônico NAMED da Paty.
+// Resolução em runtime é 100% externa (MySaga / Saga Conecta / DataLake).
+const PATY_NAMED_FIELDS: AvailableField[] = [
+  { value: "nome_cliente",        label: "Nome do Cliente",        example: "João Silva" },
+  { value: "data",                label: "Data",                   example: "15/03/2025" },
+  { value: "hora",                label: "Hora",                   example: "14:30" },
+  { value: "modelo_veiculo",      label: "Modelo do Veículo",     example: "HB20 1.0" },
+  { value: "link_agendamento",    label: "Link de Agendamento",   example: "https://saga.com.br/agendar/abc123" },
+  { value: "chassi_veiculo",      label: "Chassi do Veículo",     example: "9BWZZZ377VT004251" },
+  { value: "peca",                label: "Peça",                   example: "Filtro de óleo" },
+  { value: "concessionaria",      label: "Concessionária",         example: "Saga Hyundai Asa Sul" },
+  { value: "endereco_loja",       label: "Endereço da Loja",       example: "SCS Q. 1, Bloco H - Brasília/DF" },
+  { value: "horario_funcionamento", label: "Horário de Funcionamento", example: "Seg a Sex, 8h às 18h" },
+];
 
 export default function TemplatesPaty() {
   const { activeCompany } = useCompany();
@@ -655,19 +670,28 @@ export default function TemplatesPaty() {
   }) => {
     const components: any[] = [];
 
-    // BODY é obrigatório - incluir exemplos se houver variáveis
+    // === NAMED (Paty) ===
+    // BODY: substitui {{N}} por {{nome_canonico}} e monta body_text_named_params.
+    const bodyTextNamed = replacePositionalWithNamed(savedData.conteudo || "", variableMappings);
+    const namedExample = buildNamedParamsPayload(variableMappings);
     const bodyComponent: any = {
       type: "BODY",
-      text: savedData.conteudo || "",
+      text: bodyTextNamed,
     };
-
-    // Adicionar exemplos de variáveis se existirem
-    const examplePayload = buildBodyExamplePayload(variableMappings);
-    if (examplePayload) {
-      bodyComponent.example = examplePayload;
+    if (namedExample) {
+      bodyComponent.example = namedExample;
     }
-
     components.push(bodyComponent);
+
+    // Guard: nº de {{}} no texto final == nº de params nomeados.
+    // Evita Meta 400 / error_subcode 2388043.
+    const placeholdersInBody = (bodyTextNamed.match(/\{\{[^}]+\}\}/g) || []).length;
+    const namedCount = namedExample?.body_text_named_params.length ?? 0;
+    if (placeholdersInBody !== namedCount) {
+      throw new Error(
+        `Variáveis do BODY inconsistentes: o texto tem ${placeholdersInBody} {{...}} mas há ${namedCount} variáveis mapeadas com exemplo. Mapeie todas as variáveis (campo + exemplo) antes de salvar.`
+      );
+    }
 
     // HEADER (opcional) - para formatos com cabeçalho
     if (savedData.formato === "card") {
@@ -695,13 +719,17 @@ export default function TemplatesPaty() {
           media_length: mediaData?.size || null,
         });
       }
-      // Texto do cabeçalho só como header de texto se não houver mídia
+      // Texto do cabeçalho só como header de texto se não houver mídia.
+      // NAMED: remove qualquer {{...}} do header — variáveis no header não são permitidas.
       if (savedData.cardData?.textoCabecalho && !savedData.cardData?.imagemUrl && !savedData.cardData?.videoUrl) {
-        components.push({
-          type: "HEADER",
-          format: "TEXT",
-          text: savedData.cardData.textoCabecalho,
-        });
+        const cleanHeader = stripHeaderVariables(savedData.cardData.textoCabecalho);
+        if (cleanHeader) {
+          components.push({
+            type: "HEADER",
+            format: "TEXT",
+            text: cleanHeader,
+          });
+        }
       }
     } else if (savedData.formato === "imagem" && savedData.cardData?.imagemUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.imagemUrl);
@@ -746,10 +774,29 @@ export default function TemplatesPaty() {
         // Se tem buttonId que parece URL, é URL button, senão QUICK_REPLY
         const isUrl = btn.buttonId && (btn.buttonId.startsWith("http") || btn.buttonId.includes("://"));
         if (isUrl) {
+          // URL dinâmica (com {{...}}): manter a URL com a variável e enviar example com URL completa.
+          const rawUrl: string = btn.buttonId;
+          const hasVar = /\{\{[^}]+\}\}/.test(rawUrl);
+          if (hasVar) {
+            // Tenta extrair o nome da variável da URL e usa o example default do vocabulário, se houver.
+            const m = rawUrl.match(/\{\{([^}]+)\}\}/);
+            const varName = m?.[1]?.trim() || "";
+            const exemploCampo = PATY_NAMED_FIELDS.find((f) => f.value === varName)?.example;
+            // Fallback: URL com o exemplo substituindo o placeholder; senão, URL crua sem o {{...}}.
+            const fullExample = exemploCampo
+              ? rawUrl.replace(/\{\{[^}]+\}\}/, exemploCampo)
+              : rawUrl.replace(/\{\{[^}]+\}\}/g, "exemplo");
+            return {
+              type: "URL",
+              text: btn.nome,
+              url: rawUrl,
+              example: [fullExample],
+            };
+          }
           return {
             type: "URL",
             text: btn.nome,
-            url: btn.buttonId,
+            url: rawUrl,
           };
         }
         return {
@@ -763,18 +810,20 @@ export default function TemplatesPaty() {
       });
     }
 
-    // Verificar se há variáveis no conteúdo (formato {{1}}, {{2}}, etc.)
-    const hasVariables = /\{\{\d+\}\}/.test(savedData.conteudo || "");
+    // Verificar se há variáveis no conteúdo (já em formato NAMED após replace)
+    const hasVariables = /\{\{[^}]+\}\}/.test(bodyTextNamed);
 
     return {
       provider: "meta_whatsapp",
       action: "create_message_template",
       waba_id: "",
       tem_variavel: hasVariables ? "Sim" : "Não",
+      template_named: true, // flag de topo aditiva — Pri NÃO envia este campo
       payload: {
         name: formatNameForMeta(savedData.nome),
         language: "pt_BR",
         category: mapCategoriaToMeta(savedData.categoria),
+        parameter_format: "NAMED",
         components,
       },
     };
@@ -829,10 +878,11 @@ export default function TemplatesPaty() {
       // Construir payload Meta-compatível (async para buscar binários de mídia)
       const metaPayload = await buildMetaPayload(templateData);
 
-      // Construir mapeamento de variáveis para resolução no disparo
-      const varMapping = templateData.variableMappings 
-        ? buildVariableMappingPayload(templateData.variableMappings)
-        : {};
+      // NAMED (Paty): enviar a lista de nomes canônicos como metadado.
+      // Resolução é externa (lê {{nome}} do próprio template).
+      const varMapping = templateData.variableMappings
+        ? { named: templateData.variableMappings.filter((v) => v.field).map((v) => v.field) }
+        : { named: [] };
 
       // Adicionar dados do agente selecionado ao payload
       const payloadWithAgente = {
@@ -1019,9 +1069,10 @@ export default function TemplatesPaty() {
         ? normalizePhone(agenteSelecionado.telefone) 
         : priTelefone;
 
-      // Construir mapeamento de variáveis para salvar no banco
-      const varMappingForDB = variableMappings.length > 0 
-        ? buildVariableMappingPayload(variableMappings) 
+      // NAMED (Paty): gravar a lista de nomes canônicos usados como metadado/auditoria.
+      // O dispatcher externo NÃO depende disso — lê {{nome}} direto do template Meta.
+      const varMappingForDB = variableMappings.length > 0
+        ? { named: variableMappings.filter((v) => v.field).map((v) => v.field) }
         : null;
 
       const templateData = {
@@ -1867,6 +1918,8 @@ export default function TemplatesPaty() {
 
           {/* Editor de variáveis dinâmicas {{1}}, {{2}}, etc. */}
           <TemplateVariablesEditor
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
             text={formData.conteudo}
             variables={variableMappings}
             onVariablesChange={setVariableMappings}
@@ -2163,7 +2216,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
@@ -2302,7 +2357,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
@@ -2482,7 +2539,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {
@@ -2666,7 +2725,9 @@ export default function TemplatesPaty() {
 
             {/* Editor de variáveis dinâmicas */}
             <TemplateVariablesEditor
-              text={formData.cardData.corpoTexto}
+            mode="named"
+            availableFields={PATY_NAMED_FIELDS}
+            text={formData.cardData.corpoTexto}
               variables={variableMappings}
               onVariablesChange={setVariableMappings}
               onInsertVariable={() => {

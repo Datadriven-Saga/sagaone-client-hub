@@ -19,8 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Campos disponíveis para mapeamento de variáveis
-export const availableFields = [
+// Campos disponíveis para mapeamento de variáveis (default = Pri/POSITIONAL)
+export interface AvailableField {
+  value: string;
+  label: string;
+  example: string;
+}
+
+export const availableFields: AvailableField[] = [
   { value: "nome_cliente", label: "Nome do Cliente", example: "João Silva" },
 ];
 
@@ -36,6 +42,10 @@ interface TemplateVariablesEditorProps {
   onVariablesChange: (variables: VariableMapping[]) => void;
   onInsertVariable: () => void;
   maxVariables?: number;
+  /** Campos disponíveis. Default = `availableFields` (Pri / POSITIONAL). */
+  availableFields?: AvailableField[];
+  /** "positional" (Pri, default) ou "named" (Paty). Cosmético no editor; afeta os helpers de payload. */
+  mode?: "positional" | "named";
 }
 
 /**
@@ -48,7 +58,10 @@ export function TemplateVariablesEditor({
   onVariablesChange,
   onInsertVariable,
   maxVariables = 10,
+  availableFields: availableFieldsProp,
+  mode = "positional",
 }: TemplateVariablesEditorProps) {
+  const fields = availableFieldsProp ?? availableFields;
   // Detectar variáveis no texto (formato {{1}}, {{2}}, etc.)
   const detectedVariables = useMemo(() => {
     const regex = /\{\{(\d+)\}\}/g;
@@ -93,7 +106,7 @@ export function TemplateVariablesEditor({
 
   // Atualizar campo mapeado
   const handleFieldChange = (position: number, field: string) => {
-    const fieldInfo = availableFields.find(f => f.value === field);
+    const fieldInfo = fields.find(f => f.value === field);
     const updatedVariables = variables.map((v) =>
       v.position === position 
         ? { ...v, field, example: fieldInfo?.example || "" } 
@@ -207,7 +220,7 @@ export function TemplateVariablesEditor({
                   <SelectValue placeholder="Campo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableFields.map((field) => (
+                  {fields.map((field) => (
                     <SelectItem key={field.value} value={field.value}>
                       {field.label}
                     </SelectItem>
@@ -290,4 +303,50 @@ export function buildVariableMappingPayload(
     }
   }
   return mapping;
+}
+
+/**
+ * Substitui `{{N}}` por `{{nome_canonico}}` no texto, com base no mapeamento de variáveis.
+ * Posições sem `field` mapeado são deixadas como `{{N}}` (caller deve validar antes).
+ */
+export function replacePositionalWithNamed(
+  text: string,
+  variables: VariableMapping[]
+): string {
+  if (!text) return text;
+  const byPos = new Map<number, string>();
+  for (const v of variables) {
+    if (v.field) byPos.set(v.position, v.field);
+  }
+  return text.replace(/\{\{(\d+)\}\}/g, (full, n) => {
+    const named = byPos.get(parseInt(n, 10));
+    return named ? `{{${named}}}` : full;
+  });
+}
+
+/**
+ * Constrói `example.body_text_named_params` para a Meta (formato NAMED).
+ * Retorna `undefined` se algum campo/exemplo estiver vazio.
+ */
+export function buildNamedParamsPayload(
+  variables: VariableMapping[]
+): { body_text_named_params: Array<{ param_name: string; example: string }> } | undefined {
+  if (variables.length === 0) return undefined;
+  const sorted = [...variables].sort((a, b) => a.position - b.position);
+  if (sorted.some((v) => !v.field || !v.example.trim())) return undefined;
+  return {
+    body_text_named_params: sorted.map((v) => ({
+      param_name: v.field,
+      example: v.example,
+    })),
+  };
+}
+
+/**
+ * Remove qualquer `{{...}}` de um texto de HEADER e dá trim.
+ * Header não pode ter variável no fluxo NAMED.
+ */
+export function stripHeaderVariables(text: string): string {
+  if (!text) return "";
+  return text.replace(/\s*\{\{.*?\}\}/g, "").trim();
 }
