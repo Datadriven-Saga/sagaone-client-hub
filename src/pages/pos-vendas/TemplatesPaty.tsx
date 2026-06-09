@@ -672,19 +672,28 @@ export default function TemplatesPaty() {
   }) => {
     const components: any[] = [];
 
-    // BODY é obrigatório - incluir exemplos se houver variáveis
+    // === NAMED (Paty) ===
+    // BODY: substitui {{N}} por {{nome_canonico}} e monta body_text_named_params.
+    const bodyTextNamed = replacePositionalWithNamed(savedData.conteudo || "", variableMappings);
+    const namedExample = buildNamedParamsPayload(variableMappings);
     const bodyComponent: any = {
       type: "BODY",
-      text: savedData.conteudo || "",
+      text: bodyTextNamed,
     };
-
-    // Adicionar exemplos de variáveis se existirem
-    const examplePayload = buildBodyExamplePayload(variableMappings);
-    if (examplePayload) {
-      bodyComponent.example = examplePayload;
+    if (namedExample) {
+      bodyComponent.example = namedExample;
     }
-
     components.push(bodyComponent);
+
+    // Guard: nº de {{}} no texto final == nº de params nomeados.
+    // Evita Meta 400 / error_subcode 2388043.
+    const placeholdersInBody = (bodyTextNamed.match(/\{\{[^}]+\}\}/g) || []).length;
+    const namedCount = namedExample?.body_text_named_params.length ?? 0;
+    if (placeholdersInBody !== namedCount) {
+      throw new Error(
+        `Variáveis do BODY inconsistentes: o texto tem ${placeholdersInBody} {{...}} mas há ${namedCount} variáveis mapeadas com exemplo. Mapeie todas as variáveis (campo + exemplo) antes de salvar.`
+      );
+    }
 
     // HEADER (opcional) - para formatos com cabeçalho
     if (savedData.formato === "card") {
@@ -712,13 +721,17 @@ export default function TemplatesPaty() {
           media_length: mediaData?.size || null,
         });
       }
-      // Texto do cabeçalho só como header de texto se não houver mídia
+      // Texto do cabeçalho só como header de texto se não houver mídia.
+      // NAMED: remove qualquer {{...}} do header — variáveis no header não são permitidas.
       if (savedData.cardData?.textoCabecalho && !savedData.cardData?.imagemUrl && !savedData.cardData?.videoUrl) {
-        components.push({
-          type: "HEADER",
-          format: "TEXT",
-          text: savedData.cardData.textoCabecalho,
-        });
+        const cleanHeader = stripHeaderVariables(savedData.cardData.textoCabecalho);
+        if (cleanHeader) {
+          components.push({
+            type: "HEADER",
+            format: "TEXT",
+            text: cleanHeader,
+          });
+        }
       }
     } else if (savedData.formato === "imagem" && savedData.cardData?.imagemUrl) {
       const mediaData = await fetchMediaAsBase64(savedData.cardData.imagemUrl);
@@ -763,10 +776,29 @@ export default function TemplatesPaty() {
         // Se tem buttonId que parece URL, é URL button, senão QUICK_REPLY
         const isUrl = btn.buttonId && (btn.buttonId.startsWith("http") || btn.buttonId.includes("://"));
         if (isUrl) {
+          // URL dinâmica (com {{...}}): manter a URL com a variável e enviar example com URL completa.
+          const rawUrl: string = btn.buttonId;
+          const hasVar = /\{\{[^}]+\}\}/.test(rawUrl);
+          if (hasVar) {
+            // Tenta extrair o nome da variável da URL e usa o example default do vocabulário, se houver.
+            const m = rawUrl.match(/\{\{([^}]+)\}\}/);
+            const varName = m?.[1]?.trim() || "";
+            const exemploCampo = PATY_NAMED_FIELDS.find((f) => f.value === varName)?.example;
+            // Fallback: URL com o exemplo substituindo o placeholder; senão, URL crua sem o {{...}}.
+            const fullExample = exemploCampo
+              ? rawUrl.replace(/\{\{[^}]+\}\}/, exemploCampo)
+              : rawUrl.replace(/\{\{[^}]+\}\}/g, "exemplo");
+            return {
+              type: "URL",
+              text: btn.nome,
+              url: rawUrl,
+              example: [fullExample],
+            };
+          }
           return {
             type: "URL",
             text: btn.nome,
-            url: btn.buttonId,
+            url: rawUrl,
           };
         }
         return {
@@ -780,18 +812,20 @@ export default function TemplatesPaty() {
       });
     }
 
-    // Verificar se há variáveis no conteúdo (formato {{1}}, {{2}}, etc.)
-    const hasVariables = /\{\{\d+\}\}/.test(savedData.conteudo || "");
+    // Verificar se há variáveis no conteúdo (já em formato NAMED após replace)
+    const hasVariables = /\{\{[^}]+\}\}/.test(bodyTextNamed);
 
     return {
       provider: "meta_whatsapp",
       action: "create_message_template",
       waba_id: "",
       tem_variavel: hasVariables ? "Sim" : "Não",
+      template_named: true, // flag de topo aditiva — Pri NÃO envia este campo
       payload: {
         name: formatNameForMeta(savedData.nome),
         language: "pt_BR",
         category: mapCategoriaToMeta(savedData.categoria),
+        parameter_format: "NAMED",
         components,
       },
     };
