@@ -52,7 +52,11 @@ import {
   TemplateVariablesEditor, 
   buildBodyExamplePayload, 
   buildVariableMappingPayload,
-  VariableMapping 
+  buildNamedParamsPayload,
+  replacePositionalWithNamed,
+  stripHeaderVariables,
+  VariableMapping,
+  type AvailableField,
 } from "@/components/TemplateVariablesEditor";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,7 +141,20 @@ const formatOptions = [
   },
 ];
 
-// Campos de variáveis agora gerenciados em TemplateVariablesEditor
+// Vocabulário canônico NAMED da Paty.
+// Resolução em runtime é 100% externa (MySaga / Saga Conecta / DataLake).
+const PATY_NAMED_FIELDS: AvailableField[] = [
+  { value: "nome_cliente",        label: "Nome do Cliente",        example: "João Silva" },
+  { value: "data",                label: "Data",                   example: "15/03/2025" },
+  { value: "hora",                label: "Hora",                   example: "14:30" },
+  { value: "modelo_veiculo",      label: "Modelo do Veículo",     example: "HB20 1.0" },
+  { value: "link_agendamento",    label: "Link de Agendamento",   example: "https://saga.com.br/agendar/abc123" },
+  { value: "chassi_veiculo",      label: "Chassi do Veículo",     example: "9BWZZZ377VT004251" },
+  { value: "peca",                label: "Peça",                   example: "Filtro de óleo" },
+  { value: "concessionaria",      label: "Concessionária",         example: "Saga Hyundai Asa Sul" },
+  { value: "endereco_loja",       label: "Endereço da Loja",       example: "SCS Q. 1, Bloco H - Brasília/DF" },
+  { value: "horario_funcionamento", label: "Horário de Funcionamento", example: "Seg a Sex, 8h às 18h" },
+];
 
 export default function TemplatesPaty() {
   const { activeCompany } = useCompany();
