@@ -50,8 +50,6 @@ import {
 import { TemplatePreview } from "@/components/TemplatePreview";
 import { 
   TemplateVariablesEditor, 
-  buildBodyExamplePayload, 
-  buildVariableMappingPayload,
   buildNamedParamsPayload,
   replacePositionalWithNamed,
   stripHeaderVariables,
