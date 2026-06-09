@@ -1070,9 +1070,10 @@ export default function TemplatesPaty() {
         ? normalizePhone(agenteSelecionado.telefone) 
         : priTelefone;
 
-      // Construir mapeamento de variáveis para salvar no banco
-      const varMappingForDB = variableMappings.length > 0 
-        ? buildVariableMappingPayload(variableMappings) 
+      // NAMED (Paty): gravar a lista de nomes canônicos usados como metadado/auditoria.
+      // O dispatcher externo NÃO depende disso — lê {{nome}} direto do template Meta.
+      const varMappingForDB = variableMappings.length > 0
+        ? { named: variableMappings.filter((v) => v.field).map((v) => v.field) }
         : null;
 
       const templateData = {
