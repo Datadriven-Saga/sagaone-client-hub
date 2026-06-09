@@ -880,10 +880,11 @@ export default function TemplatesPaty() {
       // Construir payload Meta-compatível (async para buscar binários de mídia)
       const metaPayload = await buildMetaPayload(templateData);
 
-      // Construir mapeamento de variáveis para resolução no disparo
-      const varMapping = templateData.variableMappings 
-        ? buildVariableMappingPayload(templateData.variableMappings)
-        : {};
+      // NAMED (Paty): enviar a lista de nomes canônicos como metadado.
+      // Resolução é externa (lê {{nome}} do próprio template).
+      const varMapping = templateData.variableMappings
+        ? { named: templateData.variableMappings.filter((v) => v.field).map((v) => v.field) }
+        : { named: [] };
 
       // Adicionar dados do agente selecionado ao payload
       const payloadWithAgente = {
