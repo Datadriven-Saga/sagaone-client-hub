@@ -92,6 +92,21 @@ const algoritmosPosVendasItems = [
   { title: "Eventos Pós-Vendas", url: "/algoritmos/pos-vendas/eventos", icon: PackageOpen },
 ];
 
+const posVendasPecasItems = [
+  { title: "Gatilhos", url: "/pos-vendas/pecas/gatilhos", icon: MessageSquareText },
+  { title: "Lojas", url: "/pos-vendas/pecas/lojas", icon: PackageOpen },
+];
+
+const posVendasEntregasItems = [
+  { title: "Gatilhos Saga Conecta", url: "/pos-vendas/entregas/gatilhos", icon: MessageSquareText },
+  { title: "Lojas Saga Conecta", url: "/pos-vendas/entregas/lojas", icon: PackageOpen },
+];
+
+const posVendasPatyItems = [
+  { title: "Templates", url: "/pos-vendas/paty/templates", icon: MessageSquareText },
+  { title: "Cadência Conversacional", url: "/pos-vendas/paty/cadencia", icon: MessageSquare },
+];
+
 // Items apenas para Administrador
 const afterProspeccaoItemsAdmin = [
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
@@ -128,6 +143,10 @@ export function AppSidebar() {
   const [isAlgCompraOpen, setIsAlgCompraOpen] = useState(currentPath.startsWith('/algoritmos/compra'));
   const [isAlgVendaOpen, setIsAlgVendaOpen] = useState(currentPath.startsWith('/algoritmos/venda'));
   const [isAlgPosVendasOpen, setIsAlgPosVendasOpen] = useState(currentPath.startsWith('/algoritmos/pos-vendas'));
+  const [isPosVendasOpen, setIsPosVendasOpen] = useState(currentPath.startsWith('/pos-vendas'));
+  const [isPosPecasOpen, setIsPosPecasOpen] = useState(currentPath.startsWith('/pos-vendas/pecas'));
+  const [isPosEntregasOpen, setIsPosEntregasOpen] = useState(currentPath.startsWith('/pos-vendas/entregas'));
+  const [isPosPatyOpen, setIsPosPatyOpen] = useState(currentPath.startsWith('/pos-vendas/paty'));
   const [isEntraDadosOpen, setIsEntraDadosOpen] = useState(
     currentPath.startsWith('/de-para') || currentPath.startsWith('/entra-dados')
   );
