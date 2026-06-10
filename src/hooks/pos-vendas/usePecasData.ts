@@ -78,7 +78,7 @@ export function usePatyPecasLojas() {
   const [lojas, setLojas] = useState<PecasLoja[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { throwOnError?: boolean }) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
@@ -99,6 +99,7 @@ export function usePatyPecasLojas() {
     } catch (e) {
       console.error("[usePatyPecasLojas] reload error:", e);
       setLojas([]);
+      if (opts?.throwOnError) throw e;
     } finally {
       setLoading(false);
     }
