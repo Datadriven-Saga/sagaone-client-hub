@@ -106,7 +106,11 @@ export function PecasLojasSection() {
             <SelectContent>
               <SelectItem value="all">Todos agentes</SelectItem>
               {agentes.filter(a => a.telefone).map(a => (
-                <SelectItem key={a.id} value={a.telefone!}>{a.nome}</SelectItem>
+                <SelectItem key={a.id} value={a.telefone!}>
+                  {a.nome}
+                  {(a.marca || a.uf) ? ` · ${[a.marca, a.uf].filter(Boolean).join(" / ")}` : ""}
+                  {a.telefone ? ` · ${a.telefone}` : ""}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -212,7 +216,11 @@ export function PecasLojasSection() {
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {agentes.filter(a => a.telefone).map(a => (
-                      <SelectItem key={a.id} value={a.telefone!}>{a.nome}</SelectItem>
+                      <SelectItem key={a.id} value={a.telefone!}>
+                        {a.nome}
+                        {(a.marca || a.uf) ? ` · ${[a.marca, a.uf].filter(Boolean).join(" / ")}` : ""}
+                        {a.telefone ? ` · ${a.telefone}` : ""}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
