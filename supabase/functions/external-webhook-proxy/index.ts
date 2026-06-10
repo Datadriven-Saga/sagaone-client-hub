@@ -39,7 +39,7 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'busca-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-template', method: 'POST' },
   'upsert-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-template', method: 'POST' },
   'desativa-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-paty-pecas-template', method: 'POST' },
-  'busca-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-prazo', method: 'POST' },
+  'busca-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-prazo', method: 'GET' },
   'upsert-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-prazo', method: 'POST' },
 };
 
