@@ -79,7 +79,14 @@ export function PecasLojasSection() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={reload} disabled={loading}>
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                await reload();
+                toast({ title: "Dados atualizados" });
+              } catch (e: any) {
+                toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
+              }
+            }} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
               Atualizar
             </Button>
