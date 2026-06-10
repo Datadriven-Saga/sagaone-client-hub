@@ -356,25 +356,43 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* Pós-Vendas */}
+              {/* Pós-Vendas — dropdown agrupado */}
               {canSeePosVendas && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to="/pos-vendas"
-                      onClick={closeMobileSidebar}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                        }`
-                      }
-                    >
-                      <PackageCheck className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && <span className="font-medium">Pós-Vendas</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
+                  <Collapsible open={isPosVendasOpen} onOpenChange={setIsPosVendasOpen}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full justify-between hover:scale-105 hover:opacity-80 text-sidebar-foreground">
+                        <div className="flex items-center gap-3">
+                          <PackageCheck className="h-5 w-5 flex-shrink-0" />
+                          {!isCollapsed && <span className="font-medium">Pós-Vendas</span>}
+                        </div>
+                        {!isCollapsed && (isPosVendasOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    {!isCollapsed && (
+                      <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                        {renderAlgGroup("Peças", PackageOpen, isPosPecasOpen, setIsPosPecasOpen, posVendasPecasItems)}
+                        {renderAlgGroup("Entregas", PackageCheck, isPosEntregasOpen, setIsPosEntregasOpen, posVendasEntregasItems)}
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to="/pos-vendas/agendamentos"
+                            onClick={closeMobileSidebar}
+                            className={({ isActive }) =>
+                              `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
+                                isActive
+                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                  : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
+                              }`
+                            }
+                          >
+                            <Calendar className="h-4 w-4 flex-shrink-0" />
+                            <span>Agendamentos</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                        {renderAlgGroup("Paty Geral", Bot, isPosPatyOpen, setIsPosPatyOpen, posVendasPatyItems)}
+                      </CollapsibleContent>
+                    )}
+                  </Collapsible>
                 </SidebarMenuItem>
               )}
 
