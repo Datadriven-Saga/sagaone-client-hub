@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -31,7 +32,13 @@ const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const MinhaConta = lazy(() => import("./pages/MinhaConta"));
 const Ajuda = lazy(() => import("./pages/Ajuda"));
 const AgentesIA = lazy(() => import("./pages/AgentesIA"));
-const PosVendas = lazy(() => import("./pages/pos-vendas/PosVendas"));
+const PecasGatilhos = lazy(() => import("./pages/pos-vendas/PecasGatilhos"));
+const PecasLojas = lazy(() => import("./pages/pos-vendas/PecasLojas"));
+const EntregasGatilhos = lazy(() => import("./pages/pos-vendas/EntregasGatilhos"));
+const EntregasLojas = lazy(() => import("./pages/pos-vendas/EntregasLojas"));
+const PosVendasAgendamentos = lazy(() => import("./pages/pos-vendas/Agendamentos"));
+const PatyTemplates = lazy(() => import("./pages/pos-vendas/PatyTemplates"));
+const PatyCadencia = lazy(() => import("./pages/pos-vendas/PatyCadencia"));
 const DePara = lazy(() => import("./pages/DePara"));
 const EntraDados = lazy(() => import("./pages/EntraDados"));
 const AlgoritmoEmConstrucao = lazy(() => import("./pages/algoritmos/EmConstrucao"));
@@ -116,8 +123,21 @@ const AppRoutes = () => {
         <Route path="/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessGatilhos"><Gatilhos /></PermissionProtectedRoute>} />
 
         {/* Pós-Vendas (Paty) */}
-        <Route path="/pos-vendas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
-        <Route path="/pos-vendas/:tab" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendas /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas" element={<Navigate to="/pos-vendas/pecas/gatilhos" replace />} />
+        <Route path="/pos-vendas/pecas" element={<Navigate to="/pos-vendas/pecas/gatilhos" replace />} />
+        <Route path="/pos-vendas/entregas" element={<Navigate to="/pos-vendas/entregas/gatilhos" replace />} />
+        <Route path="/pos-vendas/paty" element={<Navigate to="/pos-vendas/paty/templates" replace />} />
+        <Route path="/pos-vendas/pecas/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PecasGatilhos /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/pecas/lojas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PecasLojas /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/entregas/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><EntregasGatilhos /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/entregas/lojas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><EntregasLojas /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/agendamentos" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendasAgendamentos /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/paty/templates" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PatyTemplates /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/paty/cadencia" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PatyCadencia /></PermissionProtectedRoute>} />
+        {/* Compat: rotas antigas /pos-vendas/:tab */}
+        <Route path="/pos-vendas/templates" element={<Navigate to="/pos-vendas/paty/templates" replace />} />
+        <Route path="/pos-vendas/conversacional" element={<Navigate to="/pos-vendas/paty/cadencia" replace />} />
+        <Route path="/pos-vendas/lojas" element={<Navigate to="/pos-vendas/entregas/lojas" replace />} />
         <Route path="/de-para" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><DePara /></PermissionProtectedRoute>} />
         <Route path="/entra-dados" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><EntraDados /></PermissionProtectedRoute>} />
 
