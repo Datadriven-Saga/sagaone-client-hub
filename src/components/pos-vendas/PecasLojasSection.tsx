@@ -81,7 +81,7 @@ export function PecasLojasSection() {
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={async () => {
               try {
-                await reload();
+                await reload({ throwOnError: true });
                 toast({ title: "Dados atualizados" });
               } catch (e: any) {
                 toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
