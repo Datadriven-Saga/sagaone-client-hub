@@ -36,6 +36,11 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'busca-paty-cadencia-steps': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-cadencia-steps', method: 'POST' },
   'upsert-paty-cadencia-steps': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-cadencia-steps', method: 'POST' },
   'delete-paty-cadencia-step': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/delete-paty-cadencia-step', method: 'POST' },
+  'busca-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-template', method: 'POST' },
+  'upsert-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-template', method: 'POST' },
+  'desativa-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-paty-pecas-template', method: 'POST' },
+  'busca-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-prazo', method: 'POST' },
+  'upsert-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-prazo', method: 'POST' },
 };
 
 // Domínios permitidos para webhook genérico (passthrough)
