@@ -1552,26 +1552,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         sendCrmEventEmail(data.id).then(result => {
           if (result.success && result.enviados > 0) {
             toast({
-              title: "📧 Email CRM enviado",
+              title: "Notificação CRM enviada",
               description: `Notificação enviada para ${result.enviados} destinatário(s) CRM.`,
             });
           } else if (result.success && result.total_destinatarios === 0) {
             toast({
-              title: "⚠️ Nenhum CRM encontrado",
+              title: "Sem destinatários CRM",
               description: "Nenhum usuário CRM vinculado a esta loja para receber a notificação.",
-              variant: "destructive",
             });
           } else if (!result.success) {
+            console.warn('[send-crm-event-email] falha:', result.error);
             toast({
-              title: "❌ Falha no envio de email CRM",
-              description: result.error || "Erro ao enviar notificação por email.",
-              variant: "destructive",
+              title: "Notificação CRM não enviada",
+              description: "A notificação por email não pôde ser processada agora.",
             });
           } else if (result.erros > 0) {
             toast({
-              title: "⚠️ Envio parcial de email CRM",
-              description: `${result.enviados} enviado(s), ${result.erros} falha(s) de ${result.total_destinatarios} destinatário(s).`,
-              variant: "destructive",
+              title: "Notificação CRM processada",
+              description: `${result.enviados} enviado(s), ${result.erros} não entregue(s) de ${result.total_destinatarios}.`,
             });
           }
         });
