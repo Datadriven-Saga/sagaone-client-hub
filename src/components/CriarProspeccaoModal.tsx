@@ -1482,26 +1482,28 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-        // Chamar webhook após atualização (apenas IA Whatsapp)
+        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
         let editEventIdPri: string | null = data.event_id_pri || null;
         if (tipoEvento === 'IA Whatsapp') {
-          const priConfigResult = await callWebhook(data);
-          if (priConfigResult) editEventIdPri = priConfigResult;
-        }
-        
-        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
-        if (tipoEvento === 'IA Whatsapp') {
           const gatilhoResult = await triggerNovoEventoCriadoWebhooks(data, true);
-          if (gatilhoResult) editEventIdPri = gatilhoResult;
+          if (gatilhoResult.rejectionMessage && !gatilhoResult.eventIdPri && !editEventIdPri) {
+            // Webhook recusou o evento (ex.: descrição inadequada). Mostrar mensagem amigável e abortar.
+            toast({
+              title: "Não foi possível atualizar o evento",
+              description: gatilhoResult.rejectionMessage,
+              duration: 12000,
+            });
+            return;
+          }
+          if (gatilhoResult.eventIdPri) editEventIdPri = gatilhoResult.eventIdPri;
         }
-        
+
         // Para IA WhatsApp na edição: garantir que event_id_pri existe
         if (tipoEvento === 'IA Whatsapp' && !editEventIdPri) {
           console.warn('⚠️ Evento IA WhatsApp editado sem event_id_pri - salvando mas alertando usuário');
           toast({
-            title: "⚠️ Atenção: event_id_pri ausente",
+            title: "Atenção: identificador externo ausente",
             description: "O evento foi atualizado mas o identificador event_id_pri não está configurado. Algumas funcionalidades podem não funcionar corretamente.",
-            variant: "destructive",
           });
         } else if (tipoEvento === 'IA Whatsapp' && editEventIdPri && !data.event_id_pri) {
           // Se obteve o event_id_pri agora mas não tinha antes, salvar
@@ -1550,26 +1552,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         sendCrmEventEmail(data.id).then(result => {
           if (result.success && result.enviados > 0) {
             toast({
-              title: "📧 Email CRM enviado",
+              title: "Notificação CRM enviada",
               description: `Notificação enviada para ${result.enviados} destinatário(s) CRM.`,
             });
           } else if (result.success && result.total_destinatarios === 0) {
             toast({
-              title: "⚠️ Nenhum CRM encontrado",
+              title: "Sem destinatários CRM",
               description: "Nenhum usuário CRM vinculado a esta loja para receber a notificação.",
-              variant: "destructive",
             });
           } else if (!result.success) {
+            console.warn('[send-crm-event-email] falha:', result.error);
             toast({
-              title: "❌ Falha no envio de email CRM",
-              description: result.error || "Erro ao enviar notificação por email.",
-              variant: "destructive",
+              title: "Notificação CRM não enviada",
+              description: "A notificação por email não pôde ser processada agora.",
             });
           } else if (result.erros > 0) {
             toast({
-              title: "⚠️ Envio parcial de email CRM",
-              description: `${result.enviados} enviado(s), ${result.erros} falha(s) de ${result.total_destinatarios} destinatário(s).`,
-              variant: "destructive",
+              title: "Notificação CRM processada",
+              description: `${result.enviados} enviado(s), ${result.erros} não entregue(s) de ${result.total_destinatarios}.`,
             });
           }
         });
@@ -1609,49 +1609,41 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-        // Chamar webhook após criação (apenas IA Whatsapp)
-        let eventIdPriFromWebhook: string | null = null;
+        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp) — única fonte de event_id_pri
         if (tipoEvento === 'IA Whatsapp') {
-          eventIdPriFromWebhook = await callWebhook(data);
-        }
-        
-        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
-        let eventIdPriFromGatilhos: string | null = null;
-        if (tipoEvento === 'IA Whatsapp') {
-          eventIdPriFromGatilhos = await triggerNovoEventoCriadoWebhooks(data, false);
-        }
-        
-        // Para IA WhatsApp: consolidar event_id_pri obtido de qualquer fonte
-        if (tipoEvento === 'IA Whatsapp') {
-          const finalEventIdPri = eventIdPriFromWebhook || eventIdPriFromGatilhos;
-          
-          // Se obteve o event_id_pri do callWebhook mas não foi salvo ainda, salvar agora
-          if (eventIdPriFromWebhook && !eventIdPriFromGatilhos) {
-            await supabase
-              .from('prospeccoes')
-              .update({ event_id_pri: eventIdPriFromWebhook })
-              .eq('id', data.id);
-            console.log(`✅ event_id_pri "${eventIdPriFromWebhook}" salvo via pri-config`);
-          }
-          
-          // VALIDAÇÃO OBRIGATÓRIA: event_id_pri é mandatório para IA WhatsApp
-          if (!finalEventIdPri) {
-            console.error('❌ event_id_pri não retornado para IA WhatsApp - revertendo evento');
-            
-            // Reverter criação local
+          const gatilhoResult = await triggerNovoEventoCriadoWebhooks(data, false);
+
+          // Se o webhook recusou o evento (ex.: descrição inadequada), reverter e mostrar mensagem amigável
+          if (gatilhoResult.rejectionMessage && !gatilhoResult.eventIdPri) {
             const { error: rollbackError } = await supabase
               .from('prospeccoes')
               .delete()
               .eq('id', data.id);
-
             if (rollbackError) {
               console.error('❌ Falha ao reverter prospecção local:', rollbackError);
             }
+            toast({
+              title: "Não foi possível criar o evento",
+              description: gatilhoResult.rejectionMessage,
+              duration: 12000,
+            });
+            return;
+          }
 
+          // VALIDAÇÃO OBRIGATÓRIA: event_id_pri é mandatório para IA WhatsApp
+          if (!gatilhoResult.eventIdPri) {
+            console.error('❌ event_id_pri não retornado para IA WhatsApp - revertendo evento');
+            const { error: rollbackError } = await supabase
+              .from('prospeccoes')
+              .delete()
+              .eq('id', data.id);
+            if (rollbackError) {
+              console.error('❌ Falha ao reverter prospecção local:', rollbackError);
+            }
             throw new Error('Não foi possível criar o evento de IA WhatsApp, pois o identificador event_id_pri não foi retornado. Esse dado é obrigatório para o funcionamento do evento. Tente novamente.');
           }
-          
-          console.log(`✅ Evento IA WhatsApp criado com event_id_pri: ${finalEventIdPri}`);
+
+          console.log(`✅ Evento IA WhatsApp criado com event_id_pri: ${gatilhoResult.eventIdPri}`);
         }
         
         // Salvar dados relacionados baseado no tipo
@@ -1704,26 +1696,24 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
         sendCrmEventEmail(data.id).then(result => {
           if (result.success && result.enviados > 0) {
             toast({
-              title: "📧 Email CRM enviado",
+              title: "Notificação CRM enviada",
               description: `Notificação enviada para ${result.enviados} destinatário(s) CRM.`,
             });
           } else if (result.success && result.total_destinatarios === 0) {
             toast({
-              title: "⚠️ Nenhum CRM encontrado",
+              title: "Sem destinatários CRM",
               description: "Nenhum usuário CRM vinculado a esta loja para receber a notificação.",
-              variant: "destructive",
             });
           } else if (!result.success) {
+            console.warn('[send-crm-event-email] falha:', result.error);
             toast({
-              title: "❌ Falha no envio de email CRM",
-              description: result.error || "Erro ao enviar notificação por email.",
-              variant: "destructive",
+              title: "Notificação CRM não enviada",
+              description: "A notificação por email não pôde ser processada agora.",
             });
           } else if (result.erros > 0) {
             toast({
-              title: "⚠️ Envio parcial de email CRM",
-              description: `${result.enviados} enviado(s), ${result.erros} falha(s) de ${result.total_destinatarios} destinatário(s).`,
-              variant: "destructive",
+              title: "Notificação CRM processada",
+              description: `${result.enviados} enviado(s), ${result.erros} não entregue(s) de ${result.total_destinatarios}.`,
             });
           }
         });
@@ -1744,115 +1734,6 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     } finally {
       setLoading(false);
       setLoadingMessage("");
-    }
-  };
-
-  const callWebhook = async (prospeccaoData: any): Promise<string | null> => {
-    try {
-      // Buscar dados da empresa para pegar o crm_id e telefone da Pri
-      const { data: empresaData } = await supabase
-        .from('empresas')
-        .select('crm_id')
-        .eq('id', activeCompany?.id)
-        .single();
-
-      // Buscar telefone do agente IA WhatsApp da empresa
-      const { data: agenteData } = await supabase
-        .from('agentes_ia')
-        .select('telefone')
-        .eq('empresa_id', activeCompany?.id)
-        .ilike('nome', '%whatsapp%')
-        .eq('ativo', true)
-        .limit(1)
-        .single();
-
-      // Formatar telefone: remover +55 e o 9 adicional, deixar apenas DD + número
-      const formatarTelefone = (telefone: string) => {
-        if (!telefone) return "";
-        // Remove todos os caracteres não numéricos
-        const numeros = telefone.replace(/\D/g, '');
-        // Remove o código do país (55) se existir
-        let telefoneFormatado = numeros.startsWith('55') ? numeros.substring(2) : numeros;
-        // Se tiver 11 dígitos (DD + 9 + 8 dígitos), remove o 9
-        if (telefoneFormatado.length === 11) {
-          telefoneFormatado = telefoneFormatado.substring(0, 2) + telefoneFormatado.substring(3);
-        }
-        return telefoneFormatado;
-      };
-
-      // Formatar data para ISO 8601
-      const formatarDataISO = (data: string) => {
-        if (!data) return "";
-        // Converte YYYY-MM-DD para ISO 8601
-        return new Date(data + 'T11:00:00.000Z').toISOString();
-      };
-
-      // Buscar IDs dos templates selecionados (por UUID)
-      const templateDescobertaData = whatsappTemplates.find(t => t.id === prospeccaoData.template_prospeccao_id);
-      const templateAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_id);
-      const templateNaoAgendadoData = whatsappTemplates.find(t => t.id === prospeccaoData.template_nao_agendado_id);
-      const templateAgendado48hData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_48h_id);
-      const templateAgendado24hData = whatsappTemplates.find(t => t.id === prospeccaoData.template_agendado_24h_id);
-
-      const webhookPayload: any = {
-        maia_id: formatarTelefone(agenteData?.telefone || ""),
-        nome_evento: prospeccaoData.titulo || "",
-        data_inicio: formatarDataISO(prospeccaoData.data_inicio || ""),
-        data_fim: formatarDataISO(prospeccaoData.data_fim || ""),
-        descricao: prospeccaoData.descricao || "",
-        dealerid: empresaData?.crm_id || "",
-        template_descoberta: templateDescobertaData?.nome || "",
-        template_descoberta_id_pri: templateDescobertaData?.template_id_pri || "",
-        template_descoberta_id_meta: templateDescobertaData?.id_meta || "",
-        template_conf_agendado: templateAgendadoData?.nome || "",
-        template_conf_agendado_id_pri: templateAgendadoData?.template_id_pri || "",
-        template_conf_agendado_id_meta: templateAgendadoData?.id_meta || "",
-        template_conf_nao_agendado: templateNaoAgendadoData?.nome || "",
-        template_conf_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || "",
-        template_conf_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || "",
-        cadencia_completa: prospeccaoData.cadencia_completa ?? false,
-        is_teste: prospeccaoData.is_teste ?? false,
-      };
-
-      // Adicionar templates 48h/24h quando cadência completa
-      if (prospeccaoData.cadencia_completa) {
-        webhookPayload.template_agendado_48h = templateAgendado48hData?.nome || "";
-        webhookPayload.template_agendado_48h_id_pri = templateAgendado48hData?.template_id_pri || "";
-        webhookPayload.template_agendado_48h_id_meta = templateAgendado48hData?.id_meta || "";
-        webhookPayload.template_agendado_24h = templateAgendado24hData?.nome || "";
-        webhookPayload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || "";
-        webhookPayload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || "";
-      }
-
-      console.log('📤 Enviando webhook:', webhookPayload);
-
-      // Usar edge function para enviar com token SAGA_ONE
-      const { data: response, error } = await supabase.functions.invoke('external-webhook-proxy', {
-        body: {
-          endpoint: 'pri-config',
-          ...webhookPayload,
-        },
-      });
-
-      if (error) {
-        console.warn('⚠️ Webhook pri-config retornou erro:', error?.message || error);
-        return null;
-      } else if (response?.code === 404) {
-        console.warn('⚠️ Webhook pri-config: workflow não está ativo no n8n (404). Fluxo continua normalmente.');
-        return null;
-      } else {
-        console.log('✅ Webhook pri-config enviado com sucesso', response);
-        // Capturar event_id_pri se retornado pelo webhook
-        const eventId = response?.event_id || response?.event_id_pri || response?.id_evento;
-        if (eventId) {
-          console.log(`✅ event_id_pri capturado do pri-config: ${eventId}`);
-          return String(eventId);
-        }
-        return null;
-      }
-    } catch (error) {
-      console.warn(`⚠️ Erro ao disparar gatilho "pri-config": ${error instanceof Error ? error.message : String(error)}`);
-      return null;
     }
   };
 
@@ -2168,8 +2049,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean): Promise<string | null> => {
-    if (!activeCompany?.id) return null;
+  const triggerNovoEventoCriadoWebhooks = async (
+    prospeccaoData: any,
+    isEditing: boolean
+  ): Promise<{ eventIdPri: string | null; rejectionMessage?: string }> => {
+    if (!activeCompany?.id) return { eventIdPri: null };
     
     // Disparar webhook para todos os tipos de evento
 
@@ -2262,7 +2146,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       if (error) {
         console.error('Erro ao buscar gatilhos:', error);
-        return null;
+        return { eventIdPri: null };
       }
 
       // Filtrar gatilhos do tipo "novo_evento_criado"
@@ -2273,7 +2157,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       if (gatilhosEvento.length === 0) {
         console.log('Nenhum gatilho de novo_evento_criado configurado');
-        return null;
+        return { eventIdPri: null };
       }
 
       // Formatar datas para ISO 8601
@@ -2388,6 +2272,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       // Disparar cada webhook
       let capturedEventIdPri: string | null = null;
+      let capturedRejection: string | undefined;
       for (const gatilho of gatilhosEvento) {
         const webhookUrl = (gatilho.acoes as any)?.webhook_url;
         if (!webhookUrl) continue;
@@ -2420,6 +2305,17 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
               } else {
                 console.log(`✅ event_id_pri "${capturedEventIdPri}" salvo na prospecção ${prospeccaoData.id}`);
               }
+            } else {
+              // Webhook respondeu mas sem event_id — pode ser recusa (ex.: descrição inválida)
+              const rawMsg =
+                (typeof proxyResponse?.raw === 'string' && proxyResponse.raw) ||
+                (typeof proxyResponse?.message === 'string' && proxyResponse.message) ||
+                (typeof proxyResponse?.error === 'string' && proxyResponse.error) ||
+                undefined;
+              if (rawMsg && !capturedRejection) {
+                capturedRejection = rawMsg;
+                console.warn(`⚠️ Gatilho "${gatilho.nome}" recusou o evento:`, rawMsg);
+              }
             }
             
             // Atualizar ultima_execucao do gatilho
@@ -2432,10 +2328,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}": ${webhookError instanceof Error ? webhookError.message : 'Erro desconhecido'}`);
         }
       }
-      return capturedEventIdPri;
+      return { eventIdPri: capturedEventIdPri, rejectionMessage: capturedRejection };
     } catch (error) {
       console.error(`❌ Erro ao processar gatilhos de "novo_evento_criado": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      return null;
+      return { eventIdPri: null };
     }
   };
 

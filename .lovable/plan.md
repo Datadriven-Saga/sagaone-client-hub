@@ -1,109 +1,63 @@
 ## Objetivo
 
-Criar `docs/controle-acessos.md` documentando a tela Permission Flags (`/administracao/controle-acessos`): o que funciona, o que não funciona, inconsistências e fluxo de uso.
+Em `/prospeccao/eventos`, ao criar/editar um evento **IA WhatsApp**:
 
-## Estrutura do documento
+1. Quando o webhook externo recusa o evento (geralmente por descrição inadequada), capturar o campo `raw` da resposta e mostrar ao usuário uma mensagem amigável — mesmo padrão usado em `/prospeccao/templates` (rejeição da Meta).
+2. Parar de chamar o webhook `pri-config`, que retorna 404 (`The requested webhook "POST pri-config" is not registered`).
+3. Tornar o retorno de `send-crm-event-email` mais silencioso/amigável: sem toast vermelho, sem alarme quando todos/parte dos envios falham — apenas informação discreta.
 
-### 1. Visão geral
-- Rota: `/administracao/controle-acessos` (lazy em `App.tsx`)
-- Guard: `PermissionProtectedRoute permissionKey="canAccessControleAcessos"` (default só `Administrador` e `Master`)
-- Componente: `src/pages/admin/ControleAcessos.tsx`
-- 3 views: **Por Módulo**, **Por Perfil**, **Comparar**
+## Arquivos afetados
 
-### 2. Arquitetura de dados
-- **Fonte da verdade dos defaults**: `src/components/controle-acessos/PermissionRegistry.ts`
-  - `PERMISSION_MODULES` (22 módulos)
-  - `PERMISSION_REGISTRY` (≈120 flags)
-  - `TIPOS_ACESSO` (12 perfis: SDR, Vendedor, CRM, Recepcionista, Gerente de Leads, Gerente de Loja, Coordenadora de Leads, Diretor, TI, Administrador, Proprietário, Master)
-  - `getDefaultPermissions(tipo)` resolve baseline por perfil
-  - `resolvePermissions(tipo, overrides)` aplica overrides do banco
-- **Overrides persistentes**: tabela `public.departamento_permissoes (departamento, permissao, ativo, valor jsonb)`
-  - Apesar do nome `departamento`, o valor é o **tipo de acesso** (perfil), não o departamento do usuário
-  - RLS: SELECT para todos autenticados, WRITE só `Administrador/Master/TI`
-- **Consumo runtime**: `src/hooks/useUserAccessType.ts` busca `profiles.tipo_acesso` + overrides, aplica `resolvePermissions`, e força `true` para Master
+- `src/components/CriarProspeccaoModal.tsx`
+- `src/lib/sendCrmEventEmail.ts` (apenas se necessário ajustar mensagem)
 
-### 3. O que funciona
-- Toggle de permissão por (perfil × flag) com upsert otimista em `departamento_permissoes`
-- 3 abas funcionais: Por Módulo (filtros por busca/ação/perfil), Por Perfil (estatísticas e busca), Comparar (diff entre 2 perfis com filtro "só diferenças")
-- "Clonar perfil" via upsert em batch (substitui todas as flags do perfil destino)
-- Flag `hasValor` + `valorSchema` com campos numéricos/select por perfil (ex.: `canImportPool.dias_max`, `canImportPoolReadOnly.eventos_permitidos`) — persistidos em `valor jsonb` e lidos por `permissionValores`
-- Módulos `masterOnly` (Authenticator) só aparecem para usuários MFA Master
-- `expandAll` / `collapseAll` em Por Módulo
-- Indicador de "customizada" (override ativo diferente do default) com tooltip
+Nenhuma mudança de schema, RLS ou edge function.
 
-### 4. O que NÃO funciona / é apenas cosmético
-- **Master** sempre resolve `true` no front (`useUserAccessType` linha 67-71). Toggles em `Master` no UI são salvos no banco mas **ignorados em runtime** — o usuário vê o switch desligado depois e parece quebrado, mas a permissão continua liberada.
-- **Permissions órfãs**: muitas flags estão no Registry mas nunca são consumidas. Exemplos do retorno do `useUserAccessType`: várias flags ficam só em `permissions` (mapa cru); o consumo só acontece se a UI chamar `permissions["chave"]`. Auditar consumidores ajuda — várias keys (ex.: `canManageWebhooks`, `canManagePosVendasCadencia`, `canAccessAlgoritmos*`, `canManageDocumentos`) não têm checagem real no produto, ou têm somente em `Administracao.tsx` para esconder o card.
-- **`bypass via departamento TI`**: `canAccessAgentesIA` no hook é `p("canAccessAgentesIA") || (isDepartamentoTI && isAdminOrTI)` — esse bypass não aparece na tela; o admin pode "desligar" a flag e mesmo assim usuários do depto TI continuam vendo.
-- **Inconsistência `canAccessAdministracao`**: o `PermissionProtectedRoute` desta tela depende de `canAccessControleAcessos`, mas o card "Acessos > Acessar Controle de Acessos" no Registry está em ação `administrar`. Default só `Administrador`. Se um admin desligar para si mesmo, perde o acesso à própria tela (sem fallback além de outro Master).
-- **Filtro "Por perfil" em Por Módulo** filtra apenas permissões **ativas** daquele perfil. Não é óbvio na UI — usuário pode pensar que sumiu permissão.
-- **Não há histórico/audit log** de quem alterou cada flag (tabela sem `updated_by`).
-- **Sem confirmação destrutiva** no toggle quando se desliga uma flag crítica (`canManageUsers`, `canAccessControleAcessos`, etc.).
-- **Clonar perfil** não confirma sobrescrita item a item; substitui todas as flags do destino — irreversível.
-- **`hasValor`** só aparece dentro da linha expandida em "Por Módulo". Em "Por Perfil" e "Comparar" o `valor` não é editável nem mostrado.
-- **`Authenticator (MFA)` no print**: aparece "0/4" para Master no header do print mesmo Master tendo tudo `true` em runtime — o card mostra defaults+overrides do registro, mas o forçamento Master só ocorre em `useUserAccessType`, não no `getDefaultPermissions`. Outro sintoma da inconsistência acima.
-- **`Master`** não é editável de forma efetiva, mas a UI deixa o usuário tentar e gravar lixo em `departamento_permissoes`.
-- **Contadores** ("14/120 ativas", "108 customizadas", "106 desativadas") consideram todas as flags do Registry, incluindo as que nunca são lidas em código — pode confundir o admin.
-- **Cache de permissões no client**: `useUserAccessType` só relê quando `user` muda. Alterações em `departamento_permissoes` exigem refresh para o usuário afetado ver — não há realtime nem invalidação cross-session.
-- **Sem busca por chave técnica** (só busca por label e nome do módulo).
+## Mudanças
 
-### 5. Erros e riscos
-- Risco de **lock-out**: Admin desliga `canAccessControleAcessos` ou `canAccessAdministracao` para `Administrador` e perde acesso. Só recuperável via Master ou SQL direto.
-- Risco de **divergência runtime**: flag ligada no banco mas não consumida em código = falsa sensação de controle.
-- Risco de **bypass invisível** (depto TI em `canAccessAgentesIA`, Master sempre true).
-- `valor jsonb` sem validação de schema no banco — UI confia no `valorSchema` do registry.
-- `Master` no registry tem comportamento divergente: `Authenticator` permissions são `false` por default e o registro grava overrides inertes.
+### 1. Capturar erro `raw` do webhook de criação do evento IA WhatsApp
 
-### 6. Fluxo de usabilidade
+Hoje, em `triggerNovoEventoCriadoWebhooks` (linha ~2391), só capturamos `event_id` em caso de sucesso. Se o webhook recusar (HTTP 200 ou 4xx contendo `{ "raw": "..." }`), retornamos `null` silenciosamente e o fluxo cai no `throw new Error('Não foi possível criar o evento...')` genérico (linha ~1651).
 
-```text
-Admin/Master entra em /administracao
-        │
-        ▼
-Clica "Controle de Acessos" (precisa canAccessControleAcessos)
-        │
-        ▼
-┌──────────────────────────────────────────┐
-│  Tabs: Por Módulo │ Por Perfil │ Comparar│
-└──────────────────────────────────────────┘
-        │
-   ┌────┴────────────────────────────┐
-   ▼                ▼                ▼
-Por Módulo     Por Perfil       Comparar
-busca/filtro   escolhe 1 perfil escolhe 2 perfis
-expande módulo expande módulo   ver diff inline
-toggles por    toggle 1 switch  (read-only)
-perfil x flag  por flag         filtro "só diff"
-edita valor    "Clonar perfil"
-(hasValor)     copia tudo p/
-               outro perfil
-        │
-        ▼
-Toggle/Clone → upsert em departamento_permissoes
-   (optimistic UI, rollback em erro)
-        │
-        ▼
-Próximo login/refresh do usuário afetado:
-  useUserAccessType lê profiles.tipo_acesso
-  + departamento_permissoes
-  → resolvePermissions(defaults, overrides)
-  → Master force-true
-  → expõe `permissions["chave"]`
-        │
-        ▼
-Componentes/rotas chamam p("chave") ou
-PermissionProtectedRoute para gate
-```
+Ajustes:
 
-### 7. Recomendações (não implementar agora, só listar)
-- Travar edição do perfil `Master` na UI (read-only).
-- Bloquear toggle de `canAccessControleAcessos` para o perfil do próprio usuário logado.
-- Adicionar coluna `updated_by`/`updated_at` (já existe `updated_at`) com log dedicado.
-- Marcar visualmente flags "órfãs" (sem consumidor em código) — checagem estática.
-- Mover bypass do depto TI para uma flag explícita, ou documentar no tooltip.
-- Realtime/invalidação ao alterar override para usuários online.
-- Confirmação no Clonar perfil + opção de "merge" vs "substituir".
-- Permitir editar `valor jsonb` também em "Por Perfil".
+- Alterar o retorno de `triggerNovoEventoCriadoWebhooks` de `string | null` para `{ eventIdPri: string | null; rejectionMessage?: string }`.
+- Após `supabase.functions.invoke('external-webhook-proxy', ...)`, inspecionar `proxyResponse`:
+  - Se vier `proxyResponse?.raw` (string) **e** não vier `event_id/event_id_pri/id_evento`, capturar em `rejectionMessage`.
+  - Também tentar `proxyResponse?.message`, `proxyResponse?.error` como fallback.
+- No callsite (linhas 1494 e 1621), se `rejectionMessage` for definido **e** `finalEventIdPri` for nulo:
+  - Reverter o `prospeccoes` insert (igual ao bloco atual em 1641–1649).
+  - Exibir um `toast` **informativo** (sem `variant: "destructive"`), título tipo "Não foi possível criar o evento" e descrição com o texto de `raw` (preservando quebras de linha; pode usar `duration: 12000` como em Templates).
+  - `return;` sem lançar erro (evita o toast vermelho do catch global).
 
-## Entregável
-- `docs/controle-acessos.md` (markdown, sem código novo, sem mudanças de UI/DB)
+Aplicar mesma lógica na edição (linha 1494 / bloco 1499–1513): se vier `rejectionMessage` e não vier `event_id_pri`, mostrar o mesmo toast amigável e abortar (sem reverter, já que é update).
+
+### 2. Remover chamada `pri-config`
+
+A função `callWebhook` (linhas 1750–1857) faz `external-webhook-proxy` com `endpoint: 'pri-config'` que está sempre 404. Manter esse fluxo só polui logs e atrasa a criação.
+
+- Remover as duas chamadas a `callWebhook(data)` (linhas 1488 e 1615) e seus usos das variáveis `priConfigResult` / `eventIdPriFromWebhook`.
+- Simplificar o bloco 1624–1654: `finalEventIdPri = eventIdPriFromGatilhos` (única fonte real do ID hoje).
+- Excluir a definição da função `callWebhook` inteira (1750–1857) — não é mais referenciada.
+- Atualizar o bloco de edição (1486–1513) para usar apenas `editEventIdPri` vindo de `triggerNovoEventoCriadoWebhooks`.
+
+### 3. Feedback amigável do `send-crm-event-email`
+
+Hoje (linhas 1550–1575 e provavelmente outro callsite na criação), o `.then` exibe `toast({ variant: "destructive" })` quando há `erros > 0`, `!success` ou `total_destinatarios === 0`.
+
+- Remover `variant: "destructive"` nesses três cenários.
+- Substituir por toast padrão (cinza), com mensagens discretas:
+  - Sucesso parcial / total de falhas: apenas um `toast` informativo curto, ex. "Notificação de evento processada" + descrição opcional com contagem. Sem ícone de erro.
+  - Nenhum CRM encontrado: toast informativo, não destrutivo.
+  - Falha geral (`!success`): toast informativo, log do erro no `console.warn` apenas.
+- Garantir que o mesmo tratamento exista nos dois callsites (edição e criação) — replicar o trecho de 1550–1575 também no bloco de criação se ainda não tiver.
+
+Opcional (somente se for trivial): em `src/lib/sendCrmEventEmail.ts`, ajustar a mensagem do `message` para algo neutro tipo `"Processado: X enviado(s), Y falha(s)"` — mas não é obrigatório, pois o UI passa a montar a string.
+
+## Validação
+
+- Criar evento IA WhatsApp com descrição inválida → toast amigável com texto do `raw`, evento revertido, sem erro vermelho.
+- Criar evento IA WhatsApp válido → fluxo normal, event_id_pri salvo via gatilho, sem chamada a `pri-config` nos logs.
+- Editar evento IA WhatsApp com descrição inválida → toast amigável, edição não regride o `event_id_pri` existente.
+- Conferir Network: nenhuma chamada a `external-webhook-proxy` com `endpoint: pri-config`.
+- Conferir resultado do `send-crm-event-email` com erros: aparece toast neutro, não vermelho.
