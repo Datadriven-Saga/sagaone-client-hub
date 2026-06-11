@@ -1482,26 +1482,28 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-        // Chamar webhook após atualização (apenas IA Whatsapp)
+        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
         let editEventIdPri: string | null = data.event_id_pri || null;
         if (tipoEvento === 'IA Whatsapp') {
-          const priConfigResult = await callWebhook(data);
-          if (priConfigResult) editEventIdPri = priConfigResult;
-        }
-        
-        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
-        if (tipoEvento === 'IA Whatsapp') {
           const gatilhoResult = await triggerNovoEventoCriadoWebhooks(data, true);
-          if (gatilhoResult) editEventIdPri = gatilhoResult;
+          if (gatilhoResult.rejectionMessage && !gatilhoResult.eventIdPri && !editEventIdPri) {
+            // Webhook recusou o evento (ex.: descrição inadequada). Mostrar mensagem amigável e abortar.
+            toast({
+              title: "Não foi possível atualizar o evento",
+              description: gatilhoResult.rejectionMessage,
+              duration: 12000,
+            });
+            return;
+          }
+          if (gatilhoResult.eventIdPri) editEventIdPri = gatilhoResult.eventIdPri;
         }
-        
+
         // Para IA WhatsApp na edição: garantir que event_id_pri existe
         if (tipoEvento === 'IA Whatsapp' && !editEventIdPri) {
           console.warn('⚠️ Evento IA WhatsApp editado sem event_id_pri - salvando mas alertando usuário');
           toast({
-            title: "⚠️ Atenção: event_id_pri ausente",
+            title: "Atenção: identificador externo ausente",
             description: "O evento foi atualizado mas o identificador event_id_pri não está configurado. Algumas funcionalidades podem não funcionar corretamente.",
-            variant: "destructive",
           });
         } else if (tipoEvento === 'IA Whatsapp' && editEventIdPri && !data.event_id_pri) {
           // Se obteve o event_id_pri agora mas não tinha antes, salvar
