@@ -17,6 +17,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 import { EmpresaModulosTab } from "@/components/EmpresaModulosTab";
 import { EmpresasFilter } from "@/components/EmpresasFilter";
 import { EmpresaMotivosTab } from "@/components/EmpresaMotivosTab";
@@ -34,6 +38,7 @@ const empresaSchema = z.object({
   responsavel_legal_cpf: z.string().optional(),
   responsavel_legal_email: z.string().email("Email inválido").optional().or(z.literal("")),
   responsavel_legal_telefone: z.string().optional(),
+  bypass_compliance: z.boolean().optional(),
 });
 
 type EmpresaForm = z.infer<typeof empresaSchema>;
@@ -51,6 +56,7 @@ interface Empresa {
   responsavel_legal_cpf?: string;
   responsavel_legal_email?: string;
   responsavel_legal_telefone?: string;
+  bypass_compliance?: boolean;
   logomarca_url?: string;
   created_at?: string;
   updated_at?: string;
@@ -59,6 +65,7 @@ interface Empresa {
 export default function Empresas() {
   const navigate = useNavigate();
   const { isAdmin } = useAdminCheck();
+  const { isMaster } = useMfaMaster();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,6 +95,7 @@ export default function Empresas() {
       responsavel_legal_cpf: "",
       responsavel_legal_email: "",
       responsavel_legal_telefone: "",
+      bypass_compliance: false,
     },
   });
 
@@ -140,6 +148,7 @@ export default function Empresas() {
         responsavel_legal_cpf: data.responsavel_legal_cpf || null,
         responsavel_legal_email: data.responsavel_legal_email || null,
         responsavel_legal_telefone: data.responsavel_legal_telefone || null,
+        ...(isMaster ? { bypass_compliance: data.bypass_compliance === true } : {}),
       };
 
       const { error } = await supabase
@@ -187,6 +196,7 @@ export default function Empresas() {
         responsavel_legal_cpf: data.responsavel_legal_cpf || null,
         responsavel_legal_email: data.responsavel_legal_email || null,
         responsavel_legal_telefone: data.responsavel_legal_telefone || null,
+        ...(isMaster ? { bypass_compliance: data.bypass_compliance === true } : {}),
       };
 
       const { error } = await supabase
@@ -232,6 +242,7 @@ export default function Empresas() {
       responsavel_legal_cpf: empresa.responsavel_legal_cpf || "",
       responsavel_legal_email: empresa.responsavel_legal_email || "",
       responsavel_legal_telefone: empresa.responsavel_legal_telefone || "",
+      bypass_compliance: empresa.bypass_compliance === true,
     });
     setDialogOpen(true);
   };
