@@ -1,1 +1,2 @@
 - [Logs Disparos Server-Side](mem://architecture/prospeccao/logs-disparos-server-side) — Edge Functions inserem logs_disparos com origem='edge_function', USD apenas, BRL via toggle de cotação na UI
+- [Bypass Compliance](mem://architecture/compliance/bypass-empresa-colaboradores) — Flag empresas.bypass_compliance desliga quarentena + global/external/interno opt-out

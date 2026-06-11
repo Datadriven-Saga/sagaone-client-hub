@@ -1900,6 +1900,7 @@ export type Database = {
       }
       empresas: {
         Row: {
+          bypass_compliance: boolean
           cidade: string | null
           cnpj: string
           created_at: string | null
@@ -1919,6 +1920,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          bypass_compliance?: boolean
           cidade?: string | null
           cnpj: string
           created_at?: string | null
@@ -1938,6 +1940,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          bypass_compliance?: boolean
           cidade?: string | null
           cnpj?: string
           created_at?: string | null

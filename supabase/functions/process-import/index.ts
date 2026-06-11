@@ -439,10 +439,11 @@ Deno.serve(async (req: Request) => {
     // ============================================================
     let empresaMarca: string | null = null;
     let empresaUf: string | null = null;
+    let empresaBypassCompliance = false;
     if (log.empresa_id) {
       const { data: empresaInfo, error: empresaErr } = await supabaseAdmin
         .from('empresas')
-        .select('marca, uf')
+        .select('marca, uf, bypass_compliance')
         .eq('id', log.empresa_id)
         .single();
       if (empresaErr) {
@@ -454,9 +455,10 @@ Deno.serve(async (req: Request) => {
       }
       empresaMarca = empresaInfo?.marca ?? null;
       empresaUf = empresaInfo?.uf ?? null;
+      empresaBypassCompliance = (empresaInfo as any)?.bypass_compliance === true;
     }
 
-    if (!empresaMarca || !empresaUf) {
+    if (!empresaBypassCompliance && (!empresaMarca || !empresaUf)) {
       const msg = 'Empresa sem marca/UF configurados — opt-out externo não pode ser validado. Importação bloqueada por segurança.';
       console.error('[process-import][external-optout] FALHA — empresa sem marca/uf', {
         importId: import_log_id,
@@ -478,10 +480,28 @@ Deno.serve(async (req: Request) => {
     let optOutIsStale = false;
     let optOutAgeHours: number | null = null;
     let optOutFromCache = false;
+    if (empresaBypassCompliance) {
+      console.log('[process-import][bypass-compliance] empresa com bypass total — opt-out externo e quarentena desativados', {
+        importId: import_log_id,
+        empresaId: log.empresa_id,
+        prospeccaoId: log.prospeccao_id,
+      });
+      optOutIndex = {
+        phones: new Set<string>(),
+        emails: new Set<string>(),
+        cpfs: new Set<string>(),
+        apiMarca: empresaMarca ?? '',
+        totalRecords: 0,
+        fetchDurationMs: 0,
+        fromCache: false,
+        isStale: false,
+        ageHours: null,
+      } as unknown as ExternalOptOutIndex;
+    } else {
     try {
       const cached = await getCachedOptOutIndex({
-        marca: empresaMarca,
-        uf: empresaUf,
+        marca: empresaMarca!,
+        uf: empresaUf!,
         supabaseAdmin,
       });
       optOutIndex = cached;
@@ -534,6 +554,7 @@ Deno.serve(async (req: Request) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
     }
 
     // Helper local: particiona um batch usando o índice carregado.

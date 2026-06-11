@@ -17,6 +17,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
+import { useMfaMaster } from "@/hooks/useMfaMaster";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 import { EmpresaModulosTab } from "@/components/EmpresaModulosTab";
 import { EmpresasFilter } from "@/components/EmpresasFilter";
 import { EmpresaMotivosTab } from "@/components/EmpresaMotivosTab";
@@ -34,6 +38,7 @@ const empresaSchema = z.object({
   responsavel_legal_cpf: z.string().optional(),
   responsavel_legal_email: z.string().email("Email inválido").optional().or(z.literal("")),
   responsavel_legal_telefone: z.string().optional(),
+  bypass_compliance: z.boolean().optional(),
 });
 
 type EmpresaForm = z.infer<typeof empresaSchema>;
@@ -51,6 +56,7 @@ interface Empresa {
   responsavel_legal_cpf?: string;
   responsavel_legal_email?: string;
   responsavel_legal_telefone?: string;
+  bypass_compliance?: boolean;
   logomarca_url?: string;
   created_at?: string;
   updated_at?: string;
@@ -59,6 +65,7 @@ interface Empresa {
 export default function Empresas() {
   const navigate = useNavigate();
   const { isAdmin } = useAdminCheck();
+  const { isMaster } = useMfaMaster();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,6 +95,7 @@ export default function Empresas() {
       responsavel_legal_cpf: "",
       responsavel_legal_email: "",
       responsavel_legal_telefone: "",
+      bypass_compliance: false,
     },
   });
 
@@ -140,6 +148,7 @@ export default function Empresas() {
         responsavel_legal_cpf: data.responsavel_legal_cpf || null,
         responsavel_legal_email: data.responsavel_legal_email || null,
         responsavel_legal_telefone: data.responsavel_legal_telefone || null,
+        ...(isMaster ? { bypass_compliance: data.bypass_compliance === true } : {}),
       };
 
       const { error } = await supabase
@@ -187,6 +196,7 @@ export default function Empresas() {
         responsavel_legal_cpf: data.responsavel_legal_cpf || null,
         responsavel_legal_email: data.responsavel_legal_email || null,
         responsavel_legal_telefone: data.responsavel_legal_telefone || null,
+        ...(isMaster ? { bypass_compliance: data.bypass_compliance === true } : {}),
       };
 
       const { error } = await supabase
@@ -232,6 +242,7 @@ export default function Empresas() {
       responsavel_legal_cpf: empresa.responsavel_legal_cpf || "",
       responsavel_legal_email: empresa.responsavel_legal_email || "",
       responsavel_legal_telefone: empresa.responsavel_legal_telefone || "",
+      bypass_compliance: empresa.bypass_compliance === true,
     });
     setDialogOpen(true);
   };
@@ -451,6 +462,35 @@ export default function Empresas() {
                     )}
                   />
 
+                  {isMaster && (
+                    <FormField
+                      control={form.control}
+                      name="bypass_compliance"
+                      render={({ field }) => (
+                        <FormItem className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <FormLabel className="flex items-center gap-2 text-destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                Bypass compliance (base de colaboradores)
+                              </FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Esta empresa não passará por quarentena, opt-out externo, opt-out global nem opt-out interno.
+                                Use apenas para bases de colaboradores. Visível apenas para Master.
+                              </p>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value === true}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
                   <div className="border-t pt-4">
                     <h4 className="text-lg font-semibold mb-3">Responsável Legal</h4>
                     
@@ -610,7 +650,14 @@ export default function Empresas() {
                             <Building className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground truncate text-sm sm:text-base">{empresa.nome_empresa}</h3>
+                            <h3 className="font-semibold text-foreground truncate text-sm sm:text-base flex items-center gap-2">
+                              <span className="truncate">{empresa.nome_empresa}</span>
+                              {empresa.bypass_compliance && (
+                                <Badge variant="destructive" className="text-[10px] py-0 px-1.5 flex-shrink-0">
+                                  BYPASS COMPLIANCE
+                                </Badge>
+                              )}
+                            </h3>
                             <p className="text-xs sm:text-sm text-muted-foreground truncate">{empresa.marca}</p>
                           </div>
                         </div>
