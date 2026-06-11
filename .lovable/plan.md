@@ -1,86 +1,109 @@
-
 ## Objetivo
 
-Criar uma empresa especial de base de colaboradores que **não passa por quarentena nem por nenhum opt-out** (externo, global ou interno). A regra fica em uma flag na própria empresa — não em marca/UF — para não contaminar a semântica das outras regras.
+Criar `docs/controle-acessos.md` documentando a tela Permission Flags (`/administracao/controle-acessos`): o que funciona, o que não funciona, inconsistências e fluxo de uso.
 
-## Por que não usar marca nula ou marca "SAGA"
+## Estrutura do documento
 
-- **Marca nula**: quarentena bypassa naturalmente (gate `v_marca IS NOT NULL`), mas `process-import` bloqueia a importação com "Empresa sem marca/UF configurados" antes mesmo de chegar no upsert. Quebrar essa guarda relaxa segurança para todas as outras empresas mal configuradas.
-- **Marca "SAGA" + UF "BR"**: a API externa de opt-out muito provavelmente retorna erro/404 para marca desconhecida (fail-closed → importação bloqueada). E `bulk_upsert_contatos` passaria a gravar em `contato_quarentena` para colaboradores — exatamente o oposto do que se quer.
+### 1. Visão geral
+- Rota: `/administracao/controle-acessos` (lazy em `App.tsx`)
+- Guard: `PermissionProtectedRoute permissionKey="canAccessControleAcessos"` (default só `Administrador` e `Master`)
+- Componente: `src/pages/admin/ControleAcessos.tsx`
+- 3 views: **Por Módulo**, **Por Perfil**, **Comparar**
 
-## Mudança
+### 2. Arquitetura de dados
+- **Fonte da verdade dos defaults**: `src/components/controle-acessos/PermissionRegistry.ts`
+  - `PERMISSION_MODULES` (22 módulos)
+  - `PERMISSION_REGISTRY` (≈120 flags)
+  - `TIPOS_ACESSO` (12 perfis: SDR, Vendedor, CRM, Recepcionista, Gerente de Leads, Gerente de Loja, Coordenadora de Leads, Diretor, TI, Administrador, Proprietário, Master)
+  - `getDefaultPermissions(tipo)` resolve baseline por perfil
+  - `resolvePermissions(tipo, overrides)` aplica overrides do banco
+- **Overrides persistentes**: tabela `public.departamento_permissoes (departamento, permissao, ativo, valor jsonb)`
+  - Apesar do nome `departamento`, o valor é o **tipo de acesso** (perfil), não o departamento do usuário
+  - RLS: SELECT para todos autenticados, WRITE só `Administrador/Master/TI`
+- **Consumo runtime**: `src/hooks/useUserAccessType.ts` busca `profiles.tipo_acesso` + overrides, aplica `resolvePermissions`, e força `true` para Master
 
-### 1. Schema — `empresas`
+### 3. O que funciona
+- Toggle de permissão por (perfil × flag) com upsert otimista em `departamento_permissoes`
+- 3 abas funcionais: Por Módulo (filtros por busca/ação/perfil), Por Perfil (estatísticas e busca), Comparar (diff entre 2 perfis com filtro "só diferenças")
+- "Clonar perfil" via upsert em batch (substitui todas as flags do perfil destino)
+- Flag `hasValor` + `valorSchema` com campos numéricos/select por perfil (ex.: `canImportPool.dias_max`, `canImportPoolReadOnly.eventos_permitidos`) — persistidos em `valor jsonb` e lidos por `permissionValores`
+- Módulos `masterOnly` (Authenticator) só aparecem para usuários MFA Master
+- `expandAll` / `collapseAll` em Por Módulo
+- Indicador de "customizada" (override ativo diferente do default) com tooltip
 
-Nova coluna booleana `bypass_compliance` (`default false`, `not null`). Documentada como "Empresa de uso interno (colaboradores). Ignora quarentena, opt-out externo, global e interno. Só pode ser ativada por Master."
+### 4. O que NÃO funciona / é apenas cosmético
+- **Master** sempre resolve `true` no front (`useUserAccessType` linha 67-71). Toggles em `Master` no UI são salvos no banco mas **ignorados em runtime** — o usuário vê o switch desligado depois e parece quebrado, mas a permissão continua liberada.
+- **Permissions órfãs**: muitas flags estão no Registry mas nunca são consumidas. Exemplos do retorno do `useUserAccessType`: várias flags ficam só em `permissions` (mapa cru); o consumo só acontece se a UI chamar `permissions["chave"]`. Auditar consumidores ajuda — várias keys (ex.: `canManageWebhooks`, `canManagePosVendasCadencia`, `canAccessAlgoritmos*`, `canManageDocumentos`) não têm checagem real no produto, ou têm somente em `Administracao.tsx` para esconder o card.
+- **`bypass via departamento TI`**: `canAccessAgentesIA` no hook é `p("canAccessAgentesIA") || (isDepartamentoTI && isAdminOrTI)` — esse bypass não aparece na tela; o admin pode "desligar" a flag e mesmo assim usuários do depto TI continuam vendo.
+- **Inconsistência `canAccessAdministracao`**: o `PermissionProtectedRoute` desta tela depende de `canAccessControleAcessos`, mas o card "Acessos > Acessar Controle de Acessos" no Registry está em ação `administrar`. Default só `Administrador`. Se um admin desligar para si mesmo, perde o acesso à própria tela (sem fallback além de outro Master).
+- **Filtro "Por perfil" em Por Módulo** filtra apenas permissões **ativas** daquele perfil. Não é óbvio na UI — usuário pode pensar que sumiu permissão.
+- **Não há histórico/audit log** de quem alterou cada flag (tabela sem `updated_by`).
+- **Sem confirmação destrutiva** no toggle quando se desliga uma flag crítica (`canManageUsers`, `canAccessControleAcessos`, etc.).
+- **Clonar perfil** não confirma sobrescrita item a item; substitui todas as flags do destino — irreversível.
+- **`hasValor`** só aparece dentro da linha expandida em "Por Módulo". Em "Por Perfil" e "Comparar" o `valor` não é editável nem mostrado.
+- **`Authenticator (MFA)` no print**: aparece "0/4" para Master no header do print mesmo Master tendo tudo `true` em runtime — o card mostra defaults+overrides do registro, mas o forçamento Master só ocorre em `useUserAccessType`, não no `getDefaultPermissions`. Outro sintoma da inconsistência acima.
+- **`Master`** não é editável de forma efetiva, mas a UI deixa o usuário tentar e gravar lixo em `departamento_permissoes`.
+- **Contadores** ("14/120 ativas", "108 customizadas", "106 desativadas") consideram todas as flags do Registry, incluindo as que nunca são lidas em código — pode confundir o admin.
+- **Cache de permissões no client**: `useUserAccessType` só relê quando `user` muda. Alterações em `departamento_permissoes` exigem refresh para o usuário afetado ver — não há realtime nem invalidação cross-session.
+- **Sem busca por chave técnica** (só busca por label e nome do módulo).
 
-### 2. `bulk_upsert_contatos` (v2 controlada por flag)
+### 5. Erros e riscos
+- Risco de **lock-out**: Admin desliga `canAccessControleAcessos` ou `canAccessAdministracao` para `Administrador` e perde acesso. Só recuperável via Master ou SQL direto.
+- Risco de **divergência runtime**: flag ligada no banco mas não consumida em código = falsa sensação de controle.
+- Risco de **bypass invisível** (depto TI em `canAccessAgentesIA`, Master sempre true).
+- `valor jsonb` sem validação de schema no banco — UI confia no `valorSchema` do registry.
+- `Master` no registry tem comportamento divergente: `Authenticator` permissions são `false` por default e o registro grava overrides inertes.
 
-Tratar como área crítica — seguir a regra do projeto. Antes de alterar, vou:
-
-1. Carregar a versão atual (`20260516131604_..._.sql`) e fazer um diff mental.
-2. Adicionar **um único** ponto de carregamento da flag no início: `SELECT bypass_compliance INTO v_bypass FROM empresas WHERE id = p_empresa_id`.
-3. Ajustar três gates já existentes para incluir `AND NOT v_bypass`:
-   - `v_quarentena_enabled := v_quarentena_enabled AND NOT v_bypass` (linha equivalente à `is_feature_enabled('quarentena_marca_ativa')`).
-   - `check_global_opt_out(v_telefone_raw)` — só chama se `NOT v_bypass`.
-   - Verificação de `opt_outs` interno (se houver na função; senão, n/a).
-4. **Não** alterar `upsert_quarentena` nem o índice parcial.
-5. Manter `SECURITY DEFINER`, `search_path`, assinatura e retorno idênticos — sem overload.
-
-### 3. `process-import/index.ts`
-
-Logo após carregar `empresaInfo`, ler também `bypass_compliance`. Se `true`:
-- Pular o bloco "OPT-OUT EXTERNO (fail-closed)" inteiro (linhas 435–537), incluindo a guarda de marca/UF obrigatórios.
-- Inicializar `optOutIndex` como um índice vazio (`phones: new Set()`, etc.) para que `partitionByOptOut` continue funcionando sem mudanças.
-- Logar explicitamente: `[process-import][bypass-compliance] empresa <id> — opt-out e quarentena desativados`.
-
-### 4. UI — `/administracao/empresas`
-
-- Adicionar checkbox **"Bypass compliance (base de colaboradores)"** na edição da empresa, **visível apenas para Master**.
-- Badge vermelho "BYPASS COMPLIANCE" na lista e no header da empresa ativa.
-- Texto de aviso no checkbox: "Esta empresa não passará por quarentena, opt-out externo, global nem interno. Use apenas para bases de colaboradores."
-
-### 5. Memory
-
-Adicionar `mem://architecture/compliance/bypass-empresa-colaboradores.md` registrando: flag, três pontos de bypass (process-import, bulk_upsert, gates de opt-out), restrição Master e ausência de impacto em outras empresas.
-
-## Testes obrigatórios (regra do projeto para `bulk_upsert_contatos`)
-
-Antes de aprovar a migration:
-
-1. Empresa normal — importação por planilha (deve continuar bloqueando quarentena/opt-out como hoje).
-2. Empresa normal — importação via pool.
-3. Empresa normal — telefone na quarentena (deve continuar bloqueando).
-4. Empresa normal — telefone em `global_opt_outs` (deve continuar bloqueando).
-5. Empresa bypass — importação por planilha com telefones em quarentena ativa (devem entrar).
-6. Empresa bypass — telefones em `global_opt_outs` (devem entrar).
-7. Empresa bypass — sem marca/UF preenchidos (deve importar; não deve chamar API externa).
-8. Empresa bypass — duplicados e telefone inválido (lógica de dedup/normalização inalterada).
-9. `import_logs` e `bases_importadas` sem regressão de campos.
-
-## Marca/UF da empresa de colaboradores
-
-Independente do bypass, recomendo preencher `marca = 'SAGA'` e `uf = 'BR'` apenas para evitar `null` em filtros de UI (`get_user_marcas`, seletor de empresa, relatórios). Com o bypass ativo, esses valores **não** disparam quarentena nem chamada externa.
-
-## Detalhes técnicos
-
-- `bypass_compliance` em `empresas` é fonte única da verdade. Nada de mapear por CNPJ, marca ou nome.
-- Migration: 4 passos — `ALTER TABLE empresas ADD COLUMN` + `COMMENT ON COLUMN` + `CREATE OR REPLACE FUNCTION bulk_upsert_contatos` (corpo completo, ajustes mínimos) + nenhum DROP (sem overload).
-- Edge function: deploy automático após aprovar a mudança de código.
-- RLS de `empresas` já restringe escrita a Admin/Master; o checkbox só aparece para Master no front (defesa em profundidade, não substitui RLS).
-- Sem mudanças em `upsert_quarentena`, no índice parcial, em `quarentena_config` nem nos RPCs de listagem da quarentena.
+### 6. Fluxo de usabilidade
 
 ```text
-Fluxo com bypass ativo:
-
-UploadPlanilha
-  → process-import
-     → lê empresas.bypass_compliance = true
-     → PULA bloco opt-out externo (sem fetch, sem guarda marca/uf)
-     → bulk_upsert_contatos(... empresa_id ...)
-         → lê bypass_compliance internamente
-         → não chama check_global_opt_out
-         → não grava contato_quarentena
-         → ignora flag quarentena_marca_ativa
-     → import_logs OK
+Admin/Master entra em /administracao
+        │
+        ▼
+Clica "Controle de Acessos" (precisa canAccessControleAcessos)
+        │
+        ▼
+┌──────────────────────────────────────────┐
+│  Tabs: Por Módulo │ Por Perfil │ Comparar│
+└──────────────────────────────────────────┘
+        │
+   ┌────┴────────────────────────────┐
+   ▼                ▼                ▼
+Por Módulo     Por Perfil       Comparar
+busca/filtro   escolhe 1 perfil escolhe 2 perfis
+expande módulo expande módulo   ver diff inline
+toggles por    toggle 1 switch  (read-only)
+perfil x flag  por flag         filtro "só diff"
+edita valor    "Clonar perfil"
+(hasValor)     copia tudo p/
+               outro perfil
+        │
+        ▼
+Toggle/Clone → upsert em departamento_permissoes
+   (optimistic UI, rollback em erro)
+        │
+        ▼
+Próximo login/refresh do usuário afetado:
+  useUserAccessType lê profiles.tipo_acesso
+  + departamento_permissoes
+  → resolvePermissions(defaults, overrides)
+  → Master force-true
+  → expõe `permissions["chave"]`
+        │
+        ▼
+Componentes/rotas chamam p("chave") ou
+PermissionProtectedRoute para gate
 ```
+
+### 7. Recomendações (não implementar agora, só listar)
+- Travar edição do perfil `Master` na UI (read-only).
+- Bloquear toggle de `canAccessControleAcessos` para o perfil do próprio usuário logado.
+- Adicionar coluna `updated_by`/`updated_at` (já existe `updated_at`) com log dedicado.
+- Marcar visualmente flags "órfãs" (sem consumidor em código) — checagem estática.
+- Mover bypass do depto TI para uma flag explícita, ou documentar no tooltip.
+- Realtime/invalidação ao alterar override para usuários online.
+- Confirmação no Clonar perfil + opção de "merge" vs "substituir".
+- Permitir editar `valor jsonb` também em "Por Perfil".
+
+## Entregável
+- `docs/controle-acessos.md` (markdown, sem código novo, sem mudanças de UI/DB)
