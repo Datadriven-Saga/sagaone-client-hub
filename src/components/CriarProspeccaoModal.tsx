@@ -2385,6 +2385,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       // Disparar cada webhook
       let capturedEventIdPri: string | null = null;
+      let capturedRejection: string | undefined;
       for (const gatilho of gatilhosEvento) {
         const webhookUrl = (gatilho.acoes as any)?.webhook_url;
         if (!webhookUrl) continue;
@@ -2417,6 +2418,17 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
               } else {
                 console.log(`✅ event_id_pri "${capturedEventIdPri}" salvo na prospecção ${prospeccaoData.id}`);
               }
+            } else {
+              // Webhook respondeu mas sem event_id — pode ser recusa (ex.: descrição inválida)
+              const rawMsg =
+                (typeof proxyResponse?.raw === 'string' && proxyResponse.raw) ||
+                (typeof proxyResponse?.message === 'string' && proxyResponse.message) ||
+                (typeof proxyResponse?.error === 'string' && proxyResponse.error) ||
+                undefined;
+              if (rawMsg && !capturedRejection) {
+                capturedRejection = rawMsg;
+                console.warn(`⚠️ Gatilho "${gatilho.nome}" recusou o evento:`, rawMsg);
+              }
             }
             
             // Atualizar ultima_execucao do gatilho
@@ -2429,10 +2441,10 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           console.error(`❌ Erro ao disparar gatilho "${gatilho.nome}": ${webhookError instanceof Error ? webhookError.message : 'Erro desconhecido'}`);
         }
       }
-      return capturedEventIdPri;
+      return { eventIdPri: capturedEventIdPri, rejectionMessage: capturedRejection };
     } catch (error) {
       console.error(`❌ Erro ao processar gatilhos de "novo_evento_criado": ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      return null;
+      return { eventIdPri: null };
     }
   };
 
