@@ -1611,49 +1611,41 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           throw error;
         }
 
-        // Chamar webhook após criação (apenas IA Whatsapp)
-        let eventIdPriFromWebhook: string | null = null;
+        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp) — única fonte de event_id_pri
         if (tipoEvento === 'IA Whatsapp') {
-          eventIdPriFromWebhook = await callWebhook(data);
-        }
-        
-        // Disparar gatilhos de "novo_evento_criado" (apenas IA Whatsapp)
-        let eventIdPriFromGatilhos: string | null = null;
-        if (tipoEvento === 'IA Whatsapp') {
-          eventIdPriFromGatilhos = await triggerNovoEventoCriadoWebhooks(data, false);
-        }
-        
-        // Para IA WhatsApp: consolidar event_id_pri obtido de qualquer fonte
-        if (tipoEvento === 'IA Whatsapp') {
-          const finalEventIdPri = eventIdPriFromWebhook || eventIdPriFromGatilhos;
-          
-          // Se obteve o event_id_pri do callWebhook mas não foi salvo ainda, salvar agora
-          if (eventIdPriFromWebhook && !eventIdPriFromGatilhos) {
-            await supabase
-              .from('prospeccoes')
-              .update({ event_id_pri: eventIdPriFromWebhook })
-              .eq('id', data.id);
-            console.log(`✅ event_id_pri "${eventIdPriFromWebhook}" salvo via pri-config`);
-          }
-          
-          // VALIDAÇÃO OBRIGATÓRIA: event_id_pri é mandatório para IA WhatsApp
-          if (!finalEventIdPri) {
-            console.error('❌ event_id_pri não retornado para IA WhatsApp - revertendo evento');
-            
-            // Reverter criação local
+          const gatilhoResult = await triggerNovoEventoCriadoWebhooks(data, false);
+
+          // Se o webhook recusou o evento (ex.: descrição inadequada), reverter e mostrar mensagem amigável
+          if (gatilhoResult.rejectionMessage && !gatilhoResult.eventIdPri) {
             const { error: rollbackError } = await supabase
               .from('prospeccoes')
               .delete()
               .eq('id', data.id);
-
             if (rollbackError) {
               console.error('❌ Falha ao reverter prospecção local:', rollbackError);
             }
+            toast({
+              title: "Não foi possível criar o evento",
+              description: gatilhoResult.rejectionMessage,
+              duration: 12000,
+            });
+            return;
+          }
 
+          // VALIDAÇÃO OBRIGATÓRIA: event_id_pri é mandatório para IA WhatsApp
+          if (!gatilhoResult.eventIdPri) {
+            console.error('❌ event_id_pri não retornado para IA WhatsApp - revertendo evento');
+            const { error: rollbackError } = await supabase
+              .from('prospeccoes')
+              .delete()
+              .eq('id', data.id);
+            if (rollbackError) {
+              console.error('❌ Falha ao reverter prospecção local:', rollbackError);
+            }
             throw new Error('Não foi possível criar o evento de IA WhatsApp, pois o identificador event_id_pri não foi retornado. Esse dado é obrigatório para o funcionamento do evento. Tente novamente.');
           }
-          
-          console.log(`✅ Evento IA WhatsApp criado com event_id_pri: ${finalEventIdPri}`);
+
+          console.log(`✅ Evento IA WhatsApp criado com event_id_pri: ${gatilhoResult.eventIdPri}`);
         }
         
         // Salvar dados relacionados baseado no tipo
