@@ -2162,8 +2162,11 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   };
 
-  const triggerNovoEventoCriadoWebhooks = async (prospeccaoData: any, isEditing: boolean): Promise<string | null> => {
-    if (!activeCompany?.id) return null;
+  const triggerNovoEventoCriadoWebhooks = async (
+    prospeccaoData: any,
+    isEditing: boolean
+  ): Promise<{ eventIdPri: string | null; rejectionMessage?: string }> => {
+    if (!activeCompany?.id) return { eventIdPri: null };
     
     // Disparar webhook para todos os tipos de evento
 
@@ -2256,7 +2259,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       if (error) {
         console.error('Erro ao buscar gatilhos:', error);
-        return null;
+        return { eventIdPri: null };
       }
 
       // Filtrar gatilhos do tipo "novo_evento_criado"
@@ -2267,7 +2270,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
 
       if (gatilhosEvento.length === 0) {
         console.log('Nenhum gatilho de novo_evento_criado configurado');
-        return null;
+        return { eventIdPri: null };
       }
 
       // Formatar datas para ISO 8601
