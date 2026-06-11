@@ -462,6 +462,35 @@ export default function Empresas() {
                     )}
                   />
 
+                  {isMaster && (
+                    <FormField
+                      control={form.control}
+                      name="bypass_compliance"
+                      render={({ field }) => (
+                        <FormItem className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <FormLabel className="flex items-center gap-2 text-destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                Bypass compliance (base de colaboradores)
+                              </FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Esta empresa não passará por quarentena, opt-out externo, opt-out global nem opt-out interno.
+                                Use apenas para bases de colaboradores. Visível apenas para Master.
+                              </p>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value === true}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
                   <div className="border-t pt-4">
                     <h4 className="text-lg font-semibold mb-3">Responsável Legal</h4>
                     
@@ -621,7 +650,14 @@ export default function Empresas() {
                             <Building className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground truncate text-sm sm:text-base">{empresa.nome_empresa}</h3>
+                            <h3 className="font-semibold text-foreground truncate text-sm sm:text-base flex items-center gap-2">
+                              <span className="truncate">{empresa.nome_empresa}</span>
+                              {empresa.bypass_compliance && (
+                                <Badge variant="destructive" className="text-[10px] py-0 px-1.5 flex-shrink-0">
+                                  BYPASS COMPLIANCE
+                                </Badge>
+                              )}
+                            </h3>
                             <p className="text-xs sm:text-sm text-muted-foreground truncate">{empresa.marca}</p>
                           </div>
                         </div>
