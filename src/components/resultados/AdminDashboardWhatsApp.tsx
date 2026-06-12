@@ -124,6 +124,8 @@ export const AdminDashboardWhatsApp = () => {
   const [filterMarca, setFilterMarca] = useState("");
   const [filterUF, setFilterUF] = useState("");
   const [filterEmpresa, setFilterEmpresa] = useState("");
+  const [filterDataInicio, setFilterDataInicio] = useState("");
+  const [filterDataFim, setFilterDataFim] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   // Results
@@ -221,8 +223,19 @@ export const AdminDashboardWhatsApp = () => {
       }
     }
 
+    if (filterDataInicio) {
+      result = result.filter(e => e.data_inicio && e.data_inicio >= filterDataInicio);
+    }
+
+    if (filterDataFim) {
+      result = result.filter(e => {
+        const ref = e.data_fim || e.data_inicio;
+        return ref && ref <= filterDataFim;
+      });
+    }
+
     return result;
-  }, [allEvents, searchFilter, filterEmpresa, filterMarca, filterUF]);
+  }, [allEvents, searchFilter, filterEmpresa, filterMarca, filterUF, filterDataInicio, filterDataFim]);
 
   const visibleEvents = useMemo(
     () => filteredEvents.slice(0, visibleCount),
@@ -552,14 +565,14 @@ export const AdminDashboardWhatsApp = () => {
             Preencha a palavra-chave para buscar por nome, ou selecione eventos abaixo. A palavra-chave tem prioridade.
           </p>
 
-          {/* ── Filters (Marca, UF, Nome da Empresa) ──────────── */}
+          {/* ── Filters (Marca, UF, Nome da Empresa, Datas) ──────────── */}
           <Collapsible open={showFilters} onOpenChange={setShowFilters}>
             <CollapsibleTrigger asChild>
               <Button variant="outline" size="sm" className="w-full justify-between">
                 <span className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   Filtros
-                  {(filterEmpresa || filterMarca || filterUF) && (
+                  {(filterEmpresa || filterMarca || filterUF || filterDataInicio || filterDataFim) && (
                     <Badge variant="secondary" className="text-xs ml-1">Ativos</Badge>
                   )}
                 </span>
@@ -594,13 +607,29 @@ export const AdminDashboardWhatsApp = () => {
                     placeholder="SP, RJ, MG..."
                   />
                 </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Data início (a partir de)</label>
+                  <Input
+                    type="date"
+                    value={filterDataInicio}
+                    onChange={(e) => { setFilterDataInicio(e.target.value); setVisibleCount(PAGE_SIZE); }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Data fim (até)</label>
+                  <Input
+                    type="date"
+                    value={filterDataFim}
+                    onChange={(e) => { setFilterDataFim(e.target.value); setVisibleCount(PAGE_SIZE); }}
+                  />
+                </div>
               </div>
-              {(filterEmpresa || filterMarca || filterUF) && (
+              {(filterEmpresa || filterMarca || filterUF || filterDataInicio || filterDataFim) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="mt-2 text-xs"
-                  onClick={() => { setFilterEmpresa(""); setFilterMarca(""); setFilterUF(""); setVisibleCount(PAGE_SIZE); }}
+                  onClick={() => { setFilterEmpresa(""); setFilterMarca(""); setFilterUF(""); setFilterDataInicio(""); setFilterDataFim(""); setVisibleCount(PAGE_SIZE); }}
                 >
                   <X className="h-3 w-3 mr-1" /> Limpar filtros
                 </Button>
