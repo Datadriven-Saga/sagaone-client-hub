@@ -57,7 +57,7 @@ Colunas:
 - `description` text — o que a permissão faz (legível pelo Admin)
 - `module_id` text — agrupador (ex.: `controle_acessos`, `prospeccao`, `recepcao`)
 - `has_parameter` boolean default false — substitui `hasValor`
-- `parameter_schema` jsonb — JSON Schema (Draft-07) para validar `restriction`
+- `parameter_schema` jsonb — JSON Schema (Draft-07) para validar `restriction`. Validação **nativa** via extensão [`pg_jsonschema`](https://github.com/supabase/pg_jsonschema) — a F0 habilita `create extension if not exists pg_jsonschema with schema extensions;` e usa `jsonb_matches_schema(parameter_schema, restriction)` dentro de uma CHECK/trigger leve em `profile_permissions`. Sem loop de validação em PL/pgSQL.
 - `created_at` timestamptz default now()
 
 Validação: trigger `BEFORE INSERT/UPDATE` confere que `key` casa com regex `^(global|tenant|local|personal):[a-z0-9_]+:[a-z_]+$`.
@@ -76,9 +76,9 @@ Colunas:
 - INDEX `idx_profile_permissions_permission` (`permission_key`)
 
 ### 2.3 `profile_permissions_history` — auditoria
-Colunas: `id`, `profile_key`, `permission_key`, `old_is_active` bool, `new_is_active` bool, `old_restriction` jsonb, `new_restriction` jsonb, `changed_by` uuid, `changed_at` timestamptz default now(), `operation` text (`INSERT|UPDATE|DELETE`).
+Colunas: `id`, `profile_key`, `permission_key`, `old_is_active` bool, `new_is_active` bool, `old_restriction` jsonb, `new_restriction` jsonb, `changed_by` uuid, `changed_at` timestamptz default now(), `operation` text (`INSERT|UPDATE|DELETE`), **`source` text not null default 'user'** — valores possíveis: `user` (mudança via UI/auth.uid() presente), `service_role` (edge/admin sem `auth.uid()`), `migration` (seed/backfill), `system` (trigger interno, ex.: backfill de wildcard).
 
-Preenchida 100% por trigger `AFTER INSERT OR UPDATE OR DELETE` em `profile_permissions`. `changed_by` lido de `auth.uid()`; se nulo (operação service_role/edge), grava `NULL` + marca em coluna `source` opcional.
+Preenchida 100% por trigger `AFTER INSERT OR UPDATE OR DELETE` em `profile_permissions`. `changed_by` lido de `auth.uid()`; quando nulo, a trigger grava `changed_by = NULL` e seta `source = 'service_role'` (ou `'migration'` se a sessão expôs `app.migration = on` via `SET LOCAL`).
 
 ### 2.4 RLS
 - `auth_permissions`: SELECT para `authenticated`; mutação só `service_role` (catálogo gerenciado por migration/seed).
@@ -86,10 +86,10 @@ Preenchida 100% por trigger `AFTER INSERT OR UPDATE OR DELETE` em `profile_permi
 - `profile_permissions_history`: SELECT apenas para Master/TI/Admin; INSERT só via trigger (revogar de roles diretos).
 
 ### 2.5 Função `has_permission(_user uuid, _key text) returns boolean`
-SECURITY DEFINER. Resolve em ordem:
-1. Lê `profile_key` do `profiles.tipo_acesso`.
-2. Master → `true` (regra do produto, ainda intencional, mas explícita e não escondida em hook).
-3. Procura `profile_permissions` com match exato OU **wildcard** (ver §3).
+SECURITY DEFINER. **Agnóstica a nomes de perfil** — não conhece "Master", "Admin", etc. Resolve em ordem:
+1. Lê `profile_key` do `profiles.tipo_acesso` do usuário.
+2. Procura `profile_permissions` com `profile_key` igual + `is_active = true` cujo `permission_key` faça match **exato** com `_key`.
+3. Caso não exista, procura entradas com `permission_key` contendo wildcard `*` e roda glob matching (ver §3). Superpoderes do Master existem **apenas** porque o seed concede `*:*:*` ao perfil — nenhuma exceção hardcoded.
 
 ---
 
@@ -133,16 +133,37 @@ Estratégia em duas camadas:
 Princípio: **nada no app quebra durante a migração**. Código atual continua chamando `permissions.canManageUsers`; por baixo, o adapter resolve via nova tabela e cai no antigo `departamento_permissoes` se a nova ainda não tiver entrada.
 
 ### 5.1 Mapa legacy → novo
-Arquivo `src/lib/rbac/legacyMap.ts`:
+Arquivo `src/lib/rbac/legacyMap.ts`. **Não usa OR ingênuo** — cada chave legacy define explicitamente seu modo de resolução (Mapeamento Direcionado por Contexto), evitando que `canManageUsers` vire `true` só porque o perfil tem `create`.
+
 ```ts
-export const LEGACY_TO_NEW: Record<string, string[]> = {
-  canManageUsers: ['tenant:usuarios:create','tenant:usuarios:update','tenant:usuarios:delete'],
-  canAccessControleAcessos: ['global:module_controle_acessos:read'],
-  canCreateEventos: ['tenant:eventos_prospeccao:create'],
+type LegacyRule =
+  | { mode: 'single'; key: string }                       // 1:1
+  | { mode: 'all';    keys: string[] }                    // AND — só true se TODAS forem true
+  | { mode: 'any';    keys: string[] }                    // OR  — uso restrito (ex.: "vê o menu")
+  | { mode: 'context'; byCaller: Record<string, string> }; // resolve por callsite
+
+export const LEGACY_TO_NEW: Record<string, LegacyRule> = {
+  // canManageUsers historicamente gating de criar/editar/excluir → exige TODAS
+  canManageUsers: { mode: 'all', keys: [
+    'tenant:usuarios:create','tenant:usuarios:update','tenant:usuarios:delete',
+  ]},
+  // ações granulares devem migrar para chamadas diretas, mas no shim ficam 1:1
+  canCreateUsers: { mode: 'single', key: 'tenant:usuarios:create' },
+  canEditUsers:   { mode: 'single', key: 'tenant:usuarios:update' },
+  canDeleteUsers: { mode: 'single', key: 'tenant:usuarios:delete' },
+  // "vê o módulo" pode usar OR explícito
+  canAccessControleAcessos: { mode: 'any', keys: ['global:module_controle_acessos:read'] },
+  canCreateEventos: { mode: 'single', key: 'tenant:eventos_prospeccao:create' },
   // ... gerado a partir do registry atual
 };
 ```
-Regra: legacy é `true` se **alguma** das novas é `true` (OR), para preservar comportamento.
+Regras de resolução:
+- `single` → 1:1.
+- `all` → AND (default para tudo que era catch-all `manage*`/`canX` de tela com múltiplos botões).
+- `any` → OR, **apenas** quando o callsite original já era genuinamente "qualquer uma serve" (ex.: render de menu).
+- `context` → quando o mesmo nome legado era usado para coisas diferentes em telas distintas; o hook recebe `caller` e escolhe a chave nova.
+
+Trava de auditoria: durante F1–F3, todo `mode: 'all'` ou `mode: 'any'` loga `[rbac:legacy-resolve] key=<x> mode=<y> result=<bool>` para validar que a substituição direta nos callsites não muda comportamento.
 
 ### 5.2 Hook unificado `useRbac()`
 Novo hook canônico:
@@ -165,7 +186,7 @@ Mantém a mesma assinatura pública; internamente:
 ### 5.5 Fases de cutover (sem quebrar)
 1. **F0** — Migration cria tabelas + seed `auth_permissions` (≈120 chaves) + seed `profile_permissions` espelhando o estado atual de `departamento_permissoes` + flags `*:*:*` para Master.
 2. **F1** — Deploy `useRbac` + adapter; `useUserAccessType` segue como shim com fallback ativo.
-3. **F2** — Tela `ControleAcessos` passa a ler/escrever em `profile_permissions`; `departamento_permissoes` vira read-only espelho (trigger de sincronia ida-e-volta enquanto coexistirem).
+3. **F2** — Tela `ControleAcessos` passa a ler/escrever em `profile_permissions`. Para coexistência com código legado que ainda lê `departamento_permissoes`, sincronia **unidirecional** `profile_permissions → departamento_permissoes` via trigger `AFTER INSERT/UPDATE/DELETE` na tabela nova. **Sem trigger inversa** (evita loop). A tabela antiga vira projeção read-only: qualquer escrita direta nela é rejeitada por trigger `BEFORE INSERT/UPDATE/DELETE` que faz checagem inteligente — compara `OLD` vs `NEW`; se a linha equivalente em `profile_permissions` já reflete o novo valor (origem foi a sincronia), passa silenciosamente; se for escrita externa genuína, levanta `RAISE EXCEPTION 'departamento_permissoes_is_read_only_use_profile_permissions'`. Esse delta evita reentrância sem precisar de flags de sessão.
 4. **F3** — Refactor incremental dos consumidores para chaves novas, removendo entradas do `LEGACY_TO_NEW` à medida que somem do código (grep dirigido pelos logs `[rbac:fallback]`).
 5. **F4** — Quando `LEGACY_TO_NEW` ficar vazio e logs zerarem por X dias: drop `departamento_permissoes`, drop `PermissionRegistry.ts`, remover shim.
 
@@ -187,6 +208,8 @@ Mantém a mesma assinatura pública; internamente:
 | Seed inicial divergir do estado real e tirar acesso de alguém | Seed é cópia 1:1 de `departamento_permissoes`; F0 não muda comportamento. |
 | Wildcard mal indexado custar performance | `has_permission` cacheia por sessão (memo no hook) + índice em `profile_permissions(profile_key)`. |
 | Trigger de autolockout barrar manutenção legítima | RPC `force_unlock_permission` SECURITY DEFINER acessível só a Master via MFA. |
+
+> **Sobre `force_unlock_permission`:** RPC SECURITY DEFINER que reativa uma permissão crítica num `profile_permissions` mesmo quando a trigger de autolockout bloquearia. Regras explícitas: (a) só executa se `auth.uid()` pertencer a `mfa_master_users` E a sessão tiver passado pela verificação TOTP recente (timestamp `mfa_verified_at` < 5 min, gravado pelo fluxo MFA atual); (b) registra em `profile_permissions_history` com `source = 'system'` e um motivo obrigatório (`reason text`); (c) nunca destrava em massa — opera 1 (`profile_key`, `permission_key`) por chamada. Não é "acesso pelo MFA"; é "exige reautenticação MFA do Master para invocar".
 | Adapter manter dependência legada indefinidamente | Logs `[rbac:fallback]` + KPI semanal “% chamadas via fallback” no plano. |
 | `eventos_prospeccao`/`bulk_upsert_contatos` afetados por mudança de RLS | Esta fase **não toca RLS de dados**; só substitui catálogo/overrides de permissão. RLS de tabelas críticas migra em fase própria. |
 
