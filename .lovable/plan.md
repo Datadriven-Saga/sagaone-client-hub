@@ -1,173 +1,84 @@
-# Programação e Cadência de Disparos WhatsApp
+# Fase 5 — Fechamento da Programação de Disparos WhatsApp
 
-Base: fluxo imediato em `/prospeccao/eventos/:id/base` (`EventoBase.tsx`, `process-campaign-job`, `DispararProgressModal`, `DispararCustoModal`), índice único atual `(empresa_id, prospeccao_id) WHERE status IN ('pending','processing')`, e diagnóstico FIAT SIA (statement_timeout 8s, cauda longa).
+Entrega o que falta do plano em `.lovable/plan.md`: ativar o cron, expor cancelamento e a lista de disparos programados, e garantir auditoria/notificação alinhadas.
 
----
+## 1. Cron `*/30 * * * *` (via `supabase--insert`)
 
-## 0. Decisões consolidadas
+- Habilitar `pg_cron` e `pg_net` (idempotente).
+- Agendar `disparo-slots-30min` chamando `scheduled-campaign-dispatcher` com `Authorization: Bearer <anon key>` + `apikey` no header (padrão usado nos outros crons do projeto).
+- Antes de criar, `cron.unschedule('disparo-slots-30min')` para garantir idempotência.
+- Não vai em migration (contém anon key/URL específicas do projeto, conforme regra do plano).
 
-| Tema | Decisão |
-|---|---|
-| Slots | 30 em 30 min; cron `*/30 * * * *` |
-| Janela | 07:00–22:00 America/Sao_Paulo (explícito na UI) |
-| Base congelada | Sim, via `lead_ids` no momento do agendamento (comportamento atual) |
-| Batch técnico (agendado) | 250 (reduz blast radius e exposição à cauda) |
-| Imediato | Mantém 1.000 — não alterar |
-| Saldo/billing Meta | Fora de escopo |
-| Contadores | RPC atômica obrigatória |
-| Lock de batch | Compare-and-swap `UPDATE...RETURNING` obrigatório |
-| Cron | `pg_cron` + `pg_net` (já em uso) |
-| Cancelamento | Cancela `scheduled`; `processing` termina |
-| Retomar falhas | Imediato (reusa fluxo atual) |
-| Permissão | `canProgramarCampanhas` (já existe) |
+## 2. Cancelamento
 
----
+### 2.1 RPC `cancel_scheduled_campaign_job(p_job_id uuid)` (migration)
+`SECURITY DEFINER`, `set search_path = public`. Lógica:
+- Valida acesso via `user_can_access_empresa(empresa_id)` do job.
+- Aborta se `status NOT IN ('scheduled','processing','partially_completed')` ou já cancelado.
+- `UPDATE campaign_jobs SET status='cancelled', cancelled_at=now(), cancelled_by=auth.uid()`.
+- `UPDATE campaign_batches SET status='cancelled' WHERE job_id=p_job_id AND status='scheduled'`.
+- Batches `processing` terminam naturalmente (claim já foi feito, lock detém).
+- Insere `logs_disparos` (`origem='edge_function'`, ação cancelamento) com `cancelled_by` e total de lotes cancelados.
+- Retorna `{cancelled_batches, kept_processing}`.
 
-## 1. Banco (Fase 1)
+### 2.2 Proteção no scheduler
+`claim_due_campaign_batches` já filtra `cj.cancelled_at IS NULL` — confirmar e manter.
 
-### 1.1 `campaign_jobs`
-Adicionar: `dispatch_mode` (`immediate`|`scheduled`, default `immediate`), `timezone` (default `America/Sao_Paulo`), `cadence_type` (`none`|`by_lot_count`|`by_lot_size`), `interval_minutes`, `first_scheduled_at`, `cancelled_at`, `cancelled_by`.
-Status passa a aceitar: `scheduled`, `partially_completed`, `cancelled`.
+## 3. UI — Lista "Disparos Programados"
 
-### 1.2 `campaign_batches`
-Adicionar: `scheduled_at` (NULL = imediato), `lot_index`, `locked_at`, `locked_by`.
-Status passa a aceitar `scheduled`.
-**NÃO alterar `lead_ids`** — segue sendo o array congelado.
+Novo componente `DisparosProgramadosList.tsx` exibido em `EventoBase.tsx` logo abaixo do bloco de botões, visível só quando há jobs com `dispatch_mode='scheduled'` e `status IN ('scheduled','processing','partially_completed')` para o evento.
 
-### 1.3 Índices
-- `idx_campaign_batches_scheduled_due` parcial em `(scheduled_at) WHERE status='scheduled'`.
-- **NÃO mexer** em `uq_campaign_jobs_active_per_prospeccao` (mantém `pending`/`processing`).
-- **Adicionar** `uq_campaign_jobs_scheduled_slot (empresa_id, prospeccao_id, first_scheduled_at) WHERE status='scheduled'`.
+Colunas:
+- Status (badge: Agendado / Em andamento / Parcial).
+- Total de leads e nº de lotes.
+- Próximo lote (mín `scheduled_at` dos batches `scheduled`).
+- Primeiro/último envio (min/max `scheduled_at`).
+- Progresso `processed + failed + duplicate / total_records`.
+- Criado por / Criado em.
+- Ações: **Detalhes** (drawer com lotes), **Cancelar** (confirmação → invoca RPC).
 
-Coexistência scheduled + imediato é intencional. Quando cron promove `scheduled`→`processing`, entra no índice ativo existente e bloqueia concorrentes naturalmente.
+Hook `useScheduledCampaignJobs(prospeccaoId)`:
+- Query inicial + Realtime em `campaign_jobs` filtrado por `prospeccao_id`.
+- Realtime em `campaign_batches` para refrescar contadores de "próximo lote".
+- `useEffect` com `removeChannel` no cleanup (regra do projeto).
 
-### 1.4 RPC `claim_due_campaign_batches(p_limit, p_worker_id)`
-`SECURITY DEFINER`, `set search_path = public`. Faz CTE com `FOR UPDATE SKIP LOCKED`, filtra:
-- `cb.status='scheduled' AND cb.scheduled_at <= now()`
-- `cj.status IN ('scheduled','processing','partially_completed')` e `cj.cancelled_at IS NULL`
-- `prospeccoes.disparos_pausados = false`
-Em seguida `UPDATE ... SET status='processing', locked_at=now(), locked_by=p_worker_id RETURNING *`.
+Drawer de detalhes:
+- Lista de batches ordenada por `lot_index`: `scheduled_at`, status, `total_leads`, `retry_count`, `locked_at`.
+- Sem PII de leads.
 
-### 1.5 RPC `increment_job_counters(p_job_id, p_processed, p_failed, p_duplicate)`
-`SECURITY DEFINER`. `UPDATE campaign_jobs SET processed_records = coalesce(...)+p_processed, ...`. Substitui o read-modify-write em memória, que só funciona hoje porque o índice único garante um worker por job.
+## 4. Gating de permissão
 
----
+- Botão "Cancelar" exige `canProgramarCampanhas` (mesma permissão do agendar). Sem permissão → `<Lock>` disabled.
+- Master/Admin/TI seguem regra atual de override.
 
-## 2. `process-campaign-job` (Fase 2)
+## 5. Auditoria & notificações
 
-Mudanças cirúrgicas, mantendo invocação `{ job_id }` 100% compatível:
+- `process-campaign-job` (já ajustado na Fase 2): só dispara `notificacoes` `disparo_concluido` quando o job inteiro (todos os lotes) termina — confirmar comportamento.
+- Adicionar `notificacoes` tipo `disparo_cancelado` ao final da RPC de cancelamento, para o `user_id` criador do job.
+- `logs_disparos` por batch já cobre execução (origem `edge_function` com `lot_index` no metadata via Fase 2).
+- Cancelamento grava 1 linha em `logs_disparos` com `origem='edge_function'`, `total_falha=0`, `total_sucesso=0`, metadata `{ action: 'cancelled', cancelled_batches }`.
 
-1. Payload aceita `{ job_id, batch_id? }`. Com `batch_id`, filtra `.eq('id', batch_id)`.
-2. Sem `batch_id`: continua processando só `pending`/`failed` — **nunca** varre `scheduled`.
-3. Quando vier do cron, o batch já chega `processing` via `claim_due_campaign_batches`. Abortar se estado inesperado.
-4. Substituir contadores in-memory por `increment_job_counters`.
-5. Regra de conclusão do job:
-   - Existe batch `scheduled` → não mexe no status do job.
-   - Todos terminais → `completed`; se houve falha → `partially_completed`.
-   - Job imediato (sem `scheduled`) mantém comportamento atual + "Forçar Finalização" 10 min.
-6. Chunk interno 250 para batches `dispatch_mode='scheduled'`. Imediato mantém 1.000. `5 req / 500ms` e timeout 30s/lead permanecem.
-7. `notificacoes` (`disparo_concluido`) só ao fim do job inteiro.
+## 6. Checklist de regressão (incremental)
 
----
+- Agendar evento e cancelar antes do primeiro slot → todos batches `cancelled`, job `cancelled`, sem disparos.
+- Cancelar com lote `processing` em voo → batch em andamento termina, demais `scheduled` viram `cancelled`, job final = `cancelled`.
+- Cancelar job já `completed` → bloqueado (RPC retorna erro).
+- Coexistência: agendamento ativo + disparo imediato no mesmo evento → ambos funcionam (índices distintos).
+- Cron executa a cada 30 min e promove apenas batches `scheduled_at <= now()`.
+- Realtime atualiza lista quando cron promove batch.
+- Sem permissão `canProgramarCampanhas` → botão Cancelar travado.
+- Notificação `disparo_concluido` só ao fim do job (não por lote).
+- Notificação `disparo_cancelado` criada.
 
-## 3. Scheduler (Fase 3)
+## 7. Ordem de execução
 
-Edge `scheduled-campaign-dispatcher`:
-1. `claim_due_campaign_batches(p_limit := 10, p_worker_id := 'cron')`.
-2. Para cada batch retornado, invoca `process-campaign-job` com `{ job_id, batch_id }` em fire-and-forget.
-3. Excedente fica `scheduled` e entra no próximo tick.
+1. Migration: RPC `cancel_scheduled_campaign_job` + tipo de notificação se necessário.
+2. `supabase--insert`: habilitar extensões + agendar cron.
+3. Frontend: `useScheduledCampaignJobs`, `DisparosProgramadosList`, integração em `EventoBase.tsx`.
+4. Smoke test: agendar evento pequeno, validar promoção pelo cron, cancelar, verificar logs/notificações.
 
-Cron via `pg_cron` + `pg_net` (inserir via supabase--insert, não migration, pois contém anon key/URL):
+## 8. Fora de escopo (mantido)
 
-```text
-*/30 * * * *  →  net.http_post(<edge URL>)
-```
-
-`scheduled_at <= now()` (timestamptz) é imune a skew/atraso do cron.
-
----
-
-## 4. UI (Fase 4)
-
-### 4.1 `EventoBase.tsx`
-Novo botão **"Programar WhatsApp"** ao lado de "Disparar WhatsApp (N)". Gate: `canProgramarCampanhas && !disparos_pausados`. Sem permissão renderiza `<Lock>` disabled.
-
-### 4.2 `ProgramarDisparoModal`
-- Data do primeiro envio.
-- Dropdown de horários em slots de 30 min, **limitado 07:00–22:00**.
-- Aviso fixo: "Os horários estão no fuso de Brasília (GMT-3)."
-- Modo: tudo de uma vez / N lotes / lotes de X contatos.
-- Intervalo entre lotes: múltiplos de 30 min.
-- Resumo: total, nº lotes, primeiro/último envio, custo estimado.
-
-Validações:
-- Mínimo: próximo slot futuro.
-- Todos os lotes calculados dentro da janela 07:00–22:00; senão bloqueia.
-- N lotes ≤ total; tamanho > 0.
-- Teto por lote de negócio: 5.000 (chunk interno 250).
-
-### 4.3 Custo
-Reutilizar `DispararCustoModal` com texto ajustado. Sem validação de saldo.
-
-### 4.4 `handleProgramarDisparoIA`
-- Grava `logs_disparos` (intenção) com metadata de agendamento.
-- Cria `campaign_jobs` com `dispatch_mode='scheduled'`, `status='scheduled'`, timezone, cadence, intervalo, `first_scheduled_at`.
-- Resolve base agora, divide em lotes de negócio.
-- Cada lote → `campaign_batches` com `lead_ids` congelados, `lot_index`, `scheduled_at = first_scheduled_at + lot_index*interval_minutes`, `status='scheduled'`.
-- **Não** invoca `process-campaign-job` — o cron cuida.
-
-### 4.5 Lista "Disparos programados"
-Status, total, lotes, próximo lote, primeiro/último envio, progresso. Ações: detalhes, cancelar.
-
----
-
-## 5. Cancelamento, falhas, auditoria (Fase 5)
-
-- Cancelar: job → `cancelled` + `cancelled_at/by`; batches `scheduled` → `cancelled`; `processing` termina; `completed` permanece.
-- Retomar falhas: reusa botão atual.
-- Auditoria: `logs_disparos` `origem='edge_function'` por batch com `lot_index` + `scheduled_at` no metadata. Notificação ao fim do job.
-
----
-
-## 6. O que NÃO alterar
-
-1. `uq_campaign_jobs_active_per_prospeccao` (mantém pending/processing).
-2. Batch size do imediato (mantém 1.000); parametrizar por `dispatch_mode`, não trocar constante global.
-3. Busca default sem `batch_id` ignora `scheduled`.
-4. "Forçar Finalização" 10 min — ignora/limpa `locked_at`.
-5. Lock não pode bloquear re-lock de `failed` (Retomar Falhas).
-6. `DispararProgressModal` Realtime do imediato intacto.
-7. `lead_ids` como fonte de verdade — sem tabela de vínculo.
-8. **NÃO tocar**: `bulk_upsert_contatos`, `upsert_quarentena`, `contato_quarentena`, schema/triggers de `eventos_prospeccao`. Sem PII em novos logs.
-
----
-
-## 7. Checklist de regressão
-
-Rodar **integralmente** o checklist atual do disparo imediato antes e depois de mexer no `process-campaign-job` (template ativo, `disparos_pausados`+auto-release, personalizado, >batch, permissão Lock, "disparo repetido"→duplicate, timeout 30s→retry, fechar/reabrir modal, travado>10min, Retomar Falhas, logs/falhas populados, `data_disparo_ia`, notificações).
-
-Cenários novos:
-- Coexistência scheduled + imediato mesmo evento
-- Agendamento duplicado no mesmo slot bloqueado
-- Cron promove `scheduled`→`processing` e bloqueia concorrentes
-- Cancelar pendentes mantendo concluídos
-- Contadores corretos com lotes paralelos
-- Lote fora da janela bloqueado no modal
-
----
-
-## 8. Ordem de execução
-
-| Fase | Entrega |
-|---|---|
-| 1 | Migração: colunas + índices + RPCs `claim_due_campaign_batches` e `increment_job_counters` |
-| 2 | `process-campaign-job`: `batch_id`, lock, incremento atômico, regra de conclusão, chunk 250, batch size por modo |
-| 3 | Edge `scheduled-campaign-dispatcher` + cron `*/30 * * * *` (via supabase--insert) |
-| 4 | UI: botão, `ProgramarDisparoModal`, `handleProgramarDisparoIA`, lista |
-| 5 | Cancelamento, retomar falhas, notificações, auditoria |
-
----
-
-## 9. Pendência para produto
-
-Confirmar: permitir coexistência "agendamento futuro + disparo manual imediato no mesmo evento"? Tecnicamente seguro (índice atual permite). Se "não", incluir `'scheduled'` no índice ativo — porém isso bloquearia disparo imediato enquanto houver agendamento pendente.
+- Não alterar `bulk_upsert_contatos`, `upsert_quarentena`, `eventos_prospeccao`, batch imediato (1000), índice ativo de `campaign_jobs`.
+- Sem checagem de saldo Meta.
+- Sem mudança no `DispararProgressModal` do fluxo imediato.
