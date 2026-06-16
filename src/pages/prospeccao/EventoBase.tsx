@@ -25,6 +25,7 @@ import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
 import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
 import ProgramarDisparoModal, { type ProgramarDisparoConfig } from '@/components/ProgramarDisparoModal';
+import DisparosProgramadosList from '@/components/DisparosProgramadosList';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
@@ -2696,6 +2697,11 @@ export default function EventoBase() {
             )}
           </CardContent>
         </Card>
+
+        {/* Lista de disparos programados (WhatsApp) */}
+        {isIAWhatsApp && (
+          <DisparosProgramadosList prospeccaoId={eventoId} canCancel={canProgramar} />
+        )}
 
         {/* Tabela de contatos */}
         <Card>
