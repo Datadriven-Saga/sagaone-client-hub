@@ -133,3 +133,6 @@ verify_jwt = true
 
 [functions.upload-template-image]
 verify_jwt = false
+
+[functions.scheduled-campaign-dispatcher]
+verify_jwt = false
