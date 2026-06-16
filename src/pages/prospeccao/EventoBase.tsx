@@ -1626,6 +1626,115 @@ export default function EventoBase() {
     handleDispararIA(custoModal.quantidade);
   };
 
+  // ============================================================
+  // Programar disparo de WhatsApp (agendamento + cadência)
+  // ============================================================
+  const handleProgramarDisparoIA = async (cfg: ProgramarDisparoConfig) => {
+    if (!prospeccao || !activeCompany?.id || !isIAWhatsApp) return;
+    setIsProgramandoDisparo(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      if (!userId) {
+        toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
+        return;
+      }
+
+      // Resolve base AGORA (congela snapshot de leads)
+      const contatosPendentes = await fetchContatosPendentes();
+      if (!contatosPendentes.length) {
+        toast({ title: "Atenção", description: "Nenhum contato pendente para programar." });
+        return;
+      }
+      const leadsParaDisparar = contatosPendentes;
+
+      // Divide nos lotes de negócio
+      const sizePorLote = cfg.cadenceType === 'none'
+        ? leadsParaDisparar.length
+        : cfg.cadenceType === 'by_lot_count'
+          ? Math.ceil(leadsParaDisparar.length / cfg.lotCount)
+          : cfg.lotSize;
+
+      type Lote = { lot_index: number; scheduled_at: string; ids: string[] };
+      const lotesNegocio: Lote[] = [];
+      const firstMs = new Date(cfg.scheduledIso).getTime();
+      for (let i = 0, idx = 0; i < leadsParaDisparar.length; i += sizePorLote, idx++) {
+        const ids = leadsParaDisparar.slice(i, i + sizePorLote).map(l => l.id);
+        const ts = new Date(firstMs + idx * (cfg.intervalMinutes || 0) * 60000).toISOString();
+        lotesNegocio.push({ lot_index: idx, scheduled_at: ts, ids });
+      }
+
+      // Cria o job (scheduled)
+      const { data: jobData, error: jobError } = await supabase
+        .from('campaign_jobs')
+        .insert({
+          prospeccao_id: prospeccao.id,
+          empresa_id: activeCompany.id,
+          user_id: userId,
+          canal: prospeccao.canal || 'Whatsapp',
+          total_records: leadsParaDisparar.length,
+          status: 'scheduled',
+          dispatch_mode: 'scheduled',
+          timezone: cfg.timezone,
+          cadence_type: cfg.cadenceType,
+          interval_minutes: cfg.cadenceType === 'none' ? null : cfg.intervalMinutes,
+          first_scheduled_at: cfg.scheduledIso,
+        } as any)
+        .select('id')
+        .single();
+
+      if (jobError || !jobData) {
+        console.error('Erro ao criar job agendado:', jobError);
+        const msg = jobError?.message?.includes('uq_campaign_jobs_scheduled_slot')
+          ? 'Já existe um disparo programado para este evento neste horário.'
+          : `Erro ao programar disparo: ${jobError?.message || 'desconhecido'}`;
+        toast({ title: "Erro", description: msg, variant: "destructive" });
+        return;
+      }
+
+      // Cria os batches físicos (chunks de 250 dentro de cada lote de negócio)
+      const CHUNK = 250;
+      const batchInserts: any[] = [];
+      let batchIdx = 0;
+      for (const lote of lotesNegocio) {
+        for (let i = 0; i < lote.ids.length; i += CHUNK) {
+          const slice = lote.ids.slice(i, i + CHUNK);
+          batchInserts.push({
+            job_id: jobData.id,
+            batch_index: batchIdx++,
+            total_leads: slice.length,
+            lead_ids: slice,
+            status: 'scheduled',
+            scheduled_at: lote.scheduled_at,
+            lot_index: lote.lot_index,
+          });
+        }
+      }
+
+      const { error: batchError } = await supabase.from('campaign_batches').insert(batchInserts);
+      if (batchError) {
+        await supabase.from('campaign_jobs').update({ status: 'failed', error_message: 'Erro ao criar batches agendados' }).eq('id', jobData.id);
+        console.error('Erro ao criar batches agendados:', batchError);
+        toast({ title: "Erro", description: "Erro ao preparar lotes agendados", variant: "destructive" });
+        return;
+      }
+
+      // Log de intenção (compat com pipeline atual)
+      registrarLogDisparo(leadsParaDisparar.length, 'disparo_programado');
+
+      toast({
+        title: "Disparo programado!",
+        description: `${leadsParaDisparar.length} contatos em ${lotesNegocio.length} lote(s). Primeiro envio: ${format(new Date(cfg.scheduledIso), "dd/MM HH:mm", { locale: ptBR })}`,
+      });
+      setShowProgramarModal(false);
+    } catch (err: any) {
+      console.error('Erro ao programar disparo:', err);
+      toast({ title: "Erro", description: err?.message || 'Falha ao programar disparo', variant: "destructive" });
+    } finally {
+      setIsProgramandoDisparo(false);
+    }
+  };
+
   // Helper fire-and-forget para registrar log de disparo em logs_disparos
   const registrarLogDisparo = async (totalContatos: number, tipoAcao: string = 'disparo_individual') => {
     try {
