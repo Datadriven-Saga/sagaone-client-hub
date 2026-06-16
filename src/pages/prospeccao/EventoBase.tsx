@@ -2631,6 +2631,32 @@ export default function EventoBase() {
                           </TooltipProvider>
                         </>
                       )}
+
+                      {/* Programar disparo (somente WhatsApp) */}
+                      {isIAWhatsApp && canProgramar && (
+                        <>
+                          <div className="h-8 w-px bg-border" />
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowProgramarModal(true)}
+                                  disabled={isDisparandoIA || !!(prospeccao as any)?.disparos_pausados || metricas.pendentes === 0}
+                                  className="border-primary text-primary hover:bg-primary/10"
+                                >
+                                  <Clock className="mr-2 h-4 w-4" />
+                                  Programar
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Agendar o disparo em data/hora futura, com opção de dividir em lotes cadenciados.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
+                      )}
                     </>
                   ) : (
                     <TooltipProvider>
