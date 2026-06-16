@@ -67,9 +67,9 @@ function resolveVariableMapping(
 // ============================================================
 // Background processing function
 // ============================================================
-async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string) {
+async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string, batch_id?: string | null) {
   try {
-    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}`);
+    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}${batch_id ? ` (batch ${batch_id})` : ''}`);
 
     // Buscar dados da prospecção
     const { data: prospeccao } = await supabase
@@ -190,49 +190,66 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       variable_mapping: variableMapping,
     };
 
-    // Buscar batches pendentes ou com falha
-    const { data: batches } = await supabase
+    // Buscar batches a processar.
+    // - Com batch_id (cron/scheduled): processa apenas aquele batch (já vem 'processing' via claim).
+    // - Sem batch_id (imediato): processa pending/failed. NUNCA varre 'scheduled' aqui.
+    let batchQuery = supabase
       .from('campaign_batches')
       .select('*')
       .eq('job_id', job_id)
-      .in('status', ['pending', 'failed'])
       .order('batch_index', { ascending: true });
+    if (batch_id) {
+      batchQuery = batchQuery.eq('id', batch_id).in('status', ['processing', 'pending', 'failed']);
+    } else {
+      batchQuery = batchQuery.in('status', ['pending', 'failed']);
+    }
+    const { data: batches } = await batchQuery;
 
     if (!batches || batches.length === 0) {
-      await supabase.from('campaign_jobs').update({ 
-        status: 'completed', 
-        completed_at: new Date().toISOString() 
-      }).eq('id', job_id);
-      console.log(`✅ [BG] Job ${job_id}: nenhum batch pendente`);
-      return { success: true, message: 'Nenhum batch pendente' };
+      // Avalia se ainda existem batches scheduled antes de finalizar.
+      const { count: scheduledLeft } = await supabase
+        .from('campaign_batches')
+        .select('id', { count: 'exact', head: true })
+        .eq('job_id', job_id)
+        .eq('status', 'scheduled');
+      if (!scheduledLeft || scheduledLeft === 0) {
+        await supabase.from('campaign_jobs').update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        }).eq('id', job_id);
+      }
+      console.log(`✅ [BG] Job ${job_id}: nenhum batch para processar (scheduled restantes=${scheduledLeft || 0})`);
+      return { success: true, message: 'Nenhum batch para processar' };
     }
 
     console.log(`📦 [BG] ${batches.length} batches para processar (canal: ${prospeccao.canal})`);
 
-    let totalProcessed = job.processed_records || 0;
-    let totalFailed = job.failed_records || 0;
-    let totalDuplicate = (job as any).duplicate_records || 0;
-    let batchBaseProcessed = totalProcessed;
-    let batchBaseFailed = totalFailed;
-    let batchBaseDuplicate = totalDuplicate;
+    // Deltas locais (apenas desta invocação). Contadores absolutos são mantidos
+    // de forma atômica no DB via RPC increment_job_counters().
+    let invProcessed = 0;
+    let invFailed = 0;
+    let invDuplicate = 0;
 
     for (const batch of batches) {
       // Verificar se job foi cancelado
-      const { data: currentJob } = await supabase.from('campaign_jobs').select('status').eq('id', job_id).single();
-      if (currentJob?.status === 'cancelled') {
+      const { data: currentJob } = await supabase.from('campaign_jobs').select('status, cancelled_at').eq('id', job_id).single();
+      if (currentJob?.status === 'cancelled' || currentJob?.cancelled_at) {
         console.log('🛑 [BG] Job cancelado, parando processamento');
         break;
       }
 
-      if (batch.retry_count >= MAX_RETRIES) {
+      if ((batch.retry_count || 0) >= MAX_RETRIES) {
         console.log(`⏭️ [BG] Batch ${batch.batch_index} já excedeu ${MAX_RETRIES} retries, pulando`);
         continue;
       }
 
-      await supabase.from('campaign_batches').update({ 
-        status: 'processing', 
-        started_at: new Date().toISOString() 
-      }).eq('id', batch.id);
+      // Se já chega como 'processing' (cron claim), não regride.
+      if (batch.status !== 'processing') {
+        await supabase.from('campaign_batches').update({
+          status: 'processing',
+          started_at: new Date().toISOString(),
+        }).eq('id', batch.id);
+      }
 
       const leadIds: string[] = Array.isArray(batch.lead_ids) ? batch.lead_ids : JSON.parse(String(batch.lead_ids));
 
@@ -402,7 +419,22 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                 console.warn(`⚠️ [BG] Ligação sub ${Math.floor(i / LIGACAO_SUB_BATCH)} → ${categoria}: ${mensagem}`);
               }
 
+              // Calcula deltas deste sub-lote para incremento atômico no DB.
+              const subSuccess = subMarkIds.length - (subFailLogs.filter((l: any) => l.categoria === 'duplicate').length);
+              const subDup = subFailLogs.filter((l: any) => l.categoria === 'duplicate').length;
+              const subFail = subFailLogs.length - subDup;
               await flushSubBatch(subMarkIds, subFailLogs);
+              if (subSuccess || subDup || subFail) {
+                invProcessed += subSuccess;
+                invDuplicate += subDup;
+                invFailed += subFail;
+                await supabase.rpc('increment_job_counters', {
+                  p_job_id: job_id,
+                  p_processed: subSuccess,
+                  p_failed: subFail,
+                  p_duplicate: subDup,
+                });
+              }
 
               if (successLeadIds.length > 0 || duplicateLeadIds.length > 0) {
                 // Upsert incremental em cadencia_pri_voz para os sucessos+duplicates deste sub-lote
@@ -436,18 +468,16 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                 categoria, mensagem, http_status: 0,
               }));
               await flushSubBatch([], subFailLogs);
+              invFailed += subContatos.length;
+              await supabase.rpc('increment_job_counters', {
+                p_job_id: job_id,
+                p_processed: 0,
+                p_failed: subContatos.length,
+                p_duplicate: 0,
+              });
             }
 
-            // Progresso granular
-            totalProcessed = batchBaseProcessed + successLeadIds.length;
-            totalFailed = batchBaseFailed + failedLeadIds.length;
-            totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
-            await supabase.from('campaign_jobs').update({
-              processed_records: totalProcessed,
-              failed_records: totalFailed,
-              duplicate_records: totalDuplicate,
-              updated_at: new Date().toISOString(),
-            }).eq('id', job_id);
+            // Contadores agora persistidos via RPC atômica (acima).
           }
         } else {
           // =====================================================
@@ -561,19 +591,24 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
             // Flush por sub-lote: marca data_disparo_ia para sucessos+duplicates e grava falhas
             await flushSubBatch(subMarkIds, subFailLogs);
 
-            // Progresso granular a cada sub-lote
-            totalProcessed = batchBaseProcessed + successLeadIds.length;
-            totalFailed = batchBaseFailed + failedLeadIds.length;
-            totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
-            await supabase.from('campaign_jobs').update({
-              processed_records: totalProcessed,
-              failed_records: totalFailed,
-              duplicate_records: totalDuplicate,
-              updated_at: new Date().toISOString(),
-            }).eq('id', job_id);
+            // Incremento atômico via RPC (deltas deste sub-lote)
+            const subSuccessCount = results.filter(r => r.status === 'fulfilled').length;
+            const subDupCount = subFailLogs.filter((l: any) => l.categoria === 'duplicate').length;
+            const subFailCount = subFailLogs.length - subDupCount;
+            if (subSuccessCount || subDupCount || subFailCount) {
+              invProcessed += subSuccessCount;
+              invDuplicate += subDupCount;
+              invFailed += subFailCount;
+              await supabase.rpc('increment_job_counters', {
+                p_job_id: job_id,
+                p_processed: subSuccessCount,
+                p_failed: subFailCount,
+                p_duplicate: subDupCount,
+              });
+            }
 
             if ((i / WA_BATCH_SIZE) % 20 === 0 || i + WA_BATCH_SIZE >= leads.length) {
-              console.log(`📊 [BG] WhatsApp progresso: ${successLeadIds.length} ok, ${duplicateLeadIds.length} dup, ${failedLeadIds.length} falhas de ${leads.length} (${totalProcessed}/${job.total_records} total)`);
+              console.log(`📊 [BG] WhatsApp progresso: ${successLeadIds.length} ok, ${duplicateLeadIds.length} dup, ${failedLeadIds.length} falhas de ${leads.length}`);
             }
           }
         }
@@ -621,19 +656,7 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
             : {}),
         }).eq('id', batch.id);
 
-        totalProcessed = batchBaseProcessed + successLeadIds.length;
-        totalFailed = batchBaseFailed + failedLeadIds.length;
-        totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
-        batchBaseProcessed = totalProcessed;
-        batchBaseFailed = totalFailed;
-        batchBaseDuplicate = totalDuplicate;
-
-        await supabase.from('campaign_jobs').update({
-          processed_records: totalProcessed,
-          failed_records: totalFailed,
-          duplicate_records: totalDuplicate,
-          updated_at: new Date().toISOString(),
-        }).eq('id', job_id);
+        // Contadores absolutos já mantidos via increment_job_counters (RPC).
 
         // ========== LOG SERVER-SIDE DE DISPARO (auditoria por batch) ==========
         try {
@@ -673,69 +696,86 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
           retry_count: (batch.retry_count || 0) + 1,
           error_log: batchErr.message,
         }).eq('id', batch.id);
-        totalFailed += (batch.lead_ids as string[]).length;
-        batchBaseProcessed = totalProcessed;
-        batchBaseFailed = totalFailed;
-        
-        await supabase.from('campaign_jobs').update({
-          processed_records: totalProcessed,
-          failed_records: totalFailed,
-          updated_at: new Date().toISOString(),
-        }).eq('id', job_id);
+        // Não incrementa contadores agregados aqui (lote será reprocessado em retry).
       }
     }
 
-    // Verificar se todos os batches foram processados
-    const { data: remainingBatches } = await supabase
+    // ============================================================
+    // Regra de conclusão do job
+    // - Se ainda existem batches 'scheduled', NÃO mexe no status do job
+    //   (cron continuará disparando os próximos lotes).
+    // - Se todos terminais e houve falha → 'partially_completed'.
+    // - Se todos terminais e zero falha → 'completed'.
+    // ============================================================
+    const { count: scheduledLeft } = await supabase
       .from('campaign_batches')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('job_id', job_id)
-      .in('status', ['pending', 'processing']);
+      .eq('status', 'scheduled');
+
+    if (scheduledLeft && scheduledLeft > 0) {
+      // Mantém aberto. Apenas atualiza updated_at.
+      await supabase.from('campaign_jobs').update({
+        updated_at: new Date().toISOString(),
+      }).eq('id', job_id);
+      console.log(`⏸️ [BG] Job ${job_id}: ${scheduledLeft} batches scheduled restantes — job permanece em aberto.`);
+      return { success: true, job_id, status: 'scheduled_remaining', processed: invProcessed, failed: invFailed };
+    }
 
     const { data: failedBatches } = await supabase
       .from('campaign_batches')
       .select('id, retry_count')
       .eq('job_id', job_id)
       .eq('status', 'failed');
+    const { count: pendingLeft } = await supabase
+      .from('campaign_batches')
+      .select('id', { count: 'exact', head: true })
+      .eq('job_id', job_id)
+      .in('status', ['pending', 'processing']);
 
     const retriableBatches = (failedBatches || []).filter((b: { retry_count: number | null }) => (b.retry_count || 0) < MAX_RETRIES);
+    const allTerminal = (pendingLeft || 0) === 0 && retriableBatches.length === 0;
 
-    const finalStatus = (remainingBatches?.length === 0 && retriableBatches.length === 0)
-      ? 'completed'
-      : 'failed';
+    // Contadores absolutos persistidos do job
+    const { data: jobNow } = await supabase
+      .from('campaign_jobs')
+      .select('processed_records, failed_records, total_records, duplicate_records, dispatch_mode')
+      .eq('id', job_id)
+      .single();
 
-    await supabase.from('campaign_jobs').update({
-      status: finalStatus,
-      processed_records: totalProcessed,
-      failed_records: totalFailed,
-      duplicate_records: totalDuplicate,
-      completed_at: new Date().toISOString(),
-      error_message: totalFailed > 0 ? `${totalFailed} registros falharam` : null,
-    }).eq('id', job_id);
+    if (allTerminal) {
+      const totalFailedDb = jobNow?.failed_records || 0;
+      const totalProcessedDb = jobNow?.processed_records || 0;
+      const finalStatus = totalFailedDb > 0
+        ? ((failedBatches || []).length > 0 ? 'partially_completed' : 'completed')
+        : 'completed';
 
-    // Criar notificação
-    try {
-      await supabase.from('notificacoes').insert({
-        user_id: job.user_id,
-        empresa_id: job.empresa_id,
-        tipo: 'disparo_concluido',
-        titulo: totalFailed > 0 ? 'Disparo concluído com erros' : 'Disparo concluído!',
-        mensagem: `${totalProcessed} de ${job.total_records} contatos disparados${totalFailed > 0 ? ` (${totalFailed} falhas)` : ''} - ${prospeccao.titulo}`,
-        lida: false,
-      });
-    } catch (notifErr) {
-      console.warn('⚠️ [BG] Erro ao criar notificação:', notifErr);
+      await supabase.from('campaign_jobs').update({
+        status: finalStatus,
+        completed_at: new Date().toISOString(),
+        error_message: totalFailedDb > 0 ? `${totalFailedDb} registros falharam` : null,
+      }).eq('id', job_id);
+
+      try {
+        await supabase.from('notificacoes').insert({
+          user_id: job.user_id,
+          empresa_id: job.empresa_id,
+          tipo: 'disparo_concluido',
+          titulo: totalFailedDb > 0 ? 'Disparo concluído com erros' : 'Disparo concluído!',
+          mensagem: `${totalProcessedDb} de ${jobNow?.total_records || job.total_records} contatos disparados${totalFailedDb > 0 ? ` (${totalFailedDb} falhas)` : ''} - ${prospeccao.titulo}`,
+          lida: false,
+        });
+      } catch (notifErr) {
+        console.warn('⚠️ [BG] Erro ao criar notificação:', notifErr);
+      }
+
+      console.log(`✅ [BG] Job ${job_id} finalizado [${finalStatus}]: ${totalProcessedDb} processados, ${totalFailedDb} falhas`);
+      return { success: true, job_id, status: finalStatus, processed: totalProcessedDb, failed: totalFailedDb };
     }
 
-    console.log(`✅ [BG] Job ${job_id} finalizado: ${totalProcessed} processados, ${totalFailed} falhas`);
-
-    return {
-      success: true,
-      job_id,
-      status: finalStatus,
-      processed: totalProcessed,
-      failed: totalFailed,
-    };
+    // Ainda há retries pendentes ou processing — não marca completed.
+    await supabase.from('campaign_jobs').update({ updated_at: new Date().toISOString() }).eq('id', job_id);
+    return { success: true, job_id, status: 'in_progress', processed: invProcessed, failed: invFailed };
   } catch (error: any) {
     console.error(`❌ [BG] Erro crítico no job ${job_id}:`, error);
     await supabase.from('campaign_jobs').update({
@@ -782,8 +822,8 @@ serve(async (req) => {
   const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
 
   try {
-    const { job_id } = await req.json();
-    
+    const { job_id, batch_id } = await req.json();
+
     if (!job_id) {
       return new Response(
         JSON.stringify({ success: false, error: 'job_id é obrigatório' }),
@@ -791,7 +831,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📥 Recebendo campaign job: ${job_id}`);
+    console.log(`📥 Recebendo campaign job: ${job_id}${batch_id ? ` batch=${batch_id}` : ''}`);
 
     // Buscar job para validação
     const { data: job, error: jobError } = await supabase
@@ -815,14 +855,18 @@ serve(async (req) => {
       );
     }
 
-    // Marcar como processing
-    await supabase
-      .from('campaign_jobs')
-      .update({ status: 'processing', started_at: new Date().toISOString() })
-      .eq('id', job_id);
+    // Promover para 'processing' apenas se estiver pending/scheduled/partially_completed.
+    // Quando o cron chama com batch_id, o batch já vem 'processing' via claim — o job pode estar
+    // 'scheduled' ou 'partially_completed' e deve passar a 'processing' para entrar no índice ativo.
+    if (['pending', 'scheduled', 'partially_completed'].includes(job.status)) {
+      await supabase
+        .from('campaign_jobs')
+        .update({ status: 'processing', started_at: job.started_at || new Date().toISOString() })
+        .eq('id', job_id);
+    }
 
     // Processar em background via EdgeRuntime.waitUntil
-    const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE);
+    const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE, batch_id || null);
     
     // @ts-ignore - EdgeRuntime disponível em Supabase Edge Functions
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
