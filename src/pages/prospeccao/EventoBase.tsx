@@ -24,6 +24,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DispararProgressModal from '@/components/DispararProgressModal';
 import { SimulacaoEventoModal } from '@/components/SimulacaoEventoModal';
+import ProgramarDisparoModal, { type ProgramarDisparoConfig } from '@/components/ProgramarDisparoModal';
 import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
@@ -164,6 +165,10 @@ export default function EventoBase() {
     isOpen: boolean;
     quantidade?: number;
   }>({ isOpen: false });
+
+  // Estado do modal de Programar disparo
+  const [showProgramarModal, setShowProgramarModal] = useState(false);
+  const [isProgramandoDisparo, setIsProgramandoDisparo] = useState(false);
   
   // Cache do telefone do agente Pri(Ligação) 
   const [telefonePriLigacao, setTelefonePriLigacao] = useState<string | null>(null);
