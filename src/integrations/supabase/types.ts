@@ -1115,8 +1115,12 @@ export type Database = {
           id: string
           job_id: string
           lead_ids: Json
+          locked_at: string | null
+          locked_by: string | null
+          lot_index: number | null
           processed_leads: number
           retry_count: number
+          scheduled_at: string | null
           started_at: string | null
           status: string
           total_leads: number
@@ -1130,8 +1134,12 @@ export type Database = {
           id?: string
           job_id: string
           lead_ids?: Json
+          locked_at?: string | null
+          locked_by?: string | null
+          lot_index?: number | null
           processed_leads?: number
           retry_count?: number
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
           total_leads?: number
@@ -1145,8 +1153,12 @@ export type Database = {
           id?: string
           job_id?: string
           lead_ids?: Json
+          locked_at?: string | null
+          locked_by?: string | null
+          lot_index?: number | null
           processed_leads?: number
           retry_count?: number
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
           total_leads?: number
@@ -1164,55 +1176,76 @@ export type Database = {
       }
       campaign_jobs: {
         Row: {
+          cadence_type: string
           canal: string
+          cancelled_at: string | null
+          cancelled_by: string | null
           completed_at: string | null
           created_at: string
+          dispatch_mode: string
           duplicate_records: number
           empresa_id: string
           error_message: string | null
           failed_records: number
+          first_scheduled_at: string | null
           id: string
+          interval_minutes: number | null
           processed_records: number
           prospeccao_id: string
           quantidade_solicitada: number | null
           started_at: string | null
           status: string
+          timezone: string
           total_records: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          cadence_type?: string
           canal: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           created_at?: string
+          dispatch_mode?: string
           duplicate_records?: number
           empresa_id: string
           error_message?: string | null
           failed_records?: number
+          first_scheduled_at?: string | null
           id?: string
+          interval_minutes?: number | null
           processed_records?: number
           prospeccao_id: string
           quantidade_solicitada?: number | null
           started_at?: string | null
           status?: string
+          timezone?: string
           total_records?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          cadence_type?: string
           canal?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           created_at?: string
+          dispatch_mode?: string
           duplicate_records?: number
           empresa_id?: string
           error_message?: string | null
           failed_records?: number
+          first_scheduled_at?: string | null
           id?: string
+          interval_minutes?: number | null
           processed_records?: number
           prospeccao_id?: string
           quantidade_solicitada?: number | null
           started_at?: string | null
           status?: string
+          timezone?: string
           total_records?: number
           updated_at?: string
           user_id?: string
@@ -6533,6 +6566,34 @@ export type Database = {
         Args: { user_id_param?: string }
         Returns: boolean
       }
+      claim_due_campaign_batches: {
+        Args: { p_limit?: number; p_worker_id?: string }
+        Returns: {
+          batch_index: number
+          completed_at: string | null
+          created_at: string
+          error_log: string | null
+          id: string
+          job_id: string
+          lead_ids: Json
+          locked_at: string | null
+          locked_by: string | null
+          lot_index: number | null
+          processed_leads: number
+          retry_count: number
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          total_leads: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "campaign_batches"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_import_processing: {
         Args: {
           p_import_id: string
@@ -6929,6 +6990,15 @@ export type Database = {
       importar_pool_para_evento: {
         Args: { p_empresa_id: string; p_itens: Json; p_prospeccao_id: string }
         Returns: Json
+      }
+      increment_job_counters: {
+        Args: {
+          p_duplicate?: number
+          p_failed?: number
+          p_job_id: string
+          p_processed?: number
+        }
+        Returns: undefined
       }
       increment_tentativas_chamada: {
         Args: { p_contato_id: string }
