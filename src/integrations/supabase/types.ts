@@ -6535,6 +6535,10 @@ export type Database = {
         Args: { _method?: string; _user_id: string }
         Returns: boolean
       }
+      cancel_scheduled_campaign_job: {
+        Args: { p_job_id: string }
+        Returns: Json
+      }
       check_contato_by_telefone: {
         Args: { p_empresa_id: string; p_telefone: string }
         Returns: Json
