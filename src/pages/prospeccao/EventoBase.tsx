@@ -1966,6 +1966,7 @@ export default function EventoBase() {
   const canDispatchWhatsApp = permissions.canDispararEventos ?? false;
   const canDispatchLigacao = permissions.canDispararIALigacao ?? false;
   const canDispatch = loadingAccess ? false : (isIAWhatsApp ? canDispatchWhatsApp : (isIALigacao ? canDispatchLigacao : false));
+  const canProgramar = (permissions.canProgramarCampanhas ?? false) && canDispatchWhatsApp;
 
   // Log para debug
   console.log('🔍 Canal:', prospeccao?.canal, '| isIALigacao:', isIALigacao, '| isIAWhatsApp:', isIAWhatsApp, '| canDispatch:', canDispatch, '| loadingAccess:', loadingAccess);
