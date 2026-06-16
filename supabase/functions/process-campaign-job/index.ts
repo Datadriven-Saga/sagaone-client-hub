@@ -822,8 +822,8 @@ serve(async (req) => {
   const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
 
   try {
-    const { job_id } = await req.json();
-    
+    const { job_id, batch_id } = await req.json();
+
     if (!job_id) {
       return new Response(
         JSON.stringify({ success: false, error: 'job_id é obrigatório' }),
@@ -831,7 +831,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📥 Recebendo campaign job: ${job_id}`);
+    console.log(`📥 Recebendo campaign job: ${job_id}${batch_id ? ` batch=${batch_id}` : ''}`);
 
     // Buscar job para validação
     const { data: job, error: jobError } = await supabase
@@ -855,14 +855,18 @@ serve(async (req) => {
       );
     }
 
-    // Marcar como processing
-    await supabase
-      .from('campaign_jobs')
-      .update({ status: 'processing', started_at: new Date().toISOString() })
-      .eq('id', job_id);
+    // Promover para 'processing' apenas se estiver pending/scheduled/partially_completed.
+    // Quando o cron chama com batch_id, o batch já vem 'processing' via claim — o job pode estar
+    // 'scheduled' ou 'partially_completed' e deve passar a 'processing' para entrar no índice ativo.
+    if (['pending', 'scheduled', 'partially_completed'].includes(job.status)) {
+      await supabase
+        .from('campaign_jobs')
+        .update({ status: 'processing', started_at: job.started_at || new Date().toISOString() })
+        .eq('id', job_id);
+    }
 
     // Processar em background via EdgeRuntime.waitUntil
-    const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE);
+    const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE, batch_id || null);
     
     // @ts-ignore - EdgeRuntime disponível em Supabase Edge Functions
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
