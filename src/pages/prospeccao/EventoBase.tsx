@@ -2701,6 +2701,7 @@ export default function EventoBase() {
         {/* Tabela de contatos */}
         <Card>
           <CardContent className="p-0">
+            {/* injected: marker preserved */}
             {loadingPage && contatos.length === 0 ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
