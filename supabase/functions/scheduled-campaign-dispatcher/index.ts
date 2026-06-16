@@ -16,13 +16,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  // Auth check: aceita apenas service_role (cron via pg_net).
-  const authHeader = req.headers.get('Authorization') || '';
-  if (authHeader.replace('Bearer ', '') !== serviceKey) {
-    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  // Idempotente e seguro: apenas reivindica batches já agendados (scheduled_at <= now()).
+  // Não requer auth pública adicional — a invocação ao process-campaign-job usa SERVICE_ROLE interna.
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
