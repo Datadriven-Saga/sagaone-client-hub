@@ -3003,6 +3003,18 @@ export default function EventoBase() {
         canalEvento={prospeccao?.canal || ''}
         totalContatos={custoModal.quantidade || (isIALigacaoLocal && metricasLigacao ? metricasLigacao.elegiveisDisparo : metricas.pendentes)}
       />
+
+      {/* Modal de Programar disparo (WhatsApp) */}
+      {isIAWhatsApp && (
+        <ProgramarDisparoModal
+          isOpen={showProgramarModal}
+          onClose={() => setShowProgramarModal(false)}
+          onConfirm={handleProgramarDisparoIA}
+          totalContatos={metricas.pendentes}
+          eventoNome={prospeccao?.titulo || 'Evento'}
+          isSubmitting={isProgramandoDisparo}
+        />
+      )}
     </DashboardLayout>
   );
 }
