@@ -419,7 +419,22 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                 console.warn(`⚠️ [BG] Ligação sub ${Math.floor(i / LIGACAO_SUB_BATCH)} → ${categoria}: ${mensagem}`);
               }
 
+              // Calcula deltas deste sub-lote para incremento atômico no DB.
+              const subSuccess = subMarkIds.length - (subFailLogs.filter((l: any) => l.categoria === 'duplicate').length);
+              const subDup = subFailLogs.filter((l: any) => l.categoria === 'duplicate').length;
+              const subFail = subFailLogs.length - subDup;
               await flushSubBatch(subMarkIds, subFailLogs);
+              if (subSuccess || subDup || subFail) {
+                invProcessed += subSuccess;
+                invDuplicate += subDup;
+                invFailed += subFail;
+                await supabase.rpc('increment_job_counters', {
+                  p_job_id: job_id,
+                  p_processed: subSuccess,
+                  p_failed: subFail,
+                  p_duplicate: subDup,
+                });
+              }
 
               if (successLeadIds.length > 0 || duplicateLeadIds.length > 0) {
                 // Upsert incremental em cadencia_pri_voz para os sucessos+duplicates deste sub-lote
@@ -453,18 +468,16 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
                 categoria, mensagem, http_status: 0,
               }));
               await flushSubBatch([], subFailLogs);
+              invFailed += subContatos.length;
+              await supabase.rpc('increment_job_counters', {
+                p_job_id: job_id,
+                p_processed: 0,
+                p_failed: subContatos.length,
+                p_duplicate: 0,
+              });
             }
 
-            // Progresso granular
-            totalProcessed = batchBaseProcessed + successLeadIds.length;
-            totalFailed = batchBaseFailed + failedLeadIds.length;
-            totalDuplicate = batchBaseDuplicate + duplicateLeadIds.length;
-            await supabase.from('campaign_jobs').update({
-              processed_records: totalProcessed,
-              failed_records: totalFailed,
-              duplicate_records: totalDuplicate,
-              updated_at: new Date().toISOString(),
-            }).eq('id', job_id);
+            // Contadores agora persistidos via RPC atômica (acima).
           }
         } else {
           // =====================================================
