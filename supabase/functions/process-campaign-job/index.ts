@@ -67,9 +67,9 @@ function resolveVariableMapping(
 // ============================================================
 // Background processing function
 // ============================================================
-async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string) {
+async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string, batch_id?: string | null) {
   try {
-    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}`);
+    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}${batch_id ? ` (batch ${batch_id})` : ''}`);
 
     // Buscar dados da prospecção
     const { data: prospeccao } = await supabase
@@ -190,49 +190,66 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       variable_mapping: variableMapping,
     };
 
-    // Buscar batches pendentes ou com falha
-    const { data: batches } = await supabase
+    // Buscar batches a processar.
+    // - Com batch_id (cron/scheduled): processa apenas aquele batch (já vem 'processing' via claim).
+    // - Sem batch_id (imediato): processa pending/failed. NUNCA varre 'scheduled' aqui.
+    let batchQuery = supabase
       .from('campaign_batches')
       .select('*')
       .eq('job_id', job_id)
-      .in('status', ['pending', 'failed'])
       .order('batch_index', { ascending: true });
+    if (batch_id) {
+      batchQuery = batchQuery.eq('id', batch_id).in('status', ['processing', 'pending', 'failed']);
+    } else {
+      batchQuery = batchQuery.in('status', ['pending', 'failed']);
+    }
+    const { data: batches } = await batchQuery;
 
     if (!batches || batches.length === 0) {
-      await supabase.from('campaign_jobs').update({ 
-        status: 'completed', 
-        completed_at: new Date().toISOString() 
-      }).eq('id', job_id);
-      console.log(`✅ [BG] Job ${job_id}: nenhum batch pendente`);
-      return { success: true, message: 'Nenhum batch pendente' };
+      // Avalia se ainda existem batches scheduled antes de finalizar.
+      const { count: scheduledLeft } = await supabase
+        .from('campaign_batches')
+        .select('id', { count: 'exact', head: true })
+        .eq('job_id', job_id)
+        .eq('status', 'scheduled');
+      if (!scheduledLeft || scheduledLeft === 0) {
+        await supabase.from('campaign_jobs').update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        }).eq('id', job_id);
+      }
+      console.log(`✅ [BG] Job ${job_id}: nenhum batch para processar (scheduled restantes=${scheduledLeft || 0})`);
+      return { success: true, message: 'Nenhum batch para processar' };
     }
 
     console.log(`📦 [BG] ${batches.length} batches para processar (canal: ${prospeccao.canal})`);
 
-    let totalProcessed = job.processed_records || 0;
-    let totalFailed = job.failed_records || 0;
-    let totalDuplicate = (job as any).duplicate_records || 0;
-    let batchBaseProcessed = totalProcessed;
-    let batchBaseFailed = totalFailed;
-    let batchBaseDuplicate = totalDuplicate;
+    // Deltas locais (apenas desta invocação). Contadores absolutos são mantidos
+    // de forma atômica no DB via RPC increment_job_counters().
+    let invProcessed = 0;
+    let invFailed = 0;
+    let invDuplicate = 0;
 
     for (const batch of batches) {
       // Verificar se job foi cancelado
-      const { data: currentJob } = await supabase.from('campaign_jobs').select('status').eq('id', job_id).single();
-      if (currentJob?.status === 'cancelled') {
+      const { data: currentJob } = await supabase.from('campaign_jobs').select('status, cancelled_at').eq('id', job_id).single();
+      if (currentJob?.status === 'cancelled' || currentJob?.cancelled_at) {
         console.log('🛑 [BG] Job cancelado, parando processamento');
         break;
       }
 
-      if (batch.retry_count >= MAX_RETRIES) {
+      if ((batch.retry_count || 0) >= MAX_RETRIES) {
         console.log(`⏭️ [BG] Batch ${batch.batch_index} já excedeu ${MAX_RETRIES} retries, pulando`);
         continue;
       }
 
-      await supabase.from('campaign_batches').update({ 
-        status: 'processing', 
-        started_at: new Date().toISOString() 
-      }).eq('id', batch.id);
+      // Se já chega como 'processing' (cron claim), não regride.
+      if (batch.status !== 'processing') {
+        await supabase.from('campaign_batches').update({
+          status: 'processing',
+          started_at: new Date().toISOString(),
+        }).eq('id', batch.id);
+      }
 
       const leadIds: string[] = Array.isArray(batch.lead_ids) ? batch.lead_ids : JSON.parse(String(batch.lead_ids));
 
