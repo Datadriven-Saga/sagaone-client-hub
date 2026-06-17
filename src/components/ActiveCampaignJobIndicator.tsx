@@ -29,6 +29,22 @@ const ActiveCampaignJobIndicator: React.FC = () => {
   }, []);
 
   const autoResolveStuckJob = useCallback(async (job: ActiveJob) => {
+    // Guarda: se ainda houver lotes scheduled no futuro, NÃO finalizar.
+    // Disparos programados podem ter intervalos longos (30min, 1h) entre lotes,
+    // o que faria updated_at parecer "travado" entre os lotes.
+    const nowIso = new Date().toISOString();
+    const { count: futureScheduled } = await supabase
+      .from('campaign_batches')
+      .select('id', { count: 'exact', head: true })
+      .eq('job_id', job.id)
+      .eq('status', 'scheduled')
+      .gt('scheduled_at', nowIso);
+    if ((futureScheduled ?? 0) > 0) {
+      console.log(`⏭️ Job ${job.id} tem ${futureScheduled} lotes scheduled futuros — não é travamento.`);
+      setActiveJob(null);
+      return;
+    }
+
     console.warn(`🛑 Auto-resolvendo job travado: ${job.id}`);
     await supabase.from('campaign_jobs').update({
       status: 'completed',
@@ -40,6 +56,8 @@ const ActiveCampaignJobIndicator: React.FC = () => {
       status: 'failed',
       error_log: 'Job finalizado automaticamente (timeout)',
     }).eq('job_id', job.id).in('status', ['pending', 'processing']);
+    // NÃO tocar em batches 'scheduled' — eles podem ter scheduled_at no passado
+    // (e neste caso o cron-dispatcher os reivindicará na próxima volta).
 
     // Persistir notificação para quem programou o disparo
     try {
