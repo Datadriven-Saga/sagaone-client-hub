@@ -88,6 +88,7 @@ interface ProgramarDisparoModalProps {
   totalContatos: number;
   eventoNome: string;
   isSubmitting?: boolean;
+  dataFimEvento?: string | null;
 }
 
 const LOTE_TETO = 5000;
@@ -99,6 +100,7 @@ export default function ProgramarDisparoModal({
   totalContatos,
   eventoNome,
   isSubmitting = false,
+  dataFimEvento = null,
 }: ProgramarDisparoModalProps) {
   const slots = useMemo(buildSlots, []);
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -142,6 +144,15 @@ export default function ProgramarDisparoModal({
       )
     : null;
 
+  // Limite máximo de agendamento: 23:59 (-03:00) da data_fim do evento.
+  const dataFimLimite = useMemo(() => {
+    if (!dataFimEvento) return null;
+    const d = new Date(dataFimEvento);
+    if (isNaN(d.getTime())) return null;
+    // 23:59 horário de Brasília
+    return new Date(`${dataFimEvento.slice(0, 10)}T23:59:00-03:00`);
+  }, [dataFimEvento]);
+
   // ---- Validações ----
   const errors: string[] = [];
   if (!date) errors.push("Selecione a data do primeiro envio.");
@@ -149,22 +160,38 @@ export default function ProgramarDisparoModal({
     const f = new Date(firstIso);
     if (f.getTime() <= Date.now()) errors.push("O horário inicial precisa estar no futuro.");
     if (!isWithinWindow(firstIso)) errors.push("O horário inicial está fora da janela 07:00–22:00.");
+    if (dataFimLimite && f.getTime() > dataFimLimite.getTime()) {
+      errors.push(`O primeiro envio precisa ser até ${format(dataFimLimite, "dd/MM/yyyy")} (término do evento).`);
+    }
   }
   if (sizePorLote > LOTE_TETO) errors.push(`Cada lote pode ter no máximo ${LOTE_TETO.toLocaleString("pt-BR")} contatos.`);
   if (modo === "by_lot_count" && lotCount > totalContatos) errors.push("Número de lotes maior que o total de contatos.");
   if (modo === "by_lot_size" && lotSize <= 0) errors.push("Tamanho de lote inválido.");
   if (modo !== "none" && intervaloMin < 30) errors.push("Intervalo mínimo entre lotes é 30 minutos.");
-  if (modo !== "none" && intervaloMin % 30 !== 0) errors.push("Intervalo deve ser múltiplo de 30 minutos.");
 
-  // Verifica TODOS os lotes dentro da janela
+  // Verifica TODOS os lotes dentro da janela 07:00–22:00 e dentro do data_fim
   if (firstIso && totalLotes > 1) {
+    const foraJanela: string[] = [];
+    const aposFim: string[] = [];
     for (let i = 0; i < totalLotes; i++) {
       const slotDate = new Date(new Date(firstIso).getTime() + i * intervaloMin * 60000);
       const iso = buildScheduledIso(slotDate, format(slotDate, "HH:mm"));
       if (!isWithinWindow(iso)) {
-        errors.push(`Lote ${i + 1} cai fora da janela 07:00–22:00 (${format(slotDate, "dd/MM HH:mm")}). Ajuste o intervalo.`);
-        break;
+        foraJanela.push(`Lote ${i + 1} (${format(slotDate, "dd/MM HH:mm")})`);
       }
+      if (dataFimLimite && slotDate.getTime() > dataFimLimite.getTime()) {
+        aposFim.push(`Lote ${i + 1} (${format(slotDate, "dd/MM HH:mm")})`);
+      }
+    }
+    if (foraJanela.length > 0) {
+      const sample = foraJanela.slice(0, 3).join(", ");
+      const extra = foraJanela.length > 3 ? ` e mais ${foraJanela.length - 3}` : "";
+      errors.push(`${sample}${extra} caem fora da janela 07:00–22:00. Ajuste intervalo ou nº de lotes.`);
+    }
+    if (aposFim.length > 0) {
+      const sample = aposFim.slice(0, 3).join(", ");
+      const extra = aposFim.length > 3 ? ` e mais ${aposFim.length - 3}` : "";
+      errors.push(`${sample}${extra} caem depois do término do evento (${format(dataFimLimite!, "dd/MM/yyyy")}). Reduza lotes ou intervalo.`);
     }
   }
 
@@ -213,7 +240,11 @@ export default function ProgramarDisparoModal({
                   selected={date}
                   onSelect={setDate}
                   initialFocus
-                  disabled={(d) => d < new Date(new Date().toDateString())}
+                  disabled={(d) => {
+                    if (d < new Date(new Date().toDateString())) return true;
+                    if (dataFimLimite && d.getTime() > dataFimLimite.getTime()) return true;
+                    return false;
+                  }}
                 />
               </PopoverContent>
             </Popover>
@@ -284,11 +315,8 @@ export default function ProgramarDisparoModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[30, 60, 90, 120, 180, 240, 360, 480].map((m) => (
-                  <SelectItem key={m} value={String(m)}>
-                    {m < 60 ? `${m} min` : `${m / 60} h${m % 60 ? ` ${m % 60} min` : ""}`}
-                  </SelectItem>
-                ))}
+                <SelectItem value="30">30 min</SelectItem>
+                <SelectItem value="60">1 h</SelectItem>
               </SelectContent>
             </Select>
           </div>
