@@ -3685,13 +3685,18 @@ export type Database = {
           data_envio: string | null
           data_leitura: string | null
           destinatario_id: string | null
+          empresa_id: string | null
           id: string
-          mensagem: string
+          lida: boolean
+          link: string | null
+          mensagem: string | null
           remetente_id: string | null
-          status: Database["public"]["Enums"]["status_notificacao"] | null
-          tipo: Database["public"]["Enums"]["tipo_notificacao"] | null
+          status: string | null
+          tipo: string | null
           tipo_notificacao_id: string | null
           titulo: string
+          updated_at: string
+          user_id: string | null
         }
         Insert: {
           cliente_id?: string | null
@@ -3700,13 +3705,18 @@ export type Database = {
           data_envio?: string | null
           data_leitura?: string | null
           destinatario_id?: string | null
+          empresa_id?: string | null
           id?: string
-          mensagem: string
+          lida?: boolean
+          link?: string | null
+          mensagem?: string | null
           remetente_id?: string | null
-          status?: Database["public"]["Enums"]["status_notificacao"] | null
-          tipo?: Database["public"]["Enums"]["tipo_notificacao"] | null
+          status?: string | null
+          tipo?: string | null
           tipo_notificacao_id?: string | null
           titulo: string
+          updated_at?: string
+          user_id?: string | null
         }
         Update: {
           cliente_id?: string | null
@@ -3715,13 +3725,18 @@ export type Database = {
           data_envio?: string | null
           data_leitura?: string | null
           destinatario_id?: string | null
+          empresa_id?: string | null
           id?: string
-          mensagem?: string
+          lida?: boolean
+          link?: string | null
+          mensagem?: string | null
           remetente_id?: string | null
-          status?: Database["public"]["Enums"]["status_notificacao"] | null
-          tipo?: Database["public"]["Enums"]["tipo_notificacao"] | null
+          status?: string | null
+          tipo?: string | null
           tipo_notificacao_id?: string | null
           titulo?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
