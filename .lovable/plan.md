@@ -1,35 +1,39 @@
+# Atualizar documentacao com as duas ultimas alteracoes concluidas
 
-# Mudar janela de disparo de 07–22 para 07–20
+## Contexto
 
-Alterar o limite superior da janela permitida em todas as camadas (UI, edge dispatcher e doc).
+As duas alteracoes recentes no sistema de disparo WhatsApp ja foram implementadas e precisam ser refletidas corretamente na documentacao:
 
-## Arquivos
+1. **Chunking server-side para disparos imediatos** — Mitigacao do timeout do Edge Function (`waitUntil` ~5-6 min) dividindo batches grandes (>250 leads) em batches filhos `scheduled` processados pelo cron.
+2. **Janela de disparo alterada de 07-22 para 07-20** — Reducao do horario permitido em todas as camadas (UI, edge dispatcher e doc).
 
-### 1. `src/components/ProgramarDisparoModal.tsx`
-- `JANELA_FIM_H = 22` → `20`.
-- Substituir as strings literais `"07:00–22:00"` (linhas 162, 189, 224) por `"07:00–20:00"`.
-- A função `buildSlots` já é derivada de `JANELA_FIM_H`; o último slot passa a ser `20:00` (sem `20:30`, pelo `if (h !== JANELA_FIM_H)`).
-- `isWithinWindow` continua válida — proíbe minutos > 0 na hora final (ou seja, `20:30+` fica fora).
+## Tarefas
 
-### 2. `supabase/functions/scheduled-campaign-dispatcher/index.ts`
-- `WINDOW_END_H = 22` → `20`.
-- Atualizar o comentário `// último slot permitido 22:00 (inclusivo)` → `20:00`.
-- `isInsideWindow` e `nextWindowStart` permanecem (são derivados das constantes).
-- Comportamento: batches reivindicados após 20:00 são silenciosamente reagendados para 07:00 do dia útil seguinte.
+### 1. Atualizar `.lovable/plan.md`
 
-### 3. `docs/fluxo-disparo-whatsapp.md`
-- Substituir todas as menções `07–22`, `07:00–22:00`, `22:00` (no contexto da janela) por `07–20`, `07:00–20:00`, `20:00`.
-- Linhas afetadas: 168, 344, 363, 371, 373, 494, 525 (e qualquer outra menção residual).
+O plano atual esta escrito como instrucao de implementacao (futuro). Precisa ser reescrito como registro de conclusao:
+
+- Renomear titulo para refletir ambas as alteracoes concluidas.
+- Reestruturar como "Registro de alteracoes" em vez de plano de execucao.
+- Adicionar secao sobre o chunking server-side (contexto, mitigacao, parametros `MAX_LEADS_PER_BATCH=250` / `STAGGER_MS=30000`, guarda `lot_index IS NULL`).
+- Manter secao da janela 07-20 como concluida.
+- Atualizar verificacao para incluir testes do chunking.
+
+### 2. Revisar `docs/fluxo-disparo-whatsapp.md`
+
+O documento ja contem as duas alteracoes, mas sera revisado para garantir consistencia:
+
+- Confirmar que a secao de chunking esta completa e alinhada com a implementacao real.
+- Confirmar que todas as menencias a janela sao `07-20` (sem resquicios de `07-22` ou `22:00`).
+- Corrigir qualquer inconsistencia encontrada.
+
+### 3. Verificar memorias relacionadas
+
+Se houver memoria em `.lovable/memory/` sobre disparo WhatsApp, atualizar com:
+- Horario da janela (07-20).
+- Chunking como mecanismo de resiliencia para batches grandes.
 
 ## Fora de escopo
 
-- Nenhuma migração SQL.
-- Sem mudança em `WINDOW_START_H` (continua 07).
-- Sem mudança no cron (continua rodando 24h; a edge é quem enforça a janela).
-- Sem mudança em jobs já agendados entre 20:01 e 22:00: ao serem reivindicados, o dispatcher os reagenda automaticamente para o próximo 07:00 (comportamento já existente). Não é necessário migrar `scheduled_at` retroativamente — se o usuário quiser executar hoje, pode reabrir e reagendar.
-
-## Verificação
-
-- Tentar programar 20:30 na UI → bloqueado.
-- Tentar programar 20:00 → aceito.
-- Forçar inserção de batch com `scheduled_at = 21:00` e observar o próximo tick do `scheduled-campaign-dispatcher`: deve reagendar para 07:00 do dia seguinte com `locked_at`/`locked_by` limpos, sem disparar a Lambda.
+- Nenhuma mudanca de codigo (ja implementada).
+- Nenhuma migration SQL.
