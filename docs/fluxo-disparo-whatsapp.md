@@ -165,7 +165,7 @@ Mitigação (apenas para `lot_index IS NULL`, ou seja, disparo manual/`immediate
 - Após carregar `leads` e aplicar a revalidação `data_disparo_ia`, se `leads.length > 250`:
   1. O batch atual é encolhido para os primeiros 250 (`UPDATE lead_ids, total_leads`).
   2. Os leads excedentes viram N novos `campaign_batches` com `status='scheduled'`, `lot_index` definido, `batch_index` sequencial após o máximo atual do job e `scheduled_at = now() + (i+1)*30s`.
-  3. O `scheduled-campaign-dispatcher` (cron a cada minuto) reivindica e processa cada filho numa invocação independente, reaproveitando todo o caminho do programado — incluindo a janela 07–22 (filhos com `scheduled_at` fora da janela são reagendados pelo dispatcher).
+  3. O `scheduled-campaign-dispatcher` (cron a cada minuto) reivindica e processa cada filho numa invocação independente, reaproveitando todo o caminho do programado — incluindo a janela 07–20 (filhos com `scheduled_at` fora da janela são reagendados pelo dispatcher).
 - A guarda `lot_index IS NULL` impede que os próprios filhos (que já têm `lot_index` definido) entrem novamente no chunking.
 - IA Ligação está fora do escopo (usa `prospect_pri_voz`, latência por lead diferente, sem relato de travamento).
 
@@ -341,7 +341,7 @@ Montado em `process-campaign-job:478-494`, um POST por lead:
 - [ ] `notificacoes` criada para o usuário disparador
 - [ ] Disparo imediato com 50 leads → 1 batch único, sem chunking
 - [ ] Disparo imediato com 600 leads → batch original reduzido a 250 + 2 batches `scheduled` (250 e 100) reivindicados pelo cron; somatório `processed_records=600`
-- [ ] Disparo imediato fora da janela 07–22 → primeiro batch roda imediato; filhos com `scheduled_at` futuro respeitam o reagendamento do dispatcher
+- [ ] Disparo imediato fora da janela 07–20 → primeiro batch roda imediato; filhos com `scheduled_at` futuro respeitam o reagendamento do dispatcher
 
 ---
 
@@ -360,7 +360,7 @@ Além do disparo imediato (seções 1–10), o evento permite **programar** o en
 | Regra | Valor | Onde |
 |---|---|---|
 | Fuso fixo | `America/Sao_Paulo` (offset `-03:00`, sem DST) | `TZ`, `buildScheduledIso` |
-| Janela permitida | **07:00–22:00** (último slot 22:00) | `JANELA_INICIO_H` / `JANELA_FIM_H`, `isWithinWindow` |
+| Janela permitida | **07:00–20:00** (último slot 20:00) | `JANELA_INICIO_H` / `JANELA_FIM_H`, `isWithinWindow` |
 | Slots | A cada 30 min | `buildSlots` |
 | Primeiro envio | Estritamente no futuro | validação `f.getTime() <= Date.now()` |
 | Limite final | ≤ 23:59 (Brasília) da `prospeccoes.data_fim` | `dataFimLimite` |
@@ -368,9 +368,9 @@ Além do disparo imediato (seções 1–10), o evento permite **programar** o en
 | Intervalo mínimo entre lotes | **30 min** (opções: 30 min ou 1 h) | `intervaloMin` |
 | TODOS os lotes precisam cair dentro da janela e antes da `data_fim` | UI lista os lotes inválidos antes de permitir submit |
 
-> **Janela 07–22 é também reforçada server-side.** O `scheduled-campaign-dispatcher`
+> **Janela 07–20 é também reforçada server-side.** O `scheduled-campaign-dispatcher`
 > (seção 11.4) verifica o relógio em `America/Sao_Paulo` antes de invocar qualquer
-> batch. Se o tick cair fora de 07:00–22:00, **todos os batches reivindicados são
+> batch. Se o tick cair fora de 07:00–20:00, **todos os batches reivindicados são
 > devolvidos para `status='scheduled'`** com `scheduled_at` ajustado para o próximo
 > 07:00, `locked_at`/`locked_by` limpos. Nada é disparado e nada é notificado ao
 > usuário (proteção silenciosa contra batches manuais/drift de cron).
@@ -491,7 +491,7 @@ lead_ids      = slice de contatos pendentes
 - [ ] Programar 2+ lotes com intervalo 30 min → cada lote dispara separadamente
 - [ ] Indicador global NÃO mostra "Disparo travado" entre lotes
 - [ ] Cancelar job programado → batches `scheduled` viram `cancelled`, batches já rodando seguem
-- [ ] Tentar programar fora da janela 07:00–22:00 → bloqueado na UI
+- [ ] Tentar programar fora da janela 07:00–20:00 → bloqueado na UI
 - [ ] Tentar programar lote depois da `data_fim` → bloqueado na UI
 - [ ] Lote > 5 000 contatos → bloqueado na UI
 - [ ] Dispatcher reivindica em paralelo sem duplicar (SKIP LOCKED)
@@ -522,6 +522,6 @@ mesmo evento.
 
 **O que NÃO gera notificação:**
 
-- Reagendamento por janela 07–22 (silencioso — é correção interna, não falha).
+- Reagendamento por janela 07–20 (silencioso — é correção interna, não falha).
 - Leads pulados por `lead_nao_pendente` (ficam só em `logs_disparos_falhas`).
 - Cancelamento manual via `DisparosProgramadosList` (a UI já confirma).

@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const JANELA_INICIO_H = 7;
-const JANELA_FIM_H = 22; // último slot 22:00
+const JANELA_FIM_H = 20; // último slot 20:00
 const TZ = "America/Sao_Paulo";
 
 function buildSlots(): string[] {
@@ -159,7 +159,7 @@ export default function ProgramarDisparoModal({
   if (firstIso) {
     const f = new Date(firstIso);
     if (f.getTime() <= Date.now()) errors.push("O horário inicial precisa estar no futuro.");
-    if (!isWithinWindow(firstIso)) errors.push("O horário inicial está fora da janela 07:00–22:00.");
+    if (!isWithinWindow(firstIso)) errors.push("O horário inicial está fora da janela 07:00–20:00.");
     if (dataFimLimite && f.getTime() > dataFimLimite.getTime()) {
       errors.push(`O primeiro envio precisa ser até ${format(dataFimLimite, "dd/MM/yyyy")} (término do evento).`);
     }
@@ -169,7 +169,7 @@ export default function ProgramarDisparoModal({
   if (modo === "by_lot_size" && lotSize <= 0) errors.push("Tamanho de lote inválido.");
   if (modo !== "none" && intervaloMin < 30) errors.push("Intervalo mínimo entre lotes é 30 minutos.");
 
-  // Verifica TODOS os lotes dentro da janela 07:00–22:00 e dentro do data_fim
+  // Verifica TODOS os lotes dentro da janela 07:00–20:00 e dentro do data_fim
   if (firstIso && totalLotes > 1) {
     const foraJanela: string[] = [];
     const aposFim: string[] = [];
@@ -186,7 +186,7 @@ export default function ProgramarDisparoModal({
     if (foraJanela.length > 0) {
       const sample = foraJanela.slice(0, 3).join(", ");
       const extra = foraJanela.length > 3 ? ` e mais ${foraJanela.length - 3}` : "";
-      errors.push(`${sample}${extra} caem fora da janela 07:00–22:00. Ajuste intervalo ou nº de lotes.`);
+      errors.push(`${sample}${extra} caem fora da janela 07:00–20:00. Ajuste intervalo ou nº de lotes.`);
     }
     if (aposFim.length > 0) {
       const sample = aposFim.slice(0, 3).join(", ");
@@ -221,7 +221,7 @@ export default function ProgramarDisparoModal({
         </DialogHeader>
 
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Os horários estão no fuso de <strong>Brasília (GMT-3)</strong>. Janela permitida: 07:00–22:00.
+          Os horários estão no fuso de <strong>Brasília (GMT-3)</strong>. Janela permitida: 07:00–20:00.
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
