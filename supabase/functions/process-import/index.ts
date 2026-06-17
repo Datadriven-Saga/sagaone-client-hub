@@ -716,7 +716,10 @@ Deno.serve(async (req: Request) => {
       }
 
       batch.push({
-        nome: colIndices.nome >= 0 ? (row[colIndices.nome] || '').trim() : '',
+        nome: (() => {
+          const raw = colIndices.nome >= 0 ? String(row[colIndices.nome] ?? '').trim() : '';
+          return raw.length > 0 ? raw : 'Lead sem nome';
+        })(),
         telefone: phone,
         email: colIndices.email >= 0 ? (row[colIndices.email] || '').trim() || null : null,
         origem: log.origem || 'Outros',
@@ -1026,7 +1029,7 @@ Deno.serve(async (req: Request) => {
             for (const c of (rows || [])) {
               if (c.telefone) {
                 importedContatos.push({
-                  nome: c.nome || '',
+                  nome: (c.nome ?? '').trim() || 'Lead sem nome',
                   telefone: c.telefone,
                   lead_id: c.lead_id || null,
                 });
