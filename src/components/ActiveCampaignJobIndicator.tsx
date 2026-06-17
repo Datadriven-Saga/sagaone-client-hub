@@ -41,6 +41,38 @@ const ActiveCampaignJobIndicator: React.FC = () => {
       error_log: 'Job finalizado automaticamente (timeout)',
     }).eq('job_id', job.id).in('status', ['pending', 'processing']);
 
+    // Persistir notificação para quem programou o disparo
+    try {
+      const { data: jobFull } = await supabase
+        .from('campaign_jobs')
+        .select('user_id, empresa_id, prospeccao_id')
+        .eq('id', job.id)
+        .single();
+      if (jobFull?.user_id) {
+        const link = `/prospeccao/${jobFull.prospeccao_id || ''}?job=${job.id}`;
+        const { data: existing } = await supabase
+          .from('notificacoes')
+          .select('id')
+          .eq('user_id', jobFull.user_id)
+          .eq('tipo', 'disparo_falhou')
+          .eq('link', link)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          await supabase.from('notificacoes').insert({
+            user_id: jobFull.user_id,
+            empresa_id: jobFull.empresa_id,
+            tipo: 'disparo_falhou',
+            titulo: 'Disparo finalizado automaticamente',
+            mensagem: `O servidor parou de responder. ${job.processed_records} de ${job.total_records} contatos foram processados.`.substring(0, 240),
+            link,
+            lida: false,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Falha ao persistir notificação de timeout:', e);
+    }
+
     setActiveJob(null);
     toast({
       title: '⚠️ Disparo finalizado automaticamente',
