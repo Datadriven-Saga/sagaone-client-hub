@@ -1,63 +1,71 @@
-# Padronizar leads sem nome como "Lead sem nome"
+## Ajustes em Programar Disparo (WhatsApp)
 
-A consulta confirmou: hoje há **30.003** registros em `contatos` com `nome` nulo ou string vazia (não são só ~1.500 — o problema é maior do que parecia). Hoje o front filtra `contato.nome` falsy e some com todos esses cards no Kanban, mesmo com os badges contando certo. Vamos atacar em duas frentes, como você pediu.
+### 1. Data do disparo limitada por `data_fim` do evento
+- `ProgramarDisparoModal` recebe nova prop `dataFimEvento?: string | null`.
+- `EventoBase.tsx` passa `prospeccao.data_fim` ao renderizar o modal.
+- Calendário: `disabled = d < hoje || (dataFimEvento && d > dataFimEvento)`.
+- Validação extra: o **último lote** (`firstIso + (totalLotes-1) * intervalo`) não pode ultrapassar `dataFimEvento 23:59 -03:00`. Se passar → erro: *"Último lote (dd/MM HH:mm) cai depois do término do evento (dd/MM). Reduza lotes ou intervalo."*.
+- Sem `data_fim`, mantém comportamento atual.
 
-## 1. Backfill retroativo (UPDATE em produção)
+### 2. Intervalo entre lotes apenas 30 min e 1 h
+- `<Select>` de intervalo passa a ter só `30` e `60`.
+- Default 30. Remover validação redundante "múltiplo de 30" (mantém o mínimo).
 
-Rodar via a ferramenta de data-change do Supabase, em uma única transação:
+### 3. Garantir TODOS os lotes na janela 07:00–22:00
+- Hoje o loop quebra no primeiro lote inválido. Vou listar até 3 lotes problemáticos na mesma mensagem.
+- Mesma checagem é reaproveitada com a restrição de `data_fim` do item 1.
 
-```sql
-UPDATE public.contatos
-SET nome = 'Lead sem nome',
-    updated_at = now()
-WHERE nome IS NULL OR trim(nome) = '';
-```
+### 4. Capturar erros da Lambda e notificar quem disparou
 
-- Escopo: **todas as empresas** (a contagem global é 30.003).
-- Atualiza `updated_at` para os registros aparecerem como recém-tocados nos refreshes do Kanban.
-- Não mexe em `telefone`, `lead_id`, `responsavel_email`, `status`, vínculos em `eventos_prospeccao`, anotações ou quarentena. É só rótulo.
-- Não há trigger conhecido em `contatos.nome` que dispare side-effects (verifico antes de rodar; se houver, paro e reporto).
+**Como vai funcionar (notificação)**
+- Canal: **in-app**, via tabela `notificacoes` (mesmo padrão do `disparo_concluido` que já existe).
+- Quem recebe: o `user_id` dono do `campaign_jobs` (quem clicou em "Programar disparo").
+- Onde aparece: sininho do header (`Notificacoes.tsx`) + toast em tempo real para quem está com o app aberto (subscribe já existe).
+- **Sem e-mail** nesta entrega (mantém escopo).
 
-Após o UPDATE, valido com:
-```sql
-SELECT count(*) FROM public.contatos WHERE nome IS NULL OR trim(nome) = '';
--- esperado: 0
-```
+**Quando criar a notificação**
+1. **Falha crítica do job** (catch global do `process-campaign-job`, hoje só marca `failed` sem notificar):
+   - `tipo='disparo_falhou'`, `titulo='Falha no disparo programado'`, `mensagem='<evento>: <error.message>'`.
+2. **Batch esgotou retries** (já cai em `partially_completed`/`failed`, mas sem detalhe para o user): incluir resumo das categorias de erro.
+3. **Dispatcher não conseguiu invocar a função** (`scheduled-campaign-dispatcher`): se o `fetch` der erro ou HTTP não-2xx, marcar batch como `failed` com `error_log='Dispatcher: <msg>'` e notificar.
+4. **Job auto-resolvido por timeout** (`ActiveCampaignJobIndicator.autoResolveStuckJob`): além do toast atual, persistir notificação para quem não estava com o app aberto.
 
-E faço uma checagem no evento AUTOSHOW da TOYOTA ANA simulando o `moroni-teste` para confirmar que os 49 leads aparecem com o título "Lead sem nome" + telefone.
+**Conteúdo da mensagem (agregação por categorias da Lambda)**
+A função `classifyError` em `process-campaign-job/index.ts` (linhas 28-36) já classifica respostas em `duplicate / workflow_inactive / timeout / http_error / empty_body / outro`. Vou estendê-la para os erros que você listou e exibir um resumo amigável:
 
-## 2. Fallback no `process-import` (importação futura)
+| Categoria nova | Detecção (body lowercase + status) |
+|---|---|
+| `numero_invalido` | contém `numero invalido`, `telefone do lead invalido`, `numero pri invalido` |
+| `agente_nao_encontrado` | status 404 + `agente nao encontrado` ou `instancia maia nao encontrada` |
+| `evento_nao_encontrado` | status 404 + `evento pri nao encontrado` |
+| `cadencia_nao_encontrada` | status 404 + `cadencia nao encontrada` |
+| `template_nao_encontrado` | status 404 + `template nao encontrado` |
+| `payload_invalido` | status 400 + `payload bruto invalido`, `empty event`, `invalid json`, `missing body` |
+| `duplicate` | `disparo repetido` (já existe — não conta como falha) |
+| `template_pausado` | body com `template_pausado` (HTTP 200) |
+| `erro_meta` | body com `erro_meta` (HTTP 200) |
+| `nao_avanca` | body com `nao_avanca` (HTTP 200) |
+| `http_error` / `timeout` / `outro` | fallback (existente) |
 
-Em `supabase/functions/process-import/index.ts`, linha 719, hoje:
+Cada falha já vai para `logs_disparos_falhas` (existe). Ao finalizar/falhar o job, contabilizo as categorias do `logs_disparos_falhas` daquele `job_id` e monto a mensagem:
 
-```ts
-nome: colIndices.nome >= 0 ? (row[colIndices.nome] || '').trim() : '',
-```
+> *"Evento X: 1.200 enviados, 47 falhas — 30 número inválido, 12 agente não encontrado, 5 template pausado."*
 
-Trocar por um helper local que retorna `'Lead sem nome'` quando o valor da planilha estiver vazio/whitespace ou quando a coluna nome não existir no header:
+Trunco em 240 chars. Botão na notificação leva para `/prospeccao/<id>` (campo `link` já existe em `notificacoes`).
 
-```ts
-const rawNome = colIndices.nome >= 0 ? String(row[colIndices.nome] ?? '').trim() : '';
-const nome = rawNome.length > 0 ? rawNome : 'Lead sem nome';
-```
+**Idempotência**: antes de inserir, checar se já existe notificação com `tipo='disparo_falhou'` e `link` apontando para o mesmo `job_id` (uso o `link='/prospeccao/<id>?job=<job_id>'`).
 
-E aplicar exatamente o mesmo tratamento nos outros pontos do arquivo que montam payload de contato a partir da planilha:
-- linha 1029 (`importedContatos.push({ nome: c.nome || '', ... })`) — trocar `c.nome || ''` por `c.nome?.trim() || 'Lead sem nome'`.
-- linha 1045 e 1083 (payloads para webhook/outras camadas) — mesma normalização, para não vazar string vazia para downstream.
+### Arquivos tocados
+- `src/components/ProgramarDisparoModal.tsx` — props, validações, opções de intervalo.
+- `src/pages/prospeccao/EventoBase.tsx` — passar `data_fim`.
+- `src/components/ActiveCampaignJobIndicator.tsx` — insert em `notificacoes` na auto-resolução.
+- `supabase/functions/process-campaign-job/index.ts` — `classifyError` estendida + notificações no fim do job e no catch global.
+- `supabase/functions/scheduled-campaign-dispatcher/index.ts` — tratamento de erro de invocação + notificação.
 
-Não mexer em `bulk_upsert_contatos` (RPC SECURITY DEFINER, área crítica segundo a memória do projeto). O fallback fica 100% no Edge Function, antes do RPC; o RPC continua recebendo `nome` sempre não-vazio e nada na assinatura muda. Não muda comportamento de:
-- `upsert_quarentena` (chave é telefone+marca+canal, não usa nome),
-- `import_logs` / `bases_importadas`,
-- deduplicação por telefone,
-- whitelist / opt-out.
+### Não vou mexer
+- Schema do banco. `notificacoes.tipo` é texto livre (`disparo_concluido` já é inserido sem seed em `tipos_notificacao`). Se você quiser que `disparo_falhou` apareça em filtros tipados de `Notificacoes.tsx`, faço uma migration separada depois.
+- Lógica de envio do disparo em si.
 
-## 3. Validação
-
-Depois das duas mudanças:
-1. Logado como `moroni-teste` em TOYOTA ANA, abrir o evento AUTOSHOW: as colunas **Novos (19)** e **Atribuído (30)** devem renderizar os cards (badge = quantidade visível).
-2. Importar uma planilha de teste com 2 linhas: uma com nome preenchido, outra com a célula de nome em branco. Conferir em `contatos` que a segunda linha gravou `nome = 'Lead sem nome'` e a primeira manteve o nome original.
-3. Conferir `import_logs` da execução: `inserted`/`updated` consistentes, sem novos `error_details`.
-
-## Fora de escopo (não vou fazer agora)
-- Não vou alterar o filtro do `contatosToKanbanItems` em `src/pages/Prospeccao.tsx`. Com o backfill + fallback, nenhum contato chega ao front com nome vazio, então o sintoma some sem precisar mexer na lógica de renderização. Se você quiser também a proteção defensiva no front (para o caso de algum dia voltar a entrar registro sem nome por outro caminho), me avisa que adiciono em seguida.
-- Não vou mudar a UI do `KanbanCard` — ele já mostra `nome` como título, agora vai mostrar "Lead sem nome".
+### Confirmações
+- Intervalo só 30 min e 1 h ✅
+- Notificação só in-app (sininho + toast), sem e-mail — ok seguir assim?
