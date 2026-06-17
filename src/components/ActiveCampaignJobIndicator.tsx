@@ -43,14 +43,14 @@ const ActiveCampaignJobIndicator: React.FC = () => {
 
     // Persistir notificação para quem programou o disparo
     try {
-      const { data: jobFull } = await supabase
+      const { data: jobFull } = await (supabase as any)
         .from('campaign_jobs')
         .select('user_id, empresa_id, prospeccao_id')
         .eq('id', job.id)
         .single();
       if (jobFull?.user_id) {
         const link = `/prospeccao/${jobFull.prospeccao_id || ''}?job=${job.id}`;
-        const { data: existing } = await supabase
+        const { data: existing } = await (supabase as any)
           .from('notificacoes')
           .select('id')
           .eq('user_id', jobFull.user_id)
@@ -58,7 +58,7 @@ const ActiveCampaignJobIndicator: React.FC = () => {
           .eq('link', link)
           .limit(1);
         if (!existing || existing.length === 0) {
-          await supabase.from('notificacoes').insert({
+          await (supabase as any).from('notificacoes').insert({
             user_id: jobFull.user_id,
             empresa_id: jobFull.empresa_id,
             tipo: 'disparo_falhou',
