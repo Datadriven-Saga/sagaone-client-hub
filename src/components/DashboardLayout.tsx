@@ -1,5 +1,6 @@
 import { ReactNode, useState } from "react";
 import ActiveCampaignJobIndicator from "./ActiveCampaignJobIndicator";
+import NotificacoesBell from "./NotificacoesBell";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -98,6 +99,7 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
             
             <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
               <ActiveCampaignJobIndicator />
+              <NotificacoesBell />
               <UserMenu />
             </div>
           </header>
