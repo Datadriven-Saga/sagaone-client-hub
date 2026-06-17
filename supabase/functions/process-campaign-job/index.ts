@@ -843,6 +843,37 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
         console.warn('⚠️ [BG] Erro ao criar notificação:', notifErr);
       }
 
+      // Se houve falhas, também enviar notificação detalhada (disparo_falhou) com resumo por categoria.
+      if (totalFailedDb > 0) {
+        try {
+          const { data: falhas } = await supabase
+            .from('logs_disparos_falhas')
+            .select('categoria')
+            .eq('job_id', job_id);
+          const counts: Record<string, number> = {};
+          for (const f of (falhas || [])) {
+            const cat = (f as any).categoria || 'outro';
+            if (cat === 'duplicate') continue;
+            counts[cat] = (counts[cat] || 0) + 1;
+          }
+          const resumo = Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 4)
+            .map(([cat, n]) => `${n} ${CATEGORIA_LABELS[cat] || cat}`)
+            .join(', ');
+          const msg = `${prospeccao.titulo}: ${totalProcessedDb} enviados, ${totalFailedDb} falhas${resumo ? ` — ${resumo}` : ''}.`;
+          await notificarFalhaDisparo(
+            supabase,
+            { id: job_id, user_id: job.user_id, empresa_id: job.empresa_id },
+            'Falhas no disparo programado',
+            msg,
+            `/prospeccao/${job.prospeccao_id}`,
+          );
+        } catch (e) {
+          console.warn('⚠️ [BG] Erro ao montar resumo de falhas:', e);
+        }
+      }
+
       console.log(`✅ [BG] Job ${job_id} finalizado [${finalStatus}]: ${totalProcessedDb} processados, ${totalFailedDb} falhas`);
       return { success: true, job_id, status: finalStatus, processed: totalProcessedDb, failed: totalFailedDb };
     }
@@ -857,6 +888,13 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       error_message: error.message,
       completed_at: new Date().toISOString(),
     }).eq('id', job_id);
+    await notificarFalhaDisparo(
+      supabase,
+      { id: job_id, user_id: job.user_id, empresa_id: job.empresa_id },
+      'Falha crítica no disparo',
+      `Erro ao processar o disparo: ${error?.message || 'erro desconhecido'}`,
+      `/prospeccao/${job.prospeccao_id}`,
+    );
     return { success: false, error: error.message };
   }
 }
