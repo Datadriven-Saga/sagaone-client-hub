@@ -360,7 +360,7 @@ Além do disparo imediato (seções 1–10), o evento permite **programar** o en
 | Regra | Valor | Onde |
 |---|---|---|
 | Fuso fixo | `America/Sao_Paulo` (offset `-03:00`, sem DST) | `TZ`, `buildScheduledIso` |
-| Janela permitida | **07:00–20:00** (último slot 22:00) | `JANELA_INICIO_H` / `JANELA_FIM_H`, `isWithinWindow` |
+| Janela permitida | **07:00–20:00** (último slot 20:00) | `JANELA_INICIO_H` / `JANELA_FIM_H`, `isWithinWindow` |
 | Slots | A cada 30 min | `buildSlots` |
 | Primeiro envio | Estritamente no futuro | validação `f.getTime() <= Date.now()` |
 | Limite final | ≤ 23:59 (Brasília) da `prospeccoes.data_fim` | `dataFimLimite` |
