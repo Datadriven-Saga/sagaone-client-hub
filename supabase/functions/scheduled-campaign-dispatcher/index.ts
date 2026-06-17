@@ -6,6 +6,54 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Janela de operação (Brasília). Reforço server-side: ProgramarDisparoModal
+// já valida no client, mas qualquer batch inserido fora desse intervalo
+// (manual, bug, drift) é silenciosamente reagendado para o próximo slot válido.
+const WINDOW_START_H = 7;
+const WINDOW_END_H = 22; // último slot permitido 22:00 (inclusivo)
+const SP_TZ = 'America/Sao_Paulo';
+
+/** Retorna { hour, minute } locais em São Paulo a partir de um Date UTC. */
+function spLocal(d: Date): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SP_TZ, hour12: false, hour: '2-digit', minute: '2-digit',
+  }).formatToParts(d);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  return { hour: hour === 24 ? 0 : hour, minute };
+}
+
+function isInsideWindow(d: Date): boolean {
+  const { hour } = spLocal(d);
+  // 07:00 .. 22:00 inclusivo na hora final
+  return hour >= WINDOW_START_H && hour <= WINDOW_END_H;
+}
+
+/** Próximo 07:00 (Brasília) >= d. Se já passou das 22h, vai para 07:00 do dia seguinte. */
+function nextWindowStart(d: Date): Date {
+  // Iteramos no máximo ~48h em passos de 30min — suficiente e barato.
+  const step = new Date(d.getTime());
+  for (let i = 0; i < 200; i++) {
+    const { hour, minute } = spLocal(step);
+    if (hour === WINDOW_START_H && minute === 0) return step;
+    // Avança para o próximo múltiplo de 30 min
+    const addMin = minute < 30 ? 30 - minute : 60 - minute;
+    step.setTime(step.getTime() + addMin * 60_000);
+    // Quando chega na janela, ajusta para o próprio 07:00 mais próximo desse dia.
+    const after = spLocal(step);
+    if (after.hour < WINDOW_START_H) {
+      // ainda antes das 7 — pula direto pro 07:00 do mesmo dia local
+      step.setTime(step.getTime() + (WINDOW_START_H - after.hour) * 3600_000 - after.minute * 60_000);
+      return step;
+    }
+    if (after.hour > WINDOW_END_H) {
+      // depois das 22 — pula para a próxima manhã (loop continua)
+      continue;
+    }
+  }
+  return step;
+}
+
 // Cron tick → reivindica batches scheduled prontos (scheduled_at <= now())
 // e dispara process-campaign-job para cada um, em fire-and-forget.
 serve(async (req) => {
@@ -39,6 +87,26 @@ serve(async (req) => {
 
     const batches = (claimed || []) as Array<{ id: string; job_id: string; lot_index: number | null }>;
     console.log(`🕒 [DISPATCHER] Reivindicados ${batches.length} batches`);
+
+    // Proteção de janela: se o tick caiu fora de 07:00–22:00 (Brasília),
+    // devolve TODOS os batches reivindicados para 'scheduled' com novo
+    // scheduled_at no próximo 07:00 e não dispara nada.
+    const now = new Date();
+    if (!isInsideWindow(now)) {
+      const next = nextWindowStart(now).toISOString();
+      const ids = batches.map(b => b.id);
+      if (ids.length > 0) {
+        await supabase
+          .from('campaign_batches')
+          .update({ status: 'scheduled', scheduled_at: next, locked_at: null, locked_by: null })
+          .in('id', ids);
+      }
+      console.log(`🌙 [DISPATCHER] Fora da janela ${WINDOW_START_H}h–${WINDOW_END_H}h — ${ids.length} batches reagendados para ${next}`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: ids.length, rescheduled_to: next, reason: 'outside_window' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Dispara em fire-and-forget. process-campaign-job responde HTTP 202.
     const invokeUrl = `${supabaseUrl}/functions/v1/process-campaign-job`;

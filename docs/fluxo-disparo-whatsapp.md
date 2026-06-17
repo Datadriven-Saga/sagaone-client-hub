@@ -349,6 +349,13 @@ Além do disparo imediato (seções 1–10), o evento permite **programar** o en
 | Intervalo mínimo entre lotes | **30 min** (opções: 30 min ou 1 h) | `intervaloMin` |
 | TODOS os lotes precisam cair dentro da janela e antes da `data_fim` | UI lista os lotes inválidos antes de permitir submit |
 
+> **Janela 07–22 é também reforçada server-side.** O `scheduled-campaign-dispatcher`
+> (seção 11.4) verifica o relógio em `America/Sao_Paulo` antes de invocar qualquer
+> batch. Se o tick cair fora de 07:00–22:00, **todos os batches reivindicados são
+> devolvidos para `status='scheduled'`** com `scheduled_at` ajustado para o próximo
+> 07:00, `locked_at`/`locked_by` limpos. Nada é disparado e nada é notificado ao
+> usuário (proteção silenciosa contra batches manuais/drift de cron).
+
 Modos de divisão (`cadenceType`):
 
 - `none` → 1 lote único com todos os contatos.
@@ -376,6 +383,13 @@ lot_index     = 0..N-1
 lead_ids      = slice de contatos pendentes
 ```
 
+> **Snapshot dos leads é congelado aqui.** `lead_ids` é gravado a partir de
+> `fetchContatosPendentes()` (que, para WhatsApp, lê `eventos_prospeccao` com
+> `data_disparo_ia IS NULL`). A edge **revalida** esse status no momento real
+> do disparo (ver 11.5) — leads que deixaram de ser pendentes entre o
+> agendamento e o horário programado são pulados, não consomem custo, e
+> entram em `logs_disparos_falhas` com `categoria='lead_nao_pendente'`.
+
 > Estados válidos de `campaign_jobs.status` agora incluem `'scheduled'` e `'partially_completed'` (constraint `campaign_jobs_status_check` atualizada na migração `20260617151825_...sql`). Sem esses valores o INSERT falhava com `23514`.
 
 ### 11.4 Cron → `scheduled-campaign-dispatcher`
@@ -389,6 +403,12 @@ lead_ids      = slice de contatos pendentes
 ### 11.5 `process-campaign-job` em modo programado
 
 - O handler aceita `batch_id` opcional. Quando presente, processa **somente aquele batch**, em vez de varrer todos `pending`/`failed` do job.
+- **Revalidação de pendente (WhatsApp):** logo após carregar `leads` do batch, consulta `eventos_prospeccao(prospeccao_id, contato_id)` filtrando `data_disparo_ia IS NOT NULL`. Para cada contato encontrado:
+  - É **removido** do array `leads` (não vai à Lambda — sem custo).
+  - Vai para `logs_disparos_falhas` com `categoria='lead_nao_pendente'`.
+  - Incrementa o contador `duplicate_records` do job (não conta como falha).
+  - Se o batch ficar vazio após o filtro, é marcado `completed` com `error_log` explicativo.
+- IA Ligação usa `prospect_pri_voz.id` (não `contato_id`); a revalidação não se aplica e a deduplicação fica por conta da Lambda de ligação (categoria `duplicate`).
 - Pipeline interno (sub-batches 5/500ms, `flushSubBatch`, `logs_disparos_falhas`, `logs_disparos(origem='edge_function')`, etc.) é o mesmo do disparo imediato.
 - Ao terminar um batch, recalcula o status do job:
   - Se ainda há batches `scheduled` com `scheduled_at > now()` → mantém `status='scheduled'` (job entre lotes — NÃO é "travado").
@@ -458,3 +478,31 @@ lead_ids      = slice de contatos pendentes
 - [ ] Dispatcher reivindica em paralelo sem duplicar (SKIP LOCKED)
 - [ ] Falha de invocação do dispatcher gera `notificacoes(disparo_falhou)` deduplicada
 - [ ] Após todos os lotes: status final = `completed` | `partially_completed` | `failed` corretamente
+- [ ] **Inserir batch manual com `scheduled_at` às 03:00** → cron NÃO dispara; batch é reagendado para 07:00 com `locked_at`/`locked_by` limpos
+- [ ] **Avançar um lead manualmente antes do horário programado** → edge pula o lead, registra em `logs_disparos_falhas` com `categoria='lead_nao_pendente'` e incrementa `duplicate_records` do job
+
+---
+
+## 12. Notificações in-app do disparo
+
+Sistema canônico documentado em [`docs/notificacoes.md`](./notificacoes.md). Esta seção
+lista apenas os pontos do fluxo de disparo que emitem notificação.
+
+| Origem | `tipo` | Quando | `link` |
+|---|---|---|---|
+| `process-campaign-job` (final do job) | `disparo_concluido` | Job termina sem falhas críticas | `/prospeccao/<prospeccao_id>?job=<job_id>` |
+| `process-campaign-job` (final com falhas) | `disparo_falhou` | Job termina com >0 falhas — mensagem agrega categorias (ex: "30 número inválido, 12 agente não encontrado") | idem |
+| `process-campaign-job` (catch global) | `disparo_falhou` | Exceção não tratada no processamento | idem |
+| `scheduled-campaign-dispatcher` | `disparo_falhou` | `fetch` para `process-campaign-job` retornou !ok ou levantou erro | idem |
+| `ActiveCampaignJobIndicator` (frontend) | `disparo_falhou` | Auto-resolve por timeout (>10 min sem update e sem batches `scheduled` futuros) | idem |
+
+Todas usam o helper `_shared/notificacoes.ts` (`inserirNotificacao`) com
+`idempotenteByLink=true` — o mesmo `(user_id, tipo, link)` nunca duplica. Como o
+link carrega o `job_id`, jobs diferentes geram notificações distintas mesmo no
+mesmo evento.
+
+**O que NÃO gera notificação:**
+
+- Reagendamento por janela 07–22 (silencioso — é correção interna, não falha).
+- Leads pulados por `lead_nao_pendente` (ficam só em `logs_disparos_falhas`).
+- Cancelamento manual via `DisparosProgramadosList` (a UI já confirma).
