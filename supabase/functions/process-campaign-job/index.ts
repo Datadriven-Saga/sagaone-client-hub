@@ -29,10 +29,84 @@ function classifyError(httpStatus: number, body: string): { categoria: string; m
   const b = (body || '').toLowerCase();
   if (b.includes('disparo repetido')) return { categoria: 'duplicate', mensagem: 'Já disparado anteriormente' };
   if (b.includes('workflow not found') || b.includes('not active')) return { categoria: 'workflow_inactive', mensagem: 'Workflow inativo' };
+  // Erros específicos da Lambda PRI/Maia
+  if (b.includes('numero invalido') || b.includes('telefone do lead invalido') || b.includes('numero pri invalido')) {
+    return { categoria: 'numero_invalido', mensagem: 'Número de telefone inválido' };
+  }
+  if (httpStatus === 404 && (b.includes('agente nao encontrado') || b.includes('instancia maia nao encontrada'))) {
+    return { categoria: 'agente_nao_encontrado', mensagem: 'Agente/instância Maia não encontrada' };
+  }
+  if (httpStatus === 404 && b.includes('evento pri nao encontrado')) {
+    return { categoria: 'evento_nao_encontrado', mensagem: 'Evento PRI não encontrado para o lead' };
+  }
+  if (httpStatus === 404 && b.includes('cadencia nao encontrada')) {
+    return { categoria: 'cadencia_nao_encontrada', mensagem: 'Cadência não encontrada para o evento' };
+  }
+  if (httpStatus === 404 && b.includes('template nao encontrado')) {
+    return { categoria: 'template_nao_encontrado', mensagem: 'Template não encontrado' };
+  }
+  if (httpStatus === 400 && (b.includes('payload bruto invalido') || b.includes('empty event') || b.includes('invalid json') || b.includes('missing body'))) {
+    return { categoria: 'payload_invalido', mensagem: 'Payload inválido enviado à Lambda' };
+  }
+  if (b.includes('template_pausado')) return { categoria: 'template_pausado', mensagem: 'Template pausado na Meta' };
+  if (b.includes('erro_meta')) return { categoria: 'erro_meta', mensagem: 'Meta API recusou o envio' };
+  if (b.includes('nao_avanca')) return { categoria: 'nao_avanca', mensagem: 'Lead bloqueado pelo status (SagaOne)' };
   if (httpStatus === 0) return { categoria: 'timeout', mensagem: 'Sem resposta do servidor' };
   if (httpStatus >= 400) return { categoria: 'http_error', mensagem: `Erro HTTP ${httpStatus}` };
   if (!body) return { categoria: 'empty_body', mensagem: 'Resposta vazia' };
   return { categoria: 'outro', mensagem: (body || '').substring(0, 200) };
+}
+
+// Rótulos pt-BR para resumo de notificação.
+const CATEGORIA_LABELS: Record<string, string> = {
+  numero_invalido: 'número inválido',
+  agente_nao_encontrado: 'agente não encontrado',
+  evento_nao_encontrado: 'evento não encontrado',
+  cadencia_nao_encontrada: 'cadência não encontrada',
+  template_nao_encontrado: 'template não encontrado',
+  payload_invalido: 'payload inválido',
+  template_pausado: 'template pausado',
+  erro_meta: 'erro Meta',
+  nao_avanca: 'lead bloqueado',
+  workflow_inactive: 'workflow inativo',
+  timeout: 'timeout',
+  http_error: 'erro HTTP',
+  empty_body: 'resposta vazia',
+  network: 'rede',
+  outro: 'outro',
+};
+
+async function notificarFalhaDisparo(
+  supabase: any,
+  job: { id?: string; user_id?: string; empresa_id?: string },
+  titulo: string,
+  mensagem: string,
+  linkBase: string,
+) {
+  if (!job?.user_id) return;
+  try {
+    const link = `${linkBase}${linkBase.includes('?') ? '&' : '?'}job=${job.id || ''}`;
+    // idempotência: evita duplicar para o mesmo job
+    const { data: existing } = await supabase
+      .from('notificacoes')
+      .select('id')
+      .eq('user_id', job.user_id)
+      .eq('tipo', 'disparo_falhou')
+      .eq('link', link)
+      .limit(1);
+    if (existing && existing.length > 0) return;
+    await supabase.from('notificacoes').insert({
+      user_id: job.user_id,
+      empresa_id: job.empresa_id,
+      tipo: 'disparo_falhou',
+      titulo,
+      mensagem: (mensagem || '').substring(0, 240),
+      link,
+      lida: false,
+    });
+  } catch (e) {
+    console.warn('⚠️ [BG] Falha ao inserir notificação de disparo_falhou:', e);
+  }
 }
 
 function resolveVariableMapping(
@@ -769,6 +843,37 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
         console.warn('⚠️ [BG] Erro ao criar notificação:', notifErr);
       }
 
+      // Se houve falhas, também enviar notificação detalhada (disparo_falhou) com resumo por categoria.
+      if (totalFailedDb > 0) {
+        try {
+          const { data: falhas } = await supabase
+            .from('logs_disparos_falhas')
+            .select('categoria')
+            .eq('job_id', job_id);
+          const counts: Record<string, number> = {};
+          for (const f of (falhas || [])) {
+            const cat = (f as any).categoria || 'outro';
+            if (cat === 'duplicate') continue;
+            counts[cat] = (counts[cat] || 0) + 1;
+          }
+          const resumo = Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 4)
+            .map(([cat, n]) => `${n} ${CATEGORIA_LABELS[cat] || cat}`)
+            .join(', ');
+          const msg = `${prospeccao.titulo}: ${totalProcessedDb} enviados, ${totalFailedDb} falhas${resumo ? ` — ${resumo}` : ''}.`;
+          await notificarFalhaDisparo(
+            supabase,
+            { id: job_id, user_id: job.user_id, empresa_id: job.empresa_id },
+            'Falhas no disparo programado',
+            msg,
+            `/prospeccao/${job.prospeccao_id}`,
+          );
+        } catch (e) {
+          console.warn('⚠️ [BG] Erro ao montar resumo de falhas:', e);
+        }
+      }
+
       console.log(`✅ [BG] Job ${job_id} finalizado [${finalStatus}]: ${totalProcessedDb} processados, ${totalFailedDb} falhas`);
       return { success: true, job_id, status: finalStatus, processed: totalProcessedDb, failed: totalFailedDb };
     }
@@ -783,6 +888,13 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       error_message: error.message,
       completed_at: new Date().toISOString(),
     }).eq('id', job_id);
+    await notificarFalhaDisparo(
+      supabase,
+      { id: job_id, user_id: job.user_id, empresa_id: job.empresa_id },
+      'Falha crítica no disparo',
+      `Erro ao processar o disparo: ${error?.message || 'erro desconhecido'}`,
+      `/prospeccao/${job.prospeccao_id}`,
+    );
     return { success: false, error: error.message };
   }
 }
