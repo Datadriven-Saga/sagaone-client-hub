@@ -25,11 +25,11 @@ function spLocal(d: Date): { hour: number; minute: number } {
 
 function isInsideWindow(d: Date): boolean {
   const { hour } = spLocal(d);
-  // 07:00 .. 22:00 inclusivo na hora final
+  // 07:00 .. 20:00 inclusivo na hora final
   return hour >= WINDOW_START_H && hour <= WINDOW_END_H;
 }
 
-/** Próximo 07:00 (Brasília) >= d. Se já passou das 22h, vai para 07:00 do dia seguinte. */
+/** Próximo 07:00 (Brasília) >= d. Se já passou das 20h, vai para 07:00 do dia seguinte. */
 function nextWindowStart(d: Date): Date {
   // Iteramos no máximo ~48h em passos de 30min — suficiente e barato.
   const step = new Date(d.getTime());
