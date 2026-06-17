@@ -323,3 +323,138 @@ Montado em `process-campaign-job:478-494`, um POST por lead:
 - [ ] `logs_disparos` (edge) + `logs_disparos_falhas` populados
 - [ ] `contatos.data_disparo_ia` e `eventos_prospeccao.data_disparo_ia` gravados
 - [ ] `notificacoes` criada para o usuário disparador
+
+---
+
+## 11. Disparo programado (cadenciado)
+
+Além do disparo imediato (seções 1–10), o evento permite **programar** o envio para uma data/hora futura, opcionalmente quebrado em vários lotes com intervalo.
+
+### 11.1 Entrada na UI
+
+- Botão **"Programar disparo"** em `EventoBase.tsx` abre `src/components/ProgramarDisparoModal.tsx`.
+- A lista de jobs já programados aparece em `src/components/DisparosProgramadosList.tsx`, alimentada por `src/hooks/useScheduledCampaignJobs.ts`.
+- Mesmas validações de permissão e `disparos_pausados` do fluxo imediato.
+
+### 11.2 `ProgramarDisparoModal` — regras de negócio
+
+| Regra | Valor | Onde |
+|---|---|---|
+| Fuso fixo | `America/Sao_Paulo` (offset `-03:00`, sem DST) | `TZ`, `buildScheduledIso` |
+| Janela permitida | **07:00–22:00** (último slot 22:00) | `JANELA_INICIO_H` / `JANELA_FIM_H`, `isWithinWindow` |
+| Slots | A cada 30 min | `buildSlots` |
+| Primeiro envio | Estritamente no futuro | validação `f.getTime() <= Date.now()` |
+| Limite final | ≤ 23:59 (Brasília) da `prospeccoes.data_fim` | `dataFimLimite` |
+| Lote máximo | **5 000 contatos** | `LOTE_TETO` |
+| Intervalo mínimo entre lotes | **30 min** (opções: 30 min ou 1 h) | `intervaloMin` |
+| TODOS os lotes precisam cair dentro da janela e antes da `data_fim` | UI lista os lotes inválidos antes de permitir submit |
+
+Modos de divisão (`cadenceType`):
+
+- `none` → 1 lote único com todos os contatos.
+- `by_lot_count` → N lotes de tamanho `ceil(total/N)`.
+- `by_lot_size` → lotes de tamanho fixo (último pode ser menor).
+
+Saída do modal (`ProgramarDisparoConfig`): `{ scheduledIso, cadenceType, intervalMinutes, lotCount, lotSize, timezone }`.
+
+### 11.3 Persistência ao confirmar
+
+`handleConfirmarPrograma` (em `EventoBase.tsx`) cria 1 `campaign_jobs` com:
+
+```text
+status            = 'scheduled'
+dispatch_mode     = 'scheduled'
+first_scheduled_at, cadence_type, interval_minutes, timezone
+```
+
+e N `campaign_batches` com:
+
+```text
+status        = 'scheduled'
+scheduled_at  = first_scheduled_at + (lot_index * interval_minutes) minutos
+lot_index     = 0..N-1
+lead_ids      = slice de contatos pendentes
+```
+
+> Estados válidos de `campaign_jobs.status` agora incluem `'scheduled'` e `'partially_completed'` (constraint `campaign_jobs_status_check` atualizada na migração `20260617151825_...sql`). Sem esses valores o INSERT falhava com `23514`.
+
+### 11.4 Cron → `scheduled-campaign-dispatcher`
+
+`supabase/functions/scheduled-campaign-dispatcher/index.ts` roda como tick periódico (pg_cron) e:
+
+1. Chama RPC `claim_due_campaign_batches(p_limit=10, p_worker_id=...)` — `SECURITY DEFINER` que faz `UPDATE campaign_batches SET status='processing', locked_at=now(), locked_by=worker WHERE status='scheduled' AND scheduled_at <= now() ORDER BY scheduled_at LIMIT N FOR UPDATE SKIP LOCKED`.
+2. Para cada batch reivindicado, invoca `process-campaign-job` em **fire-and-forget** com `{ job_id, batch_id }`, usando `SUPABASE_SERVICE_ROLE_KEY`.
+3. Se a invocação retornar !ok, chama `handleDispatchFailure`: marca o batch como `failed`, e cria `notificacoes (tipo='disparo_falhou')` deduplicada por link `/prospeccao/<id>?job=<jobId>`.
+
+### 11.5 `process-campaign-job` em modo programado
+
+- O handler aceita `batch_id` opcional. Quando presente, processa **somente aquele batch**, em vez de varrer todos `pending`/`failed` do job.
+- Pipeline interno (sub-batches 5/500ms, `flushSubBatch`, `logs_disparos_falhas`, `logs_disparos(origem='edge_function')`, etc.) é o mesmo do disparo imediato.
+- Ao terminar um batch, recalcula o status do job:
+  - Se ainda há batches `scheduled` com `scheduled_at > now()` → mantém `status='scheduled'` (job entre lotes — NÃO é "travado").
+  - Se todos concluíram sem falhas residuais → `completed`.
+  - Se concluíram mas algum batch falhou definitivamente → `partially_completed`.
+  - Se todos falharam → `failed`.
+
+### 11.6 Indicador global `ActiveCampaignJobIndicator`
+
+`src/components/ActiveCampaignJobIndicator.tsx` filtra jobs `pending`/`processing` da empresa ativa. Para evitar falso-positivo de "Disparo travado" em jobs cadenciados (que ficam ~30 min/1 h ociosos entre lotes), o indicador:
+
+1. Antes de mostrar "Disparando %": consulta `campaign_batches` com `status='scheduled'` e `scheduled_at > now()` para o job. Se houver, **esconde o indicador** (não é trabalho ativo).
+2. Em `autoResolveStuckJob`: faz a mesma checagem antes de marcar o job como `completed`; aborta a finalização se ainda houver lotes scheduled futuros.
+3. Ao finalizar um job realmente travado, marca como `failed` apenas batches em `pending`/`processing` — nunca os `scheduled`, que continuam reivindicáveis pelo dispatcher.
+
+### 11.7 Lista + cancelamento (`DisparosProgramadosList`)
+
+- `useScheduledCampaignJobs` busca jobs com `dispatch_mode='scheduled'` e `status IN ('scheduled','processing','partially_completed')`, junto com seus batches, e assina Realtime em `campaign_jobs`/`campaign_batches`.
+- Botão **Cancelar** chama RPC `cancel_scheduled_campaign_job(p_job_id)` (SECURITY DEFINER): marca job como `cancelled` (com `cancelled_at`, `cancelled_by`) e batches ainda `scheduled` como `cancelled`. Batches já em `processing`/`completed` não são alterados.
+
+### 11.8 Tabelas e colunas adicionais
+
+| Coluna | Tabela | Uso |
+|---|---|---|
+| `dispatch_mode` | `campaign_jobs` | `'immediate'` (default) ou `'scheduled'` |
+| `first_scheduled_at` | `campaign_jobs` | Horário do primeiro lote |
+| `cadence_type` | `campaign_jobs` | `'none'`/`'by_lot_count'`/`'by_lot_size'` |
+| `interval_minutes` | `campaign_jobs` | 0 para `none`, ≥30 caso contrário |
+| `timezone` | `campaign_jobs` | Sempre `'America/Sao_Paulo'` por enquanto |
+| `cancelled_at` / `cancelled_by` | `campaign_jobs` | Cancelamento manual |
+| `scheduled_at` | `campaign_batches` | Quando o batch deve ser reivindicado |
+| `lot_index` | `campaign_batches` | Ordem do lote dentro do job |
+| `locked_at` / `locked_by` | `campaign_batches` | Lock cooperativo do dispatcher (SKIP LOCKED) |
+
+### 11.9 Diagrama (programado)
+
+```text
+[UI: ProgramarDisparoModal]
+    │ confirmar
+    ▼
+[handleConfirmarPrograma]
+    ├─ insert campaign_jobs (status=scheduled, dispatch_mode=scheduled, cadence_*)
+    └─ insert campaign_batches × N (status=scheduled, scheduled_at = T0 + i*Δ)
+
+─────────── Cron tick (pg_cron) ───────────
+[scheduled-campaign-dispatcher]
+    │ rpc claim_due_campaign_batches(limit=10)
+    │   → UPDATE ... WHERE scheduled_at <= now() FOR UPDATE SKIP LOCKED
+    │ para cada batch reivindicado:
+    │   fetch process-campaign-job { job_id, batch_id }   (fire-and-forget)
+    │   on !ok → batch=failed + notificacoes(disparo_falhou)
+    ▼
+[process-campaign-job] (mesmo pipeline da seção 4, mas filtrado pelo batch_id)
+    └─ ao final: recalcula status do job
+         scheduled (lotes futuros) | completed | partially_completed | failed
+```
+
+### 11.10 Checklist de regressão (programado)
+
+- [ ] Programar 1 lote único no futuro próximo → executa no horário
+- [ ] Programar 2+ lotes com intervalo 30 min → cada lote dispara separadamente
+- [ ] Indicador global NÃO mostra "Disparo travado" entre lotes
+- [ ] Cancelar job programado → batches `scheduled` viram `cancelled`, batches já rodando seguem
+- [ ] Tentar programar fora da janela 07:00–22:00 → bloqueado na UI
+- [ ] Tentar programar lote depois da `data_fim` → bloqueado na UI
+- [ ] Lote > 5 000 contatos → bloqueado na UI
+- [ ] Dispatcher reivindica em paralelo sem duplicar (SKIP LOCKED)
+- [ ] Falha de invocação do dispatcher gera `notificacoes(disparo_falhou)` deduplicada
+- [ ] Após todos os lotes: status final = `completed` | `partially_completed` | `failed` corretamente
