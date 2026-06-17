@@ -54,13 +54,18 @@ serve(async (req) => {
           },
           body: JSON.stringify({ job_id: b.job_id, batch_id: b.id }),
         }).then(async (r) => {
-          await r.text().catch(() => '');
-        }).catch((e) => {
+          const body = await r.text().catch(() => '');
+          if (!r.ok) {
+            await handleDispatchFailure(supabase, b, `HTTP ${r.status}: ${body.substring(0, 200)}`);
+          }
+        }).catch(async (e) => {
           console.warn(`⚠️ Invocação falhou batch=${b.id}:`, e?.message);
+          await handleDispatchFailure(supabase, b, e?.message || 'fetch error');
         });
         dispatched.push(b.id);
       } catch (e: any) {
         console.warn(`⚠️ Erro ao invocar batch=${b.id}:`, e?.message);
+        await handleDispatchFailure(supabase, b, e?.message || 'invoke error');
       }
     }
 
@@ -75,3 +80,45 @@ serve(async (req) => {
     });
   }
 });
+
+async function handleDispatchFailure(
+  supabase: any,
+  batch: { id: string; job_id: string },
+  reason: string,
+) {
+  try {
+    await supabase
+      .from('campaign_batches')
+      .update({ status: 'failed', error_log: `Dispatcher: ${reason}`.substring(0, 500) })
+      .eq('id', batch.id);
+
+    const { data: job } = await supabase
+      .from('campaign_jobs')
+      .select('id, user_id, empresa_id, prospeccao_id')
+      .eq('id', batch.job_id)
+      .single();
+    if (!job?.user_id) return;
+
+    const link = `/prospeccao/${job.prospeccao_id || ''}?job=${job.id}`;
+    const { data: existing } = await supabase
+      .from('notificacoes')
+      .select('id')
+      .eq('user_id', job.user_id)
+      .eq('tipo', 'disparo_falhou')
+      .eq('link', link)
+      .limit(1);
+    if (existing && existing.length > 0) return;
+
+    await supabase.from('notificacoes').insert({
+      user_id: job.user_id,
+      empresa_id: job.empresa_id,
+      tipo: 'disparo_falhou',
+      titulo: 'Falha ao iniciar lote programado',
+      mensagem: `Não foi possível iniciar o lote: ${reason}`.substring(0, 240),
+      link,
+      lida: false,
+    });
+  } catch (e: any) {
+    console.warn('⚠️ [DISPATCHER] Erro ao notificar falha:', e?.message);
+  }
+}
