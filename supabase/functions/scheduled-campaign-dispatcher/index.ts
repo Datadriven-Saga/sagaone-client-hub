@@ -10,7 +10,7 @@ const corsHeaders = {
 // já valida no client, mas qualquer batch inserido fora desse intervalo
 // (manual, bug, drift) é silenciosamente reagendado para o próximo slot válido.
 const WINDOW_START_H = 7;
-const WINDOW_END_H = 22; // último slot permitido 22:00 (inclusivo)
+const WINDOW_END_H = 20; // último slot permitido 20:00 (inclusivo)
 const SP_TZ = 'America/Sao_Paulo';
 
 /** Retorna { hour, minute } locais em São Paulo a partir de um Date UTC. */
