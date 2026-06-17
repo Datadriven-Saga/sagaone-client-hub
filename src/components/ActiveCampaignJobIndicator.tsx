@@ -113,8 +113,16 @@ const ActiveCampaignJobIndicator: React.FC = () => {
 
       if (data && data.length > 0) {
         const job = data[0] as ActiveJob;
-        // Auto-resolve if stuck
-        if (isJobStuck(job)) {
+        // Se há lotes scheduled futuros, é um job entre lotes — não mostrar como "Disparando".
+        const { count: futureScheduled } = await supabase
+          .from('campaign_batches')
+          .select('id', { count: 'exact', head: true })
+          .eq('job_id', job.id)
+          .eq('status', 'scheduled')
+          .gt('scheduled_at', new Date().toISOString());
+        if ((futureScheduled ?? 0) > 0) {
+          setActiveJob(null);
+        } else if (isJobStuck(job)) {
           await autoResolveStuckJob(job);
         } else {
           setActiveJob(job);
