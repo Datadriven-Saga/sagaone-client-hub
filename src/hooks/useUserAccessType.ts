@@ -20,6 +20,7 @@ export function useUserAccessType() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       if (!user) {
         setTipoAcesso(null);
         setDepartamento(null);
