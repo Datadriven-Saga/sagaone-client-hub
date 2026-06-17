@@ -468,6 +468,96 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
         console.log(`📤 [BG] Batch ${batch.batch_index}: enviando ${leads.length} leads via ${isIALigacao ? 'Ligação' : 'WhatsApp'}`);
 
+        // ============================================================
+        // CHUNKING SERVER-SIDE (disparo manual / immediate)
+        // Causa raiz documentada: o isolate de background da Edge
+        // Function tem teto de wall-clock (~5–6 min em waitUntil). Um
+        // único batch grande (ex.: 496 leads WhatsApp ≈ 9 min) é morto
+        // silenciosamente, deixando o batch em 'processing' e leads
+        // sem retry. Disparos programados não sofrem disso porque já
+        // chegam quebrados em lotes via lot_index.
+        //
+        // Mitigação: para disparos imediatos (lot_index IS NULL), se o
+        // batch tem mais de MAX_LEADS_PER_BATCH leads elegíveis, mantém
+        // os primeiros MAX no batch atual e cria novos batches
+        // 'scheduled' com os chunks restantes (escalonados de 30s em
+        // 30s). O scheduled-campaign-dispatcher (cron a cada minuto)
+        // reivindica e processa cada um numa invocação independente,
+        // reaproveitando todo o caminho já exercitado pelo programado.
+        //
+        // IA Ligação é mais barata por lead e não tem relato de
+        // travamento — fora do escopo desta iteração.
+        // ============================================================
+        const MAX_LEADS_PER_BATCH = 250;
+        const STAGGER_MS = 30_000;
+        if (
+          !isIALigacao &&
+          (batch.lot_index === null || batch.lot_index === undefined) &&
+          leads.length > MAX_LEADS_PER_BATCH
+        ) {
+          try {
+            const keep = leads.slice(0, MAX_LEADS_PER_BATCH);
+            const overflow = leads.slice(MAX_LEADS_PER_BATCH);
+
+            // Próximo batch_index disponível neste job
+            const { data: maxRow } = await supabase
+              .from('campaign_batches')
+              .select('batch_index')
+              .eq('job_id', job_id)
+              .order('batch_index', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const startIndex = ((maxRow as any)?.batch_index ?? batch.batch_index) + 1;
+
+            // Encolhe o batch atual para os primeiros MAX leads
+            await supabase.from('campaign_batches').update({
+              lead_ids: keep.map((l: any) => l.id),
+              total_leads: keep.length,
+            }).eq('id', batch.id);
+
+            // Cria batches filhos 'scheduled' com lot_index definido
+            // (para que o cron reivindique e não entrem novamente no
+            // chunking — a guarda exige lot_index IS NULL).
+            const childChunks: any[] = [];
+            for (let i = 0; i < overflow.length; i += MAX_LEADS_PER_BATCH) {
+              const chunk = overflow.slice(i, i + MAX_LEADS_PER_BATCH);
+              const childIdx = startIndex + Math.floor(i / MAX_LEADS_PER_BATCH);
+              const scheduledAt = new Date(Date.now() + (Math.floor(i / MAX_LEADS_PER_BATCH) + 1) * STAGGER_MS).toISOString();
+              childChunks.push({
+                job_id,
+                batch_index: childIdx,
+                lot_index: childIdx,
+                status: 'scheduled',
+                scheduled_at: scheduledAt,
+                lead_ids: chunk.map((l: any) => l.id),
+                total_leads: chunk.length,
+                processed_leads: 0,
+                retry_count: 0,
+              });
+            }
+            if (childChunks.length > 0) {
+              const { error: insErr } = await supabase
+                .from('campaign_batches')
+                .insert(childChunks);
+              if (insErr) {
+                console.error(`❌ [BG] Falha ao criar batches filhos do chunking:`, insErr.message);
+                // Em caso de falha, prossegue com o batch original
+                // intacto (reverte o encolhimento para não perder leads).
+                await supabase.from('campaign_batches').update({
+                  lead_ids: leads.map((l: any) => l.id),
+                  total_leads: leads.length,
+                }).eq('id', batch.id);
+              } else {
+                console.log(`🪓 [BG] Chunking aplicado: batch ${batch.batch_index} reduzido para ${keep.length}; ${childChunks.length} batches scheduled criados (${overflow.length} leads).`);
+                leads.length = 0;
+                leads.push(...keep);
+              }
+            }
+          } catch (chunkErr: any) {
+            console.error(`❌ [BG] Erro no chunking (prosseguindo sem):`, chunkErr?.message);
+          }
+        }
+
         const successLeadIds: string[] = [];
         const duplicateLeadIds: string[] = [];
         const failedLeadIds: string[] = [];
