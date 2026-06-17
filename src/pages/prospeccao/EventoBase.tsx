@@ -3019,6 +3019,7 @@ export default function EventoBase() {
           totalContatos={metricas.pendentes}
           eventoNome={prospeccao?.titulo || 'Evento'}
           isSubmitting={isProgramandoDisparo}
+          dataFimEvento={prospeccao?.data_fim ?? null}
         />
       )}
     </DashboardLayout>
