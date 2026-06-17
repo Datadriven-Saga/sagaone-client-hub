@@ -1,71 +1,68 @@
-## Diagnóstico
+## Objetivo
 
-```
-Confirmado:
-- Job f4cdddc4 está em `processing`, lote 0 concluído às 15:30:21, lote 1 com status `scheduled` para 16:00 (intervalo de 30min entre lotes).
-- `process-campaign-job` finaliza o lote, vê que ainda há batches `scheduled`, mantém o job em `processing` e só atualiza `updated_at` (linhas 784-796 do edge function).
-- `ActiveCampaignJobIndicator` busca jobs em `pending`/`processing`, e se `updated_at` estiver há >10min, chama `autoResolveStuckJob` que:
-  1. Marca o job como `completed`.
-  2. Marca TODOS os batches em `pending`/`processing` como `failed`.
-- Resultado: por volta de 15:40 (10min após o último update), o job f4cdddc4 vai ser auto-finalizado e o lote 1 (scheduled, 16:00) ficará órfão — o job some do "Em andamento", mas como o batch está `scheduled` (não `pending`/`processing`), o update do indicator não pega ele; o dispatcher cron vai tentar rodar às 16:00, porém o job já está `completed`. Mesmo assim, o contador fica em 8/16 para sempre.
-```
+1. Garantir que disparos agendados nunca rodem fora da janela 07:00–22:00 (Brasília), mesmo se um batch for inserido manualmente ou se o cron pegar um `scheduled_at` fora da janela.
+2. Não disparar para leads que já saíram de "pendente" entre o agendamento e a hora do disparo.
+3. Atualizar `docs/fluxo-disparo-whatsapp.md` com a verdade do sistema (janela, snapshot, notificações).
 
-A consulta do indicator também ignora `status='scheduled'`, então jobs puramente agendados não disparam o auto-resolve — só os que já tiveram o primeiro lote rodado caem nessa armadilha.
+## Estado atual (resumo do diagnóstico)
 
-## Correção
+- **Janela 07–22 só existe no frontend** (`ProgramarDisparoModal.tsx`, `JANELA_INICIO_H=7`, `JANELA_FIM_H=22`). Cron e edge não validam.
+- **Cron roda a cada minuto, 24h** (`scheduled-campaign-dispatcher`), apenas reivindica batches com `scheduled_at <= now()`.
+- **Snapshot dos leads é congelado no agendamento** (`EventoBase.tsx` linha 1650 lê `contatosPendentes` e grava em `campaign_batches.lead_ids`). A edge `process-campaign-job` lê esse array fixo (linha 328) e dispara sem refiltrar por status.
+- Documento `docs/fluxo-disparo-whatsapp.md` não menciona notificações, nem deixa claro o snapshot.
 
-Tornar o `ActiveCampaignJobIndicator` ciente de jobs com lotes futuros agendados.
+## Mudanças
 
-### 1. `src/components/ActiveCampaignJobIndicator.tsx`
+### 1. `scheduled-campaign-dispatcher/index.ts` — proteção de janela
 
-- Ao buscar/avaliar o job ativo, considerar também a existência de `campaign_batches` com `status='scheduled'` e `scheduled_at > now()`.
-- Se houver, o job NÃO é "travado", mesmo que `updated_at` esteja há >10min. O período entre lotes pode ser longo (30min, 1h, etc.).
-- Em `autoResolveStuckJob`: antes de fechar, recheckar se existem batches `scheduled` futuros. Se existirem, abortar a auto-resolução. Quando realmente fechar, NÃO marcar batches `scheduled` como failed — apenas `pending`/`processing`.
-- Esconder o indicador (estado "Disparando X%") enquanto o job estiver entre lotes (sem batch em `processing`). Mostrar uma variante discreta "Programado para HH:MM" ou simplesmente ocultar até o próximo lote começar.
+Antes de invocar `process-campaign-job` para cada batch reivindicado, conferir a hora atual em `America/Sao_Paulo`. Se estiver fora de 07:00–22:00:
 
-### 2. `process-campaign-job/index.ts` (defensivo, opcional pequeno)
+- **Não disparar.**
+- Liberar o batch de volta para `status='scheduled'` (limpar `locked_at`/`locked_by`) e atualizar `scheduled_at` para o próximo slot válido (próximo 07:00 do mesmo dia se antes das 07h, ou 07:00 do dia seguinte se depois das 22h), preservando o `lot_index`.
+- Logar a ação (`console.log('🌙 [DISPATCHER] Fora da janela — reagendado para …')`).
+- Não notificar o usuário (é uma proteção silenciosa contra desvio).
 
-Quando ainda há `scheduledLeft > 0`, além de atualizar `updated_at`, voltar o job para `status='scheduled'` (em vez de manter `processing`). Isso:
-- Faz o `ActiveCampaignJobIndicator` ignorar naturalmente (já filtra apenas `pending`/`processing`).
-- Evita que qualquer outro consumidor confunda "executando agora" com "aguardando próximo lote".
+Janela é hardcoded como `WINDOW_START_H=7` / `WINDOW_END_H=22` no arquivo, com helper `nextWindowSlot(now)` retornando ISO em UTC. Não criar dependência nova — usar `Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false })` para extrair a hora local.
 
-Essa segunda mudança é a mais limpa, mas exige que outros locais que dependem de `processing` (ex.: progresso) sigam consultando o job certo. Vou auditar usos antes de aplicar.
+### 2. `process-campaign-job/index.ts` — revalidação de status do lead
 
-## Saneamento dos jobs atuais
+Logo após carregar `leads` do batch (linha ~331 para WhatsApp, e equivalente para IA Ligação), antes do loop de disparo:
 
-Job f4cdddc4 ainda está vivo (lote 1 vai rodar 16:00). Não precisa intervenção manual se a correção for aplicada antes das 15:40. Se passar disso, rodar:
+- Buscar de `contatos` o `status` atual de todos os `lead_id` envolvidos (sub-batches de 100, mesmo padrão já usado).
+- Considerar **elegíveis** apenas os com `status IN ('Novo', 'Pendente')` (mesmo critério usado em `contatosPendentes`).
+- Para cada lead descartado:
+  - Incrementar `invDuplicate` (reusar o contador de "ignorados"; alternativa: novo campo, mas evitamos migração).
+  - Logar em `logs_disparos_falhas` com `categoria='lead_nao_pendente'`, `mensagem='Status mudou após agendamento: <status atual>'`.
+- Seguir o pipeline normal só com os elegíveis.
 
-```sql
-UPDATE campaign_jobs
-SET status='scheduled', completed_at=NULL, error_message=NULL
-WHERE id='f4cdddc4-e2a9-4f1a-9c28-182df1aebfaf'
-  AND status='completed'
-  AND EXISTS (
-    SELECT 1 FROM campaign_batches
-    WHERE job_id=campaign_jobs.id AND status='scheduled' AND scheduled_at > now()
-  );
+Para IA Ligação, a fonte é `prospect_pri_voz` → joinar com `contatos` pelo `lead_id` (já existe nos prospects) e aplicar o mesmo filtro.
 
-UPDATE campaign_batches
-SET status='scheduled', error_log=NULL
-WHERE job_id='f4cdddc4-e2a9-4f1a-9c28-182df1aebfaf'
-  AND status='failed'
-  AND scheduled_at > now()
-  AND error_log ILIKE '%timeout%';
-```
+### 3. `docs/fluxo-disparo-whatsapp.md` — atualização
 
-## O que NÃO alterar
+Acrescentar/ajustar na Seção 11 (Disparo programado):
 
-- Lógica de `process-campaign-job` que avança batches.
-- `scheduled-campaign-dispatcher`.
-- Constraints / schema.
-- Lógica de criação de jobs/batches em `EventoBase.tsx`.
+- **11.X Janela 07:00–22:00**: descrever que é validada no frontend (UX) E reforçada no `scheduled-campaign-dispatcher` (silenciosamente reagenda para o próximo slot). Listar exatamente o comportamento de reagendamento.
+- **11.Y Snapshot dos leads**: deixar explícito que `lead_ids` é congelado no momento do agendamento (`contatosPendentes`) e que a edge **revalida o status atual** antes de disparar; leads que saíram de pendente entram em `logs_disparos_falhas` com categoria `lead_nao_pendente` e não consomem custo.
+- **Nova Seção 12 — Notificações in-app do disparo**: tabela curta apontando os tipos emitidos (`disparo_concluido`, `disparo_falhou`), origem (`process-campaign-job`, `scheduled-campaign-dispatcher`, `ActiveCampaignJobIndicator`), quando, e `link` usado (`/prospeccao/<id>?job=<id>`). Linkar `docs/notificacoes.md` como referência canônica do sistema de notificações.
+- Atualizar o **checklist de regressão** com:
+  - "Inserir batch manual com `scheduled_at` às 03:00 e confirmar que o cron reagenda para 07:00 sem disparar."
+  - "Agendar disparo, alterar status de um lead para 'Confirmado' antes do horário, e confirmar que a edge pula o lead com log `lead_nao_pendente`."
 
-## Risco
+## Arquivos tocados
 
-Baixo. Mudança restrita ao componente de indicador (frontend) + opcionalmente um único update de status no edge function. Sem migrações.
+- `supabase/functions/scheduled-campaign-dispatcher/index.ts` — janela + reagendamento.
+- `supabase/functions/process-campaign-job/index.ts` — revalidação de status (WhatsApp e IA Ligação).
+- `docs/fluxo-disparo-whatsapp.md` — janela, snapshot, notificações, checklist.
 
-## Testes
+## Validação
 
-1. Programar disparo com >1 lote e intervalo de 30min — após o primeiro lote rodar, indicador NÃO deve marcar como travado, e o próximo lote deve rodar normalmente no horário.
-2. Disparo imediato único — continua marcando travado após 10min de fato sem progresso.
-3. Cancelar disparo programado — continua funcionando.
+- Logs do `scheduled-campaign-dispatcher` mostrando "Fora da janela — reagendado" quando forçado.
+- Logs do `process-campaign-job` mostrando `[BG] X leads pulados (status mudou após agendamento)`.
+- `logs_disparos_falhas` com a nova categoria após teste.
+- Disparos noturnos do bug original não devem mais ocorrer.
+
+## Fora de escopo
+
+- Não mudar o frontend (`ProgramarDisparoModal`) — a guarda visual continua igual.
+- Não criar nova coluna em `campaign_batches` para "leads pulados por status".
+- Não tornar a janela configurável por empresa (pode virar feature flag depois).
