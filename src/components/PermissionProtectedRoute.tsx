@@ -26,10 +26,14 @@ export function PermissionProtectedRoute({
   redirectTo = "/" 
 }: PermissionProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { permissions, loading: accessLoading } = useUserAccessType();
+  const { permissions, tipoAcesso, loading: accessLoading } = useUserAccessType();
   const location = useLocation();
 
-  const loading = authLoading || accessLoading;
+  // Defesa contra race: durante remount no preview, `permissions` pode estar
+  // vazio com loading=false enquanto o refetch acontece. Tratar como loading
+  // quando há usuário mas o tipoAcesso ainda não foi resolvido.
+  const loading =
+    authLoading || accessLoading || (!!user && tipoAcesso === null);
 
   if (loading) {
     return (
