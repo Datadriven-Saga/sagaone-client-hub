@@ -155,6 +155,22 @@ Após cada sub-batch:
 - Após todos os batches: se algum ainda falhou com `retry_count >= 3` → `status='failed'`; senão `'completed'`.
 - Retry manual via botão "Retomar Falhas" no modal (`onRetry` → `handleRetryJob` em `EventoBase.tsx:1411`) re-invoca a mesma função com mesmo `job_id`.
 
+### Chunking server-side (disparo imediato)
+
+O isolate de background da Edge Function tem teto de wall-clock (~5–6 min em `EdgeRuntime.waitUntil`). Um único batch WhatsApp grande (ex.: 496 leads × ~5 s avg na Lambda × sub-lotes de 5 a cada 500 ms ≈ 9 min) é morto silenciosamente pelo runtime, deixando o batch em `processing`, o job com `updated_at` congelado e os leads restantes sem retry. O safety net no frontend (`ActiveCampaignJobIndicator`, `STUCK_THRESHOLD_MS=10min`) força `completed`/`failed` mas não recupera os leads.
+
+Mitigação (apenas para `lot_index IS NULL`, ou seja, disparo manual/`immediate`):
+
+- `MAX_LEADS_PER_BATCH = 250` e `STAGGER_MS = 30_000`.
+- Após carregar `leads` e aplicar a revalidação `data_disparo_ia`, se `leads.length > 250`:
+  1. O batch atual é encolhido para os primeiros 250 (`UPDATE lead_ids, total_leads`).
+  2. Os leads excedentes viram N novos `campaign_batches` com `status='scheduled'`, `lot_index` definido, `batch_index` sequencial após o máximo atual do job e `scheduled_at = now() + (i+1)*30s`.
+  3. O `scheduled-campaign-dispatcher` (cron a cada minuto) reivindica e processa cada filho numa invocação independente, reaproveitando todo o caminho do programado — incluindo a janela 07–22 (filhos com `scheduled_at` fora da janela são reagendados pelo dispatcher).
+- A guarda `lot_index IS NULL` impede que os próprios filhos (que já têm `lot_index` definido) entrem novamente no chunking.
+- IA Ligação está fora do escopo (usa `prospect_pri_voz`, latência por lead diferente, sem relato de travamento).
+
+Observabilidade complementar: ao fim de cada batch processado é emitido um log `🏁 [BG] Batch <idx> finalizado: ...` com `leads_no_batch`, `sucesso`, `falha`, `duplicate`, `duration_ms`. Esse log dá a fronteira clara nos Edge logs caso um batch subsequente seja morto pelo runtime.
+
 ### Auditoria final por batch (`:638-667`)
 
 ```ts
@@ -323,6 +339,9 @@ Montado em `process-campaign-job:478-494`, um POST por lead:
 - [ ] `logs_disparos` (edge) + `logs_disparos_falhas` populados
 - [ ] `contatos.data_disparo_ia` e `eventos_prospeccao.data_disparo_ia` gravados
 - [ ] `notificacoes` criada para o usuário disparador
+- [ ] Disparo imediato com 50 leads → 1 batch único, sem chunking
+- [ ] Disparo imediato com 600 leads → batch original reduzido a 250 + 2 batches `scheduled` (250 e 100) reivindicados pelo cron; somatório `processed_records=600`
+- [ ] Disparo imediato fora da janela 07–22 → primeiro batch roda imediato; filhos com `scheduled_at` futuro respeitam o reagendamento do dispatcher
 
 ---
 

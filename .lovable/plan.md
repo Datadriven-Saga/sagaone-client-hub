@@ -1,68 +1,124 @@
-## Objetivo
 
-1. Garantir que disparos agendados nunca rodem fora da janela 07:00–22:00 (Brasília), mesmo se um batch for inserido manualmente ou se o cron pegar um `scheduled_at` fora da janela.
-2. Não disparar para leads que já saíram de "pendente" entre o agendamento e a hora do disparo.
-3. Atualizar `docs/fluxo-disparo-whatsapp.md` com a verdade do sistema (janela, snapshot, notificações).
+# Diagnóstico — disparo manual travado em 339/496
 
-## Estado atual (resumo do diagnóstico)
+**Job:** `2fc0275b-11e6-4ec4-ab04-04bdedad8e7b` · prospecção `52b26b79…` · BYD Park Sul · `dispatch_mode = immediate`
 
-- **Janela 07–22 só existe no frontend** (`ProgramarDisparoModal.tsx`, `JANELA_INICIO_H=7`, `JANELA_FIM_H=22`). Cron e edge não validam.
-- **Cron roda a cada minuto, 24h** (`scheduled-campaign-dispatcher`), apenas reivindica batches com `scheduled_at <= now()`.
-- **Snapshot dos leads é congelado no agendamento** (`EventoBase.tsx` linha 1650 lê `contatosPendentes` e grava em `campaign_batches.lead_ids`). A edge `process-campaign-job` lê esse array fixo (linha 328) e dispara sem refiltrar por status.
-- Documento `docs/fluxo-disparo-whatsapp.md` não menciona notificações, nem deixa claro o snapshot.
+## Linha do tempo real
 
-## Mudanças
+```text
+17:19:48,7  campaign_jobs criado (total=496, status=pending)
+17:19:48,7  campaign_batches criado — 1 ÚNICO batch, batch_index=0, total_leads=496
+17:19:49,4  batch started_at
+17:20:36,8  última gravação em logs_disparos_falhas (1 numero_invalido)
+17:22       pico de invocações na Lambda (~110/min) — job rodando normal
+17:25-17:26 invocações da Lambda caem para ~30/min → edge parou de chamar
+17:49:04,1  ActiveCampaignJobIndicator força "completed"
+            → "Finalizado automaticamente (sem atividade por 10+ min). 339/496 processados."
+```
 
-### 1. `scheduled-campaign-dispatcher/index.ts` — proteção de janela
+Estado final: `processed_records=339`, `failed_records=1`, `duplicate=0`. **156 leads nunca foram tentados**. Nenhuma linha em `logs_disparos` (a auditoria por batch só grava no final do batch). Nenhum log na Edge Function `process-campaign-job` no Supabase (analytics_query vazio na janela).
 
-Antes de invocar `process-campaign-job` para cada batch reivindicado, conferir a hora atual em `America/Sao_Paulo`. Se estiver fora de 07:00–22:00:
+## Caminho real
 
-- **Não disparar.**
-- Liberar o batch de volta para `status='scheduled'` (limpar `locked_at`/`locked_by`) e atualizar `scheduled_at` para o próximo slot válido (próximo 07:00 do mesmo dia se antes das 07h, ou 07:00 do dia seguinte se depois das 22h), preservando o `lot_index`.
-- Logar a ação (`console.log('🌙 [DISPATCHER] Fora da janela — reagendado para …')`).
-- Não notificar o usuário (é uma proteção silenciosa contra desvio).
+```text
+EventoBase.tsx
+  → invoke('process-campaign-job', { job_id })
+    → EdgeRuntime.waitUntil(processPromise)   ← background isolate
+       → loop WhatsApp: WA_BATCH_SIZE=5, delay 500ms entre sub-lotes
+          → fetch(Lambda)  timeout 30s, Promise.allSettled em rajadas de 5
+```
 
-Janela é hardcoded como `WINDOW_START_H=7` / `WINDOW_END_H=22` no arquivo, com helper `nextWindowSlot(now)` retornando ISO em UTC. Não criar dependência nova — usar `Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false })` para extrair a hora local.
+Disparo **manual** (`immediate`) vai num único `campaign_batches` com todos os 496 leads — não tem `scheduled_at`/`lot_index` (esses são só para programado).
 
-### 2. `process-campaign-job/index.ts` — revalidação de status do lead
+## Causa raiz (Confirmado)
 
-Logo após carregar `leads` do batch (linha ~331 para WhatsApp, e equivalente para IA Ligação), antes do loop de disparo:
+1. **Lote único de 496 num modo sem chunking.** 100 sub-lotes × (500ms + ~5s avg de latência Lambda) = **~550s ≈ 9 min** de execução estimada.
+2. **Lambda estava saudável** (gráficos: avg 5s, max 47s, sem espigão de erro), com invocações decrescentes a partir de 17:23 e quebra clara em 17:25–17:26 — exatamente onde o trabalho parou.
+3. **O isolate de background da Edge Function tem teto de wall-clock** (~150s CPU / ~400s wall em waitUntil). Após ~5–6 min o isolate é morto sem flushar nada: o batch fica em `processing`, o job em `pending/processing` com `updated_at` congelado, e os 156 leads restantes seguem em `lead_ids` sem retry.
+4. **`ActiveCampaignJobIndicator`** (`STUCK_THRESHOLD_MS = 10*60*1000`) detecta `updated_at` parado >10 min e força `completed`/`failed` no frontend. É um safety net, não recupera leads.
 
-- Buscar de `contatos` o `status` atual de todos os `lead_id` envolvidos (sub-batches de 100, mesmo padrão já usado).
-- Considerar **elegíveis** apenas os com `status IN ('Novo', 'Pendente')` (mesmo critério usado em `contatosPendentes`).
-- Para cada lead descartado:
-  - Incrementar `invDuplicate` (reusar o contador de "ignorados"; alternativa: novo campo, mas evitamos migração).
-  - Logar em `logs_disparos_falhas` com `categoria='lead_nao_pendente'`, `mensagem='Status mudou após agendamento: <status atual>'`.
-- Seguir o pipeline normal só com os elegíveis.
+**Descartado** com evidência:
+- Lambda lenta/instável: métricas mostram saúde.
+- Rede/falha em massa: 1 só falha real (numero_invalido).
+- Cron `scheduled-campaign-dispatcher`: job é `immediate`, sem `scheduled_at`.
+- RLS/permissão: 339 leads foram gravados com sucesso antes da morte.
 
-Para IA Ligação, a fonte é `prospect_pri_voz` → joinar com `contatos` pelo `lead_id` (já existe nos prospects) e aplicar o mesmo filtro.
+## Por que o disparo programado não tem esse bug
 
-### 3. `docs/fluxo-disparo-whatsapp.md` — atualização
+O `ProgramarDisparoModal` já quebra em lotes via `lot_index` + `scheduled_at`; cada lote vira uma nova invocação independente do `scheduled-campaign-dispatcher`, então cada isolate enfrenta no máximo o tamanho de 1 lote.
 
-Acrescentar/ajustar na Seção 11 (Disparo programado):
+O caminho **manual nunca recebeu esse mesmo cuidado**.
 
-- **11.X Janela 07:00–22:00**: descrever que é validada no frontend (UX) E reforçada no `scheduled-campaign-dispatcher` (silenciosamente reagenda para o próximo slot). Listar exatamente o comportamento de reagendamento.
-- **11.Y Snapshot dos leads**: deixar explícito que `lead_ids` é congelado no momento do agendamento (`contatosPendentes`) e que a edge **revalida o status atual** antes de disparar; leads que saíram de pendente entram em `logs_disparos_falhas` com categoria `lead_nao_pendente` e não consomem custo.
-- **Nova Seção 12 — Notificações in-app do disparo**: tabela curta apontando os tipos emitidos (`disparo_concluido`, `disparo_falhou`), origem (`process-campaign-job`, `scheduled-campaign-dispatcher`, `ActiveCampaignJobIndicator`), quando, e `link` usado (`/prospeccao/<id>?job=<id>`). Linkar `docs/notificacoes.md` como referência canônica do sistema de notificações.
-- Atualizar o **checklist de regressão** com:
-  - "Inserir batch manual com `scheduled_at` às 03:00 e confirmar que o cron reagenda para 07:00 sem disparar."
-  - "Agendar disparo, alterar status de um lead para 'Confirmado' antes do horário, e confirmar que a edge pula o lead com log `lead_nao_pendente`."
+---
 
-## Arquivos tocados
+# Plano de correção em camadas
 
-- `supabase/functions/scheduled-campaign-dispatcher/index.ts` — janela + reagendamento.
-- `supabase/functions/process-campaign-job/index.ts` — revalidação de status (WhatsApp e IA Ligação).
-- `docs/fluxo-disparo-whatsapp.md` — janela, snapshot, notificações, checklist.
+## Camada 1 — Observabilidade
 
-## Validação
+`process-campaign-job`: adicionar `console.log` final no fim do background com `{job_id, leads_no_batch, leads_processados, duration_ms}` para que, da próxima vez que o isolate morrer, a fronteira do corte fique visível nos logs (hoje só logamos progresso a cada 20 sub-lotes).
 
-- Logs do `scheduled-campaign-dispatcher` mostrando "Fora da janela — reagendado" quando forçado.
-- Logs do `process-campaign-job` mostrando `[BG] X leads pulados (status mudou após agendamento)`.
-- `logs_disparos_falhas` com a nova categoria após teste.
-- Disparos noturnos do bug original não devem mais ocorrer.
+## Camada 2 — Mitigação (foco)
 
-## Fora de escopo
+**Aplicar chunking server-side no modo `immediate`, reusando o caminho do `scheduled-campaign-dispatcher`.** Sem mexer em frontend, sem nova RPC, sem tocar em `bulk_upsert_contatos`.
 
-- Não mudar o frontend (`ProgramarDisparoModal`) — a guarda visual continua igual.
-- Não criar nova coluna em `campaign_batches` para "leads pulados por status".
-- Não tornar a janela configurável por empresa (pode virar feature flag depois).
+Em `process-campaign-job/index.ts`, logo após carregar `batch` + `leads` (antes do loop WhatsApp, e apenas quando `!isIALigacao`):
+
+```text
+const MAX_LEADS_PER_BATCH = 250   // alvo: ≤ 4 min de execução
+if (leads.length > MAX_LEADS_PER_BATCH) {
+  1. Manter no batch atual apenas os primeiros 250 lead_ids
+     UPDATE campaign_batches
+        SET lead_ids = lead_ids[1:250], total_leads = 250
+      WHERE id = batch.id
+  2. Inserir N novos campaign_batches com os chunks restantes:
+        job_id, batch_index = batch_index + i,
+        status = 'scheduled',
+        scheduled_at = now() + (i * 30s),     -- escalonado p/ não estourar o cron
+        lot_index = (batch_index + i),
+        lead_ids = chunk[i],
+        total_leads = chunk[i].length
+  3. Continuar o processamento normal do batch atual (250 leads).
+}
+```
+
+Por que `status='scheduled'` e não self-chain:
+- O `scheduled-campaign-dispatcher` já roda a cada minuto, já reivindica batches via `claim_due_campaign_batches`, já invoca `process-campaign-job` por lote, já tem a proteção de janela 07–22 que acabamos de implementar.
+- Reaproveita caminho exercitado diariamente; não cria nova surface de bug.
+- Custo: latência adicional de até ~1min entre lotes (aceitável; usuário já fecha o modal e deixa rodar).
+
+`isIALigacao` fica fora desta entrega — usa `prospect_pri_voz`, comportamento diferente, e não há relato de travamento nesse pipeline.
+
+## Camada 3 — Recuperação dos 156 leads atuais
+
+Sem migração SQL. O usuário pode:
+
+1. Recarregar o evento → "Pendentes IA" volta a mostrar os 156 não-disparados.
+2. Clicar "Disparar WhatsApp" novamente → novo `campaign_jobs` que agora cai no chunking.
+
+## Camada 4 — NÃO mexer agora
+
+- `bulk_upsert_contatos`, `contato_quarentena`, `eventos_prospeccao`.
+- `STUCK_THRESHOLD_MS` no frontend (continua sendo o safety net).
+- `WA_BATCH_SIZE`/`WA_DELAY_MS` (calibrados para a Lambda).
+- Janela 07–22 (já tratada em iteração anterior).
+
+---
+
+# Arquivos a alterar
+
+- `supabase/functions/process-campaign-job/index.ts` — adicionar bloco de chunking server-side antes do loop WhatsApp; log final do background.
+- `docs/fluxo-disparo-whatsapp.md` — registrar na seção de disparo imediato que lotes >250 são automaticamente fragmentados em batches `scheduled` reaproveitando o cron.
+
+# Testes obrigatórios
+
+1. Disparo manual com 50 leads → 1 batch, comportamento idêntico.
+2. Disparo manual com 600 leads → batch original com 250; 2 batches `scheduled` (250 e 100) reivindicados em sequência pelo cron; total `processed_records=600`, batch original `completed`, demais `completed`.
+3. Disparo programado existente → não pode ser re-fragmentado (já vem com `lot_index` definido; chunking só dispara quando `lot_index IS NULL` ou quando o batch é o primeiro e único).
+4. Disparo manual fora da janela 07–22 → primeiro batch roda imediato; os filhos com `scheduled_at` no futuro respeitam o reagendamento já implementado no dispatcher.
+5. Reexecutar disparo no evento BYD Park Sul para limpar os 156 pendentes.
+
+# Risco
+
+Baixo. Cada peça (criação de batch `scheduled`, claim pelo dispatcher, processamento de batch único) já é exercitada hoje pelo disparo programado.
+
+Skill usada: `deep-root-cause-analysis-db-first`.
