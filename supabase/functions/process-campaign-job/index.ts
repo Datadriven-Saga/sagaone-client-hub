@@ -895,6 +895,15 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
 
         // Contadores absolutos já mantidos via increment_job_counters (RPC).
 
+        // Log final do batch — fronteira clara nos Edge logs caso o
+        // isolate seja morto em batches subsequentes. Inclui duração
+        // real para correlacionar com métricas da Lambda.
+        try {
+          const startedMs = batch.started_at ? new Date(batch.started_at).getTime() : Date.now();
+          const durationMs = Date.now() - startedMs;
+          console.log(`🏁 [BG] Batch ${batch.batch_index} finalizado: status=${batchStatus}, leads_no_batch=${leads.length}, sucesso=${successLeadIds.length}, falha=${failedLeadIds.length}, duplicate=${duplicateLeadIds.length}, duration_ms=${durationMs}`);
+        } catch { /* ignore */ }
+
         // ========== LOG SERVER-SIDE DE DISPARO (auditoria por batch) ==========
         try {
           const totalBatch = successLeadIds.length + failedLeadIds.length;
