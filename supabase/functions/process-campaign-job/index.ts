@@ -393,6 +393,79 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
           continue;
         }
 
+        // ============================================================
+        // Revalidação de "pendente" (apenas WhatsApp). Para agendados:
+        // entre o agendamento e o disparo o usuário pode ter avançado o
+        // lead manualmente, importado novo evento, ou outro job pode ter
+        // disparado. Releamos eventos_prospeccao.data_disparo_ia: se já
+        // estiver setado, o lead é PULADO (não consome custo nem aparece
+        // como falha real — vai para logs_disparos_falhas como
+        // `lead_nao_pendente`).
+        // IA Ligação usa prospect_pri_voz.id (≠ contato_id), então a
+        // revalidação aqui não se aplica — o lambda da ligação já tem
+        // sua própria checagem de cadência/duplicidade.
+        // ============================================================
+        if (!isIALigacao && job.prospeccao_id) {
+          const contatoIds = leads.map((l: any) => l.id).filter(Boolean);
+          const jaDisparados = new Set<string>();
+          for (let i = 0; i < contatoIds.length; i += SUB_BATCH) {
+            const slice = contatoIds.slice(i, i + SUB_BATCH);
+            const { data: evRows, error: evErr } = await supabase
+              .from('eventos_prospeccao')
+              .select('contato_id, data_disparo_ia')
+              .eq('prospeccao_id', job.prospeccao_id)
+              .in('contato_id', slice)
+              .not('data_disparo_ia', 'is', null);
+            if (evErr) {
+              console.warn(`⚠️ [BG] Revalidação status sub-batch ${Math.floor(i / SUB_BATCH)}:`, evErr.message);
+              continue;
+            }
+            for (const row of (evRows || []) as any[]) {
+              if (row?.contato_id) jaDisparados.add(row.contato_id);
+            }
+          }
+          if (jaDisparados.size > 0) {
+            const skipped = leads.filter((l: any) => jaDisparados.has(l.id));
+            const kept = leads.filter((l: any) => !jaDisparados.has(l.id));
+            console.log(`⏭️ [BG] Batch ${batch.batch_index}: ${skipped.length} leads pulados (status mudou após agendamento — já disparados)`);
+
+            // Insere registros em logs_disparos_falhas com categoria dedicada.
+            const skipLogs = skipped.map((c: any) => ({
+              job_id, batch_id: batch.id, empresa_id: job.empresa_id, prospeccao_id: job.prospeccao_id,
+              contato_id: c.id, lead_id: c.lead_id || null, telefone: c.telefone, nome: c.nome,
+              categoria: 'lead_nao_pendente',
+              mensagem: 'Lead já havia sido disparado antes do horário programado',
+              http_status: 0,
+            }));
+            if (skipLogs.length > 0) {
+              await supabase.from('logs_disparos_falhas').insert(skipLogs).then(({ error }) => {
+                if (error) console.warn(`⚠️ [BG] Falha ao logar lead_nao_pendente:`, error.message);
+              });
+            }
+
+            // Contabiliza como "duplicate" (categoria de ignorados — não
+            // afeta processed/failed e não gera notificação de falha).
+            invDuplicate += skipped.length;
+            await supabase.rpc('increment_job_counters', {
+              p_job_id: job_id, p_processed: 0, p_failed: 0, p_duplicate: skipped.length,
+            });
+
+            // Substitui o array de leads pela lista elegível.
+            leads.length = 0;
+            leads.push(...kept);
+
+            if (leads.length === 0) {
+              await supabase.from('campaign_batches').update({
+                status: 'completed',
+                processed_leads: 0,
+                error_log: `${skipped.length} leads pulados — todos já disparados`,
+                completed_at: new Date().toISOString(),
+              }).eq('id', batch.id);
+              continue;
+            }
+          }
+        }
+
         console.log(`📤 [BG] Batch ${batch.batch_index}: enviando ${leads.length} leads via ${isIALigacao ? 'Ligação' : 'WhatsApp'}`);
 
         const successLeadIds: string[] = [];
