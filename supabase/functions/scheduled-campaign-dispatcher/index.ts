@@ -88,7 +88,7 @@ serve(async (req) => {
     const batches = (claimed || []) as Array<{ id: string; job_id: string; lot_index: number | null }>;
     console.log(`🕒 [DISPATCHER] Reivindicados ${batches.length} batches`);
 
-    // Proteção de janela: se o tick caiu fora de 07:00–22:00 (Brasília),
+    // Proteção de janela: se o tick caiu fora de 07:00–20:00 (Brasília),
     // devolve TODOS os batches reivindicados para 'scheduled' com novo
     // scheduled_at no próximo 07:00 e não dispara nada.
     const now = new Date();
