@@ -1,39 +1,38 @@
-# Atualizar documentacao com as duas ultimas alteracoes concluidas
+# Registro — alteracoes recentes no disparo WhatsApp
 
-## Contexto
+Duas alteracoes ja implementadas e deployadas no fluxo de disparo WhatsApp.
 
-As duas alteracoes recentes no sistema de disparo WhatsApp ja foram implementadas e precisam ser refletidas corretamente na documentacao:
+## 1. Chunking server-side para disparo imediato (concluido)
 
-1. **Chunking server-side para disparos imediatos** — Mitigacao do timeout do Edge Function (`waitUntil` ~5-6 min) dividindo batches grandes (>250 leads) em batches filhos `scheduled` processados pelo cron.
-2. **Janela de disparo alterada de 07-22 para 07-20** — Reducao do horario permitido em todas as camadas (UI, edge dispatcher e doc).
+**Problema:** o isolate de background da Edge Function (`EdgeRuntime.waitUntil`) tem teto de wall-clock (~5–6 min). Um unico batch grande (ex.: 496 leads × ~5 s/lead × sub-lotes de 5 a cada 500 ms ≈ 9 min) era morto silenciosamente, deixando o batch em `processing`, `updated_at` congelado e os leads restantes sem retry. O `ActiveCampaignJobIndicator` forcava `completed`/`failed` apos 10 min, mas nao recuperava os leads.
 
-## Tarefas
+**Mitigacao** (em `supabase/functions/process-campaign-job/index.ts`, aplicada apenas quando `lot_index IS NULL`):
 
-### 1. Atualizar `.lovable/plan.md`
+- `MAX_LEADS_PER_BATCH = 250` e `STAGGER_MS = 30_000`.
+- Apos carregar `leads` e aplicar a revalidacao `data_disparo_ia`, se `leads.length > 250`:
+  1. Batch atual encolhido para os primeiros 250 (`UPDATE lead_ids, total_leads`).
+  2. Excedentes viram N novos `campaign_batches` com `status='scheduled'`, `lot_index` definido, `batch_index` sequencial e `scheduled_at = now() + (i+1)*30s`.
+  3. `scheduled-campaign-dispatcher` (cron 1 min) reivindica e processa cada filho — incluindo respeito a janela 07–20.
+- Guarda `lot_index IS NULL` impede que filhos (que ja tem `lot_index`) reentrem no chunking.
+- Se o INSERT dos filhos falhar, o batch original e revertido para os leads completos.
+- Log final por batch: `🏁 [BG] Batch <idx> finalizado: status=..., leads_no_batch=..., sucesso=..., falha=..., duplicate=..., duration_ms=...`.
 
-O plano atual esta escrito como instrucao de implementacao (futuro). Precisa ser reescrito como registro de conclusao:
+IA Ligacao fora de escopo (latencia menor, sem relato de travamento).
 
-- Renomear titulo para refletir ambas as alteracoes concluidas.
-- Reestruturar como "Registro de alteracoes" em vez de plano de execucao.
-- Adicionar secao sobre o chunking server-side (contexto, mitigacao, parametros `MAX_LEADS_PER_BATCH=250` / `STAGGER_MS=30000`, guarda `lot_index IS NULL`).
-- Manter secao da janela 07-20 como concluida.
-- Atualizar verificacao para incluir testes do chunking.
+## 2. Janela de disparo reduzida de 07–22 para 07–20 (concluido)
 
-### 2. Revisar `docs/fluxo-disparo-whatsapp.md`
+**`src/components/ProgramarDisparoModal.tsx`:** `JANELA_FIM_H = 20`; mensagens atualizadas para `07:00–20:00`. `buildSlots` e `isWithinWindow` derivam da constante — ultimo slot e 20:00, `20:30+` bloqueado.
 
-O documento ja contem as duas alteracoes, mas sera revisado para garantir consistencia:
+**`supabase/functions/scheduled-campaign-dispatcher/index.ts`:** `WINDOW_END_H = 20`. Batches reivindicados apos 20:00 sao silenciosamente reagendados para 07:00 do dia seguinte (`locked_at`/`locked_by` limpos), sem disparar a Lambda nem notificar.
 
-- Confirmar que a secao de chunking esta completa e alinhada com a implementacao real.
-- Confirmar que todas as menencias a janela sao `07-20` (sem resquicios de `07-22` ou `22:00`).
-- Corrigir qualquer inconsistencia encontrada.
+**`docs/fluxo-disparo-whatsapp.md`:** todas as mencoes a janela atualizadas para `07–20` / `07:00–20:00` / `20:00`.
 
-### 3. Verificar memorias relacionadas
+`WINDOW_START_H = 07` inalterado. Cron continua rodando 24h — edge enforce a janela. Jobs ja agendados entre 20:01 e 22:00 sao reagendados automaticamente ao serem reivindicados.
 
-Se houver memoria em `.lovable/memory/` sobre disparo WhatsApp, atualizar com:
-- Horario da janela (07-20).
-- Chunking como mecanismo de resiliencia para batches grandes.
+## Verificacao
 
-## Fora de escopo
-
-- Nenhuma mudanca de codigo (ja implementada).
-- Nenhuma migration SQL.
+- [x] UI bloqueia programacao em 20:30; aceita 20:00.
+- [x] Batch com `scheduled_at = 21:00` e reagendado para 07:00 do dia seguinte pelo dispatcher.
+- [ ] Disparo imediato com 50 leads → 1 batch unico, sem chunking.
+- [ ] Disparo imediato com 600 leads → batch original reduzido a 250 + 2 batches `scheduled` (250 e 100) reivindicados pelo cron; somatorio `processed_records=600`.
+- [ ] Disparo imediato fora da janela 07–20 → primeiro batch roda imediato; filhos com `scheduled_at` futuro respeitam o reagendamento do dispatcher.
