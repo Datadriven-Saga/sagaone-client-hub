@@ -224,6 +224,12 @@ export default function ProgramarDisparoModal({
           Os horários estão no fuso de <strong>Brasília (GMT-3)</strong>. Janela permitida: 07:00–20:00.
         </div>
 
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 space-y-1">
+          <p>Escolha a data e o horário para iniciar o disparo.</p>
+          <p>Você pode enviar todos os contatos de uma vez ou dividir em lotes, por quantidade de lotes ou por tamanho de lote.</p>
+          <p>Os disparos são executados apenas entre <strong>07h e 20h</strong>, no horário de Brasília. Caso divida em lotes, o intervalo mínimo entre eles é de <strong>30 minutos</strong>.</p>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Data do primeiro envio</Label>
