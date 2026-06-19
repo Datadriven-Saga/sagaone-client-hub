@@ -1526,7 +1526,21 @@ export default function EventoBase() {
 
       if (jobError || !jobData) {
         console.error('Erro ao criar job:', jobError);
-        toast({ title: "Erro", description: "Erro ao criar job de disparo", variant: "destructive" });
+        const isActiveDup = jobError?.code === '23505'
+          && (jobError?.message?.includes('uq_campaign_jobs_active_per_prospeccao') ?? false);
+        if (isActiveDup) {
+          toast({
+            title: "Disparo já em andamento",
+            description: "Já existe um disparo ativo (pendente, processando ou agendado) para este evento. Aguarde a conclusão ou cancele o disparo atual antes de iniciar um novo.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erro",
+            description: `Erro ao criar job de disparo: ${jobError?.message || 'desconhecido'}`,
+            variant: "destructive",
+          });
+        }
         setIsDisparandoIA(false);
         return;
       }

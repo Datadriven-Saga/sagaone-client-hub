@@ -1,20 +1,29 @@
-## Objetivo
-Inserir o texto explicativo sobre funcionamento do agendamento de disparos no modal `ProgramarDisparoModal.tsx`, logo após o aviso de fuso horário existente (opção 2 aprovada pelo usuário).
+## Problema
 
-## Texto a inserir
-```
-Escolha a data e o horário para iniciar o disparo.
-Você pode enviar todos os contatos de uma vez ou dividir em lotes, por quantidade de lotes ou por tamanho de lote.
+Quando o usuário tenta disparar e já existe um job ativo (`pending`/`processing`/`scheduled`) para a mesma prospecção, o `INSERT` em `campaign_jobs` falha com `23505 / uq_campaign_jobs_active_per_prospeccao`. Hoje o toast mostra apenas "Erro ao criar job de disparo", sem explicar a causa.
 
-Os disparos são executados apenas entre 07h e 20h, no horário de Brasília. Caso divida em lotes, o intervalo mínimo entre eles é de 30 minutos.
-```
+O caminho do disparo agendado (linha 1689) já trata `uq_campaign_jobs_scheduled_slot` com mensagem amigável. Falta o mesmo tratamento no disparo imediato (linha 1527).
 
-## Implementação
-1. Editar `src/components/ProgramarDisparoModal.tsx`.
-2. Adicionar novo `<div>` informativo logo após o bloco `bg-amber-50` existente (linhas ~138-140).
-3. Estilo: `rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900` para diferenciar visualmente do warning amber.
-4. Texto formatado com quebras de linha (`<p>` ou `<br/>`).
+## Alteração
 
-## Verificação
-- Build passa sem erros.
-- Visual no preview confirma bloco posicionado corretamente abaixo do fuso horário.
+Arquivo único: `src/pages/prospeccao/EventoBase.tsx`, bloco do disparo imediato (~linha 1527).
+
+Substituir o toast genérico por detecção do erro:
+
+- Se `jobError.code === '23505'` e a mensagem contém `uq_campaign_jobs_active_per_prospeccao`:
+  - Título: "Disparo já em andamento"
+  - Descrição: "Já existe um disparo ativo (pendente, processando ou agendado) para este evento. Aguarde a conclusão ou cancele o disparo atual antes de iniciar um novo."
+- Caso contrário, manter mensagem genérica mas incluir `jobError.message` para diagnóstico (igual ao padrão da linha 1691).
+
+Também adicionar log mantendo o `console.error` atual.
+
+## Fora de escopo
+
+- Não mexer em RPC, migrations, edge functions ou no chunking server-side.
+- Não alterar a constraint nem o fluxo agendado (já trata seu próprio caso).
+- Não mexer em UI além do toast.
+
+## Teste
+
+1. Iniciar um disparo imediato e, antes dele concluir, clicar disparar novamente → toast "Disparo já em andamento" com a explicação.
+2. Disparo normal sem job ativo → segue funcionando.
