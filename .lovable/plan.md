@@ -1,29 +1,16 @@
-## Problema
+## Resumo
+Alterar o endpoint da Lambda de disparos de templates (Pri) de `/dev/disparo` para `/prd/disparo` na Edge Function `process-campaign-job`.
 
-Quando o usuário tenta disparar e já existe um job ativo (`pending`/`processing`/`scheduled`) para a mesma prospecção, o `INSERT` em `campaign_jobs` falha com `23505 / uq_campaign_jobs_active_per_prospeccao`. Hoje o toast mostra apenas "Erro ao criar job de disparo", sem explicar a causa.
+## Mudança
+**Arquivo:** `supabase/functions/process-campaign-job/index.ts`
+- **Linha 240:** Substituir a URL do webhook de template
+  - **De:** `https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/dev/disparo`
+  - **Para:** `https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/prd/disparo`
 
-O caminho do disparo agendado (linha 1689) já trata `uq_campaign_jobs_scheduled_slot` com mensagem amigável. Falta o mesmo tratamento no disparo imediato (linha 1527).
+## Fora do escopo
+- Não alterar o endpoint de ligação (linha 238-239, `isIALigacao`)
+- Não alterar lógica de retry, observabilidade ou tratamento de erro
+- Não alterar o job `3e7a65d5-cbca-4105-b4c0-960201c91b0d` manualmente
 
-## Alteração
-
-Arquivo único: `src/pages/prospeccao/EventoBase.tsx`, bloco do disparo imediato (~linha 1527).
-
-Substituir o toast genérico por detecção do erro:
-
-- Se `jobError.code === '23505'` e a mensagem contém `uq_campaign_jobs_active_per_prospeccao`:
-  - Título: "Disparo já em andamento"
-  - Descrição: "Já existe um disparo ativo (pendente, processando ou agendado) para este evento. Aguarde a conclusão ou cancele o disparo atual antes de iniciar um novo."
-- Caso contrário, manter mensagem genérica mas incluir `jobError.message` para diagnóstico (igual ao padrão da linha 1691).
-
-Também adicionar log mantendo o `console.error` atual.
-
-## Fora de escopo
-
-- Não mexer em RPC, migrations, edge functions ou no chunking server-side.
-- Não alterar a constraint nem o fluxo agendado (já trata seu próprio caso).
-- Não mexer em UI além do toast.
-
-## Teste
-
-1. Iniciar um disparo imediato e, antes dele concluir, clicar disparar novamente → toast "Disparo já em andamento" com a explicação.
-2. Disparo normal sem job ativo → segue funcionando.
+## Validação
+- Verificar que a linha 240 contém a nova URL `/prd/disparo` após a mudança
