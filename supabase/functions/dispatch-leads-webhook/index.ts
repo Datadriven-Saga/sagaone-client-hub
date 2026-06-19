@@ -340,7 +340,7 @@ serve(async (req) => {
     // Determinar webhook - IA Ligação usa dispara-ligacao, IA Whatsapp usa recebe-leads-pri
     const webhookUrl = isIALigacao 
       ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao'
-      : 'https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/prod/disparo';
+      : 'https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/dev/disparo';
 
     console.log(`\n🌐 [${requestId}] Webhook URL: ${webhookUrl}`);
 
