@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const BATCH_SIZE = 1000;
 const MAX_RETRIES = 3;
+const CHAIN_DEPTH_CAP = 100;
 
 const normalizePhone = (phone: string | null): string => {
   if (!phone) return '';
@@ -143,7 +144,11 @@ function resolveVariableMapping(
 // ============================================================
 async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string, batch_id?: string | null) {
   try {
-    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}${batch_id ? ` (batch ${batch_id})` : ''}`);
+    // chain_depth e batch_id são opcionais — leitura segura.
+    const _chainMeta = (job as any).__chain_meta || {};
+    const chainDepth: number = _chainMeta.depth || 0;
+    const isImmediate: boolean = !!_chainMeta.immediate;
+    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}${batch_id ? ` (batch ${batch_id})` : ''}${isImmediate ? ` [CHAIN depth=${chainDepth}]` : ''}`);
 
     // Buscar dados da prospecção
     const { data: prospeccao } = await supabase
