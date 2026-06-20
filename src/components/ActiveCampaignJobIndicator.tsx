@@ -166,7 +166,7 @@ const ActiveCampaignJobIndicator: React.FC = () => {
       title: '⚠️ Disparo finalizado automaticamente',
       description: `O servidor parou de responder. ${job.processed_records} de ${job.total_records} contatos foram processados.`,
     });
-  }, [toast]);
+  }, [toast, recoveryAttempted]);
 
   // Check for active jobs on mount and subscribe
   useEffect(() => {
