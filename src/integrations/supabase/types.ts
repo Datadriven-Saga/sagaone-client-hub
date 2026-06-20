@@ -1172,6 +1172,13 @@ export type Database = {
             referencedRelation: "campaign_jobs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "campaign_batches_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "vw_immediate_jobs_status"
+            referencedColumns: ["job_id"]
+          },
         ]
       }
       campaign_jobs: {
@@ -3201,6 +3208,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "campaign_jobs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logs_disparos_falhas_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "vw_immediate_jobs_status"
+            referencedColumns: ["job_id"]
           },
         ]
       }
@@ -6502,6 +6516,39 @@ export type Database = {
           },
         ]
       }
+      vw_immediate_jobs_status: {
+        Row: {
+          classificacao: string | null
+          completed_at: string | null
+          empresa_id: string | null
+          failed_records: number | null
+          immediate_batches_total: number | null
+          immediate_open: number | null
+          job_id: string | null
+          job_status: string | null
+          processed_records: number | null
+          prospeccao_id: string | null
+          started_at: string | null
+          total_records: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_jobs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_jobs_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       academy_recalcular_metricas_usuario: {
@@ -6658,6 +6705,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      claim_next_immediate_batch: {
+        Args: { p_job_id: string }
+        Returns: {
+          batch_index: number
+          id: string
+          prev_status: string
+        }[]
       }
       count_vendedor_leads_pendentes: {
         Args: { user_id_param: string }

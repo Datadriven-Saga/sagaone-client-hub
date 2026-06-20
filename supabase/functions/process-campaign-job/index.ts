@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const BATCH_SIZE = 1000;
 const MAX_RETRIES = 3;
+const CHAIN_DEPTH_CAP = 100;
 
 const normalizePhone = (phone: string | null): string => {
   if (!phone) return '';
@@ -143,7 +144,11 @@ function resolveVariableMapping(
 // ============================================================
 async function processJobInBackground(supabase: any, job_id: string, job: any, SAGA_ONE: string, batch_id?: string | null) {
   try {
-    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}${batch_id ? ` (batch ${batch_id})` : ''}`);
+    // chain_depth e batch_id são opcionais — leitura segura.
+    const _chainMeta = (job as any).__chain_meta || {};
+    const chainDepth: number = _chainMeta.depth || 0;
+    const isImmediate: boolean = !!_chainMeta.immediate;
+    console.log(`🚀 [BG] Iniciando processamento do job: ${job_id}${batch_id ? ` (batch ${batch_id})` : ''}${isImmediate ? ` [CHAIN depth=${chainDepth}]` : ''}`);
 
     // Buscar dados da prospecção
     const { data: prospeccao } = await supabase
@@ -965,6 +970,8 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
         updated_at: new Date().toISOString(),
       }).eq('id', job_id);
       console.log(`⏸️ [BG] Job ${job_id}: ${scheduledLeft} batches scheduled restantes — job permanece em aberto.`);
+      // self-chain só processa immediate (lot_index IS NULL).
+      // Se restam apenas scheduled, o cron drena — nada a encadear.
       return { success: true, job_id, status: 'scheduled_remaining', processed: invProcessed, failed: invFailed };
     }
 
@@ -1047,11 +1054,83 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       }
 
       console.log(`✅ [BG] Job ${job_id} finalizado [${finalStatus}]: ${totalProcessedDb} processados, ${totalFailedDb} falhas`);
+      console.log(`🔚 [CHAIN] end-of-chain job=${job_id} reason=job_completed depth=${chainDepth}`);
       return { success: true, job_id, status: finalStatus, processed: totalProcessedDb, failed: totalFailedDb };
     }
 
     // Ainda há retries pendentes ou processing — não marca completed.
     await supabase.from('campaign_jobs').update({ updated_at: new Date().toISOString() }).eq('id', job_id);
+
+    // ============================================================
+    // SELF-CHAIN IMMEDIATE
+    // Só encadeia se esta invocação foi parte de uma cadeia immediate
+    // (sem batch_id externo, ou propagado via __chain_meta). Cron de
+    // scheduled passa batch_id explícito e isImmediate=false → nunca
+    // encadeia aqui.
+    // ============================================================
+    if (isImmediate) {
+      try {
+        // Re-checa cancelamento — janela entre claim e fim do batch.
+        const { data: jobNowSt } = await supabase
+          .from('campaign_jobs')
+          .select('status, cancelled_at')
+          .eq('id', job_id)
+          .single();
+        if (jobNowSt?.status === 'cancelled' || jobNowSt?.cancelled_at) {
+          console.log(`🔚 [CHAIN] end-of-chain job=${job_id} reason=cancelled depth=${chainDepth}`);
+          return { success: true, job_id, status: 'cancelled', processed: invProcessed, failed: invFailed };
+        }
+
+        if (chainDepth >= CHAIN_DEPTH_CAP) {
+          await supabase.from('campaign_jobs').update({
+            error_message: `Cap de self-chain atingido (${CHAIN_DEPTH_CAP})`,
+          }).eq('id', job_id);
+          await notificarFalhaDisparo(
+            supabase,
+            { id: job_id, user_id: job.user_id, empresa_id: job.empresa_id },
+            'Disparo interrompido (limite de cadeia)',
+            `Disparo atingiu limite técnico de ${CHAIN_DEPTH_CAP} elos. Use "Retomar Falhas" para continuar.`,
+            `/prospeccao/${job.prospeccao_id}`,
+          );
+          console.log(`🔚 [CHAIN] end-of-chain job=${job_id} reason=cap_reached depth=${chainDepth}`);
+          return { success: true, job_id, status: 'cap_reached', processed: invProcessed, failed: invFailed };
+        }
+
+        // Próximo batch immediate via RPC atômica (claim).
+        const { data: nextClaim, error: claimErr } = await supabase
+          .rpc('claim_next_immediate_batch', { p_job_id: job_id });
+        if (claimErr) {
+          console.warn(`⚠️ [CHAIN] Erro ao reivindicar próximo batch:`, claimErr.message);
+          console.log(`🔚 [CHAIN] end-of-chain job=${job_id} reason=claim_error depth=${chainDepth}`);
+          return { success: true, job_id, status: 'in_progress', processed: invProcessed, failed: invFailed };
+        }
+        const nextRow = Array.isArray(nextClaim) && nextClaim.length > 0 ? nextClaim[0] : null;
+        if (!nextRow?.id) {
+          console.log(`🔚 [CHAIN] end-of-chain job=${job_id} reason=no_more depth=${chainDepth}`);
+          return { success: true, job_id, status: 'in_progress', processed: invProcessed, failed: invFailed };
+        }
+
+        const nextDepth = chainDepth + 1;
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const url = `${supabaseUrl}/functions/v1/process-campaign-job`;
+        console.log(`🔗 [CHAIN] next-invoked job=${job_id} next_batch_index=${nextRow.batch_index} next_prev_status=${nextRow.prev_status} depth=${nextDepth}`);
+        // Fire-and-forget — não aguarda resposta.
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceKey}`,
+            'x-chain-depth': String(nextDepth),
+            'x-chain-batch-id': String(nextRow.id),
+          },
+          body: JSON.stringify({ job_id, batch_id: nextRow.id, __chain: true }),
+        }).catch((e) => console.warn(`⚠️ [CHAIN] Falha ao auto-invocar:`, e?.message));
+      } catch (chainErr: any) {
+        console.warn(`⚠️ [CHAIN] Exceção no self-chain:`, chainErr?.message);
+      }
+    }
+
     return { success: true, job_id, status: 'in_progress', processed: invProcessed, failed: invFailed };
   } catch (error: any) {
     console.error(`❌ [BG] Erro crítico no job ${job_id}:`, error);
@@ -1106,7 +1185,12 @@ serve(async (req) => {
   const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
 
   try {
-    const { job_id, batch_id } = await req.json();
+    const body = await req.json();
+    const { job_id } = body;
+    let { batch_id } = body;
+    const chainDepth = parseInt(req.headers.get('x-chain-depth') || '0', 10) || 0;
+    const chainBatchHeader = req.headers.get('x-chain-batch-id');
+    const isChainCall = chainDepth > 0 || !!chainBatchHeader || !!body.__chain;
 
     if (!job_id) {
       return new Response(
@@ -1115,7 +1199,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📥 Recebendo campaign job: ${job_id}${batch_id ? ` batch=${batch_id}` : ''}`);
+    console.log(`📥 Recebendo campaign job: ${job_id}${batch_id ? ` batch=${batch_id}` : ''}${isChainCall ? ` [CHAIN depth=${chainDepth}]` : ''}`);
 
     // Buscar job para validação
     const { data: job, error: jobError } = await supabase
@@ -1132,11 +1216,43 @@ serve(async (req) => {
       );
     }
 
-    if (job.status === 'completed' || job.status === 'cancelled') {
+    // Cancel-check antes de qualquer promove. Cobre o caso de cancelamento
+    // mid-chain (job foi cancelado entre dois elos).
+    if (job.status === 'completed' || job.status === 'cancelled' || (job as any).cancelled_at) {
+      if (isChainCall) {
+        console.log(`🔚 [CHAIN] end-of-chain job=${job_id} reason=${job.status === 'cancelled' || (job as any).cancelled_at ? 'cancelled' : 'completed'} depth=${chainDepth}`);
+      }
       return new Response(
         JSON.stringify({ success: true, message: `Job já está ${job.status}` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Determina se esta invocação é "imediata" (lot_index IS NULL).
+    // - Chain calls: sempre immediate (o self-chain só dispara para immediate).
+    // - Caller externo sem batch_id: assumimos immediate (raiz).
+    // - Caller com batch_id externo (cron): NÃO é immediate (não encadeia).
+    const isImmediate = isChainCall || !batch_id;
+
+    // Se for immediate raiz/elo sem batch_id já reservado, fazer claim do
+    // próximo batch elegível agora (1 batch por invocação). Self-chain
+    // garante que os próximos sejam processados em isolates novos.
+    if (isImmediate && !batch_id) {
+      const { data: nextClaim, error: claimErr } = await supabase
+        .rpc('claim_next_immediate_batch', { p_job_id: job_id });
+      if (claimErr) {
+        console.error(`❌ [CHAIN] Falha ao reivindicar primeiro batch:`, claimErr.message);
+      }
+      const nextRow = Array.isArray(nextClaim) && nextClaim.length > 0 ? nextClaim[0] : null;
+      if (nextRow?.id) {
+        batch_id = nextRow.id;
+        console.log(`🔗 [CHAIN] start job=${job_id} batch_id=${nextRow.id} batch_index=${nextRow.batch_index} depth=${chainDepth} prev_status=${nextRow.prev_status}`);
+      } else {
+        // Nenhum immediate elegível — segue rotina normal (pode haver
+        // scheduled restantes; processJobInBackground irá apenas
+        // finalizar/no-op).
+        console.log(`🔗 [CHAIN] no immediate batch eligible — job=${job_id} depth=${chainDepth}`);
+      }
     }
 
     // Promover para 'processing' apenas se estiver pending/scheduled/partially_completed.
@@ -1148,6 +1264,9 @@ serve(async (req) => {
         .update({ status: 'processing', started_at: job.started_at || new Date().toISOString() })
         .eq('id', job_id);
     }
+
+    // Propaga metadata para o BG via mutação no objeto job (não persiste).
+    (job as any).__chain_meta = { depth: chainDepth, immediate: isImmediate };
 
     // Processar em background via EdgeRuntime.waitUntil
     const processPromise = processJobInBackground(supabase, job_id, job, SAGA_ONE, batch_id || null);
