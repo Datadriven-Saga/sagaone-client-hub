@@ -30,6 +30,12 @@ export const NOTIFICATION_REGISTRY: Record<string, NotificationTypeMeta> = {
     badgeClass: "bg-destructive/10 text-destructive border-destructive/30",
     iconClass: "text-destructive",
   },
+  disparo_retomado: {
+    label: "Disparo retomado",
+    icon: Info,
+    badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+    iconClass: "text-blue-600",
+  },
   Sistema: {
     label: "Sistema",
     icon: Info,

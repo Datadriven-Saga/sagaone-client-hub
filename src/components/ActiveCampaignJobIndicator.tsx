@@ -16,11 +16,23 @@ interface ActiveJob {
 
 const STUCK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
+/**
+ * LIMITAÇÃO CONHECIDA — recuperação de jobs órfãos
+ * --------------------------------------------------
+ * A recuperação automática de um disparo immediate travado depende deste
+ * componente estar montado no frontend (alguém com a empresa do job aberta).
+ * Se ninguém estiver na UI após um crash mid-chain, o batch fica órfão até
+ * a UI ser aberta ou o usuário acionar "Retomar Falhas". Recuperação
+ * server-side está fora desta fase.
+ */
+
 const ActiveCampaignJobIndicator: React.FC = () => {
   const { activeCompany } = useCompany();
   const { toast } = useToast();
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
   const [showModal, setShowModal] = useState(false);
+  // Evita re-tentar recuperação para o mesmo job em loops sucessivos.
+  const [recoveryAttempted] = useState<Map<string, number>>(() => new Map());
 
   const isJobStuck = useCallback((job: ActiveJob): boolean => {
     const refTime = job.updated_at || job.started_at;
@@ -43,6 +55,64 @@ const ActiveCampaignJobIndicator: React.FC = () => {
       console.log(`⏭️ Job ${job.id} tem ${futureScheduled} lotes scheduled futuros — não é travamento.`);
       setActiveJob(null);
       return;
+    }
+
+    // Tentativa de recuperação via self-chain antes de marcar como falho.
+    // O process-campaign-job reivindica batches em 'processing' há >10min
+    // (RPC claim_next_immediate_batch), então o job estagnado é re-engatado.
+    const lastAttempt = recoveryAttempted.get(job.id) || 0;
+    if (Date.now() - lastAttempt > STUCK_THRESHOLD_MS) {
+      recoveryAttempted.set(job.id, Date.now());
+      console.warn(`🔁 Tentando recuperar job ${job.id} via self-chain antes de finalizar`);
+      try {
+        await supabase.functions.invoke('process-campaign-job', {
+          body: { job_id: job.id },
+        });
+        // Notifica o usuário que o disparo foi retomado.
+        try {
+          const { data: jobFull } = await (supabase as any)
+            .from('campaign_jobs')
+            .select('user_id, empresa_id, prospeccao_id')
+            .eq('id', job.id)
+            .single();
+          if (jobFull?.user_id) {
+            await (supabase as any).from('notificacoes').insert({
+              user_id: jobFull.user_id,
+              empresa_id: jobFull.empresa_id,
+              tipo: 'disparo_retomado',
+              titulo: 'Disparo retomado',
+              mensagem: `Detectamos uma pausa no disparo e ele foi retomado automaticamente.`,
+              link: `/prospeccao/${jobFull.prospeccao_id || ''}?job=${job.id}`,
+              lida: false,
+            });
+          }
+        } catch (e) {
+          console.warn('Falha ao notificar retomada:', e);
+        }
+        // Poll por 90s aguardando updated_at avançar.
+        const startCheck = Date.now();
+        const baseUpdated = new Date(job.updated_at).getTime();
+        let recovered = false;
+        while (Date.now() - startCheck < 90_000) {
+          await new Promise((r) => setTimeout(r, 10_000));
+          const { data: jr } = await supabase
+            .from('campaign_jobs')
+            .select('updated_at, status')
+            .eq('id', job.id)
+            .single();
+          if (jr && (new Date(jr.updated_at).getTime() > baseUpdated || ['completed','partially_completed','cancelled','failed'].includes(jr.status))) {
+            recovered = true;
+            break;
+          }
+        }
+        if (recovered) {
+          console.log(`✅ Job ${job.id} recuperado via self-chain.`);
+          return;
+        }
+        console.warn(`⏱️ Job ${job.id} não progrediu após tentativa de recuperação — marcando como finalizado.`);
+      } catch (e) {
+        console.warn(`⚠️ Recuperação via invoke falhou para job ${job.id}:`, e);
+      }
     }
 
     console.warn(`🛑 Auto-resolvendo job travado: ${job.id}`);
