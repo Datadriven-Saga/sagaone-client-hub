@@ -1,2 +1,5 @@
 - [Logs Disparos Server-Side](mem://architecture/prospeccao/logs-disparos-server-side) — Edge Functions inserem logs_disparos com origem='edge_function', USD apenas, BRL via toggle de cotação na UI
 - [Bypass Compliance](mem://architecture/compliance/bypass-empresa-colaboradores) — Flag empresas.bypass_compliance desliga quarentena + global/external/interno opt-out
+- [Self-chain Immediate](mem://architecture/campaign-jobs/self-chain-immediate) — 1 isolate = 1 batch, cap 100; mesma cláusula em select+claim; scheduled segue no cron
+- [Recuperação Órfãos FE](mem://architecture/campaign-jobs/recuperacao-orfaos-frontend) — Recovery depende do ActiveCampaignJobIndicator montado; fallback = Retomar Falhas
+- [Revalidação WPP Imediato](mem://features/whatsapp/revalidacao-eventos-prospeccao-imediato) — Gate canônico = eventos_prospeccao.data_disparo_ia; nunca contatos.data_disparo_ia no hot path

@@ -525,3 +525,81 @@ mesmo evento.
 - Reagendamento por janela 07–20 (silencioso — é correção interna, não falha).
 - Leads pulados por `lead_nao_pendente` (ficam só em `logs_disparos_falhas`).
 - Cancelamento manual via `DisparosProgramadosList` (a UI já confirma).
+
+---
+
+## 13. Self-chain immediate (jun/2026)
+
+Disparos **immediate** (batches com `lot_index IS NULL`) deixaram de depender de
+uma única invocação longa de `process-campaign-job`. Agora cada isolate processa
+exatamente **1 batch** e, ao terminar, faz `fetch` fire-and-forget de volta para
+`process-campaign-job` com o header `x-chain-depth` incrementado (cap **100**).
+
+- Escopo: apenas `lot_index IS NULL`. Disparos programados continuam no
+  `scheduled-campaign-dispatcher` + janela 07–20, sem alteração.
+- **Seleção do próximo batch e claim usam a mesma cláusula** — sem isso
+  a recuperação de batch órfão não funciona:
+
+  ```sql
+  WHERE job_id = ?
+    AND lot_index IS NULL
+    AND retry_count < MAX_RETRIES
+    AND (
+      status IN ('pending','failed')
+      OR (status = 'processing' AND updated_at < now() - interval '10 minutes')
+    )
+  ORDER BY
+    CASE WHEN status = 'processing' THEN 0 ELSE 1 END,  -- stale primeiro
+    batch_index
+  LIMIT 1;
+  ```
+
+  A claim é feita via RPC `claim_next_immediate_batch` (`SECURITY DEFINER`,
+  só `service_role`) e o `UPDATE ... RETURNING` espelha exatamente a cláusula
+  acima. Se 0 linhas → encerra elo com `reason=already_claimed`.
+
+- **Cancel-check** (`status='cancelled'` OU `cancelled_at IS NOT NULL`) antes
+  de marcar job como `processing` e entre elos: nunca ressuscita job
+  cancelado; elo aborta com `reason=cancelled`.
+
+- **Logs estruturados** (sem PII) — permitem reconstruir cadeia por `job_id`:
+
+  ```text
+  🔗 [CHAIN] start job=<id> batch_id=<id> batch_index=<n> depth=<n> prev_status=<s> lead_count=<n>
+  🏁 [BG] Batch finalizado job=<id> batch_index=<n> final_status=<s>
+         processed=<n> failed=<n> duplicate=<n>
+         skipped_already_dispatched=<n> duration_ms=<n>
+  🔗 [CHAIN] next-invoked job=<id> next_batch_index=<n> next_prev_status=<s> depth=<n+1>
+  🔚 [CHAIN] end-of-chain job=<id>
+         reason=<no_more|cap_reached|cancelled|already_claimed|job_completed>
+  ```
+
+- Cap atingido (`x-chain-depth >= 100`): aborta cadeia, seta
+  `error_message='Cap de self-chain atingido (100)'`, emite `disparo_falhou`
+  idempotente por `link`.
+
+## 14. Revalidação imediata anti-duplicidade
+
+Antes de montar o payload da Lambda no caminho immediate, o batch é
+revalidado contra `eventos_prospeccao` por `(prospeccao_id, contato_id)`:
+contatos cujo `eventos_prospeccao.data_disparo_ia IS NOT NULL` são
+descartados e contabilizados em `skipped_already_dispatched` no log
+`🏁 [BG]`.
+
+- Gate canônico = `eventos_prospeccao.data_disparo_ia` (espelha o caminho
+  scheduled).
+- **Sem fallback** em `contatos.data_disparo_ia` no hot path — a tabela é
+  grande demais; o custo de leitura não compensa para o caso degenerado em
+  que apenas o lado contatos foi atualizado.
+
+## 15. Diagnóstico de jobs immediate
+
+View `vw_immediate_jobs_status` (security_invoker + `user_can_access_empresa`)
+expõe por job:
+
+- `classificacao`: `vivo` | `orfao` | `concluido`
+- `immediate_batches_total`, `immediate_open` (usa a mesma cláusula da
+  seleção/claim).
+
+Recuperação de batch travado vive em
+[`docs/recuperacao-jobs-orfaos.md`](./recuperacao-jobs-orfaos.md).
