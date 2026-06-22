@@ -221,10 +221,53 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // =====================================================================
+  // AUDITORIA: registra TODA invocação em template_pausado_audit, mesmo
+  // quando id_meta é inválido, payload está malformado ou ninguém é
+  // encontrado. Isso garante rastro forense de quem chamou o webhook.
+  // =====================================================================
+  const auditStart = Date.now();
+  const auditRequestId = crypto.randomUUID();
+  let auditPayload: unknown = null;
+  let auditIdMeta: string | null = null;
+  let auditStatus = 'unknown';
+  let auditTemplateFound: boolean | null = null;
+  let auditEventosCount = 0;
+  let auditErro: string | null = null;
+  const auditIp = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || null;
+  const auditUa = req.headers.get('user-agent') || null;
+  const flushAudit = async () => {
+    try {
+      await supabase.from('template_pausado_audit').insert({
+        request_id: auditRequestId,
+        id_meta_recebido: auditIdMeta,
+        payload_bruto: auditPayload as any,
+        client_ip: auditIp,
+        user_agent: auditUa,
+        status_final: auditStatus,
+        template_encontrado: auditTemplateFound,
+        eventos_impactados_count: auditEventosCount,
+        erro: auditErro,
+        duracao_ms: Date.now() - auditStart,
+      });
+    } catch (auditErr) {
+      console.error('⚠️ Falha ao gravar template_pausado_audit:', auditErr);
+    }
+  };
+
   try {
-    const { id_meta } = await req.json();
+    const body = await req.json().catch((e) => {
+      auditErro = `payload_invalid: ${e?.message || e}`;
+      return {};
+    });
+    auditPayload = body;
+    const { id_meta } = (body || {}) as { id_meta?: string };
+    auditIdMeta = id_meta ? String(id_meta) : null;
 
     if (!id_meta) {
+      auditStatus = 'id_meta_missing';
+      auditErro = auditErro || 'id_meta_missing';
+      await flushAudit();
       return new Response(
         JSON.stringify({ error: 'id_meta é obrigatório' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -265,6 +308,8 @@ Deno.serve(async (req: Request) => {
           .limit(1)
           .maybeSingle();
 
+        auditStatus = 'ignored_duplicate_request';
+        await flushAudit();
         return new Response(
           JSON.stringify({
             success: true,
@@ -299,6 +344,9 @@ Deno.serve(async (req: Request) => {
       console.log(`⚠️ Nenhum template encontrado com id_meta=${id_meta}`);
       // Mark lock as resolved since there's nothing to do
       await supabase.from('template_pausado_log').update({ status: 'resolved', updated_at: new Date().toISOString() }).eq('id', logId);
+      auditTemplateFound = false;
+      auditStatus = 'template_nao_encontrado';
+      await flushAudit();
       return new Response(
         JSON.stringify({ success: false, message: 'Template não encontrado' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -306,6 +354,7 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`📋 Encontrados ${templates.length} template(s) com id_meta=${id_meta}`);
+    auditTemplateFound = true;
 
     // Update all templates status_meta to PAUSED
     const templateIds = templates.map(t => t.id);
@@ -601,6 +650,10 @@ Deno.serve(async (req: Request) => {
 
     console.log(`📝 Log ${logId} atualizado (status: ${logStatus})`);
 
+    auditStatus = logStatus;
+    auditEventosCount = eventosImpactados.length;
+    await flushAudit();
+
     return new Response(
       JSON.stringify({
         success: webhookSuccess,
@@ -619,6 +672,9 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('❌ Erro no template-paused-webhook:', error);
     const message = error instanceof Error ? error.message : String(error);
+    auditStatus = 'exception';
+    auditErro = message;
+    await flushAudit();
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
