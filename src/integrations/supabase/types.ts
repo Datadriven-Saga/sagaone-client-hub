@@ -5713,6 +5713,51 @@ export type Database = {
           },
         ]
       }
+      template_pausado_audit: {
+        Row: {
+          client_ip: string | null
+          created_at: string
+          duracao_ms: number | null
+          erro: string | null
+          eventos_impactados_count: number | null
+          id: string
+          id_meta_recebido: string | null
+          payload_bruto: Json | null
+          request_id: string | null
+          status_final: string | null
+          template_encontrado: boolean | null
+          user_agent: string | null
+        }
+        Insert: {
+          client_ip?: string | null
+          created_at?: string
+          duracao_ms?: number | null
+          erro?: string | null
+          eventos_impactados_count?: number | null
+          id?: string
+          id_meta_recebido?: string | null
+          payload_bruto?: Json | null
+          request_id?: string | null
+          status_final?: string | null
+          template_encontrado?: boolean | null
+          user_agent?: string | null
+        }
+        Update: {
+          client_ip?: string | null
+          created_at?: string
+          duracao_ms?: number | null
+          erro?: string | null
+          eventos_impactados_count?: number | null
+          id?: string
+          id_meta_recebido?: string | null
+          payload_bruto?: Json | null
+          request_id?: string | null
+          status_final?: string | null
+          template_encontrado?: boolean | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       template_pausado_log: {
         Row: {
           created_at: string | null

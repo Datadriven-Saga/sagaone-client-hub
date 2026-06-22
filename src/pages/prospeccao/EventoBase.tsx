@@ -30,6 +30,7 @@ import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
 import { CheckCircle2 as CheckIcon, Plus } from 'lucide-react';
+import { mapDispatchError } from '@/lib/dispatchErrors';
 
 interface ContatoEvento {
   id: string;
@@ -465,9 +466,11 @@ export default function EventoBase() {
 
       setProspeccao(data);
 
-      // Auto-release: se disparos estão pausados mas já tem template válido, liberar automaticamente
+      // Auto-release: se disparos estão pausados mas já tem template válido, liberar automaticamente.
+      // Para WhatsApp IA exigimos especificamente template_prospeccao_id (caso contrário o evento
+      // fica liberado mas o disparo falha porque o template de prospecção é obrigatório).
       if (data.disparos_pausados && data.canal?.toLowerCase().includes('whatsapp')) {
-        const hasValidTemplate = data.template_prospeccao_id || data.template_agendado_id || data.template_nao_agendado_id;
+        const hasValidTemplate = !!data.template_prospeccao_id;
         if (hasValidTemplate) {
           console.log('🔓 Auto-release: template válido detectado, liberando disparos...');
           const { error: releaseErr } = await supabase
@@ -492,10 +495,18 @@ export default function EventoBase() {
   // Buscar templates aprovados quando disparos estão pausados (para substituição manual)
   useEffect(() => {
     const fetchAvailableTemplates = async () => {
-      if (!(prospeccao as any)?.disparos_pausados || !activeCompany?.id) return;
-      
+      if (!activeCompany?.id) return;
+
       const canalCheck = prospeccao?.canal?.toLowerCase() || '';
       if (!canalCheck.includes('whatsapp')) return;
+
+      // Carregar templates disponíveis sempre que o evento estiver pausado
+      // OU quando o template_prospeccao_id estiver ausente (estado quebrado
+      // que pode ocorrer sem o flag disparos_pausados estar setado).
+      const needsTemplate =
+        !!(prospeccao as any)?.disparos_pausados ||
+        !(prospeccao as any)?.template_prospeccao_id;
+      if (!needsTemplate) return;
       
       setLoadingTemplates(true);
       try {
@@ -517,7 +528,12 @@ export default function EventoBase() {
     };
 
     fetchAvailableTemplates();
-  }, [(prospeccao as any)?.disparos_pausados, activeCompany?.id, prospeccao?.canal]);
+  }, [
+    (prospeccao as any)?.disparos_pausados,
+    (prospeccao as any)?.template_prospeccao_id,
+    activeCompany?.id,
+    prospeccao?.canal,
+  ]);
 
   // Handler para substituir template manualmente
   const handleReplaceTemplate = async () => {
@@ -525,12 +541,20 @@ export default function EventoBase() {
     
     setIsReplacingTemplate(true);
     try {
-      // Determine which template field is null (was cleared by the pause)
+      // Para WhatsApp IA, template_prospeccao_id é o campo obrigatório para disparo.
+      // Sempre que ele estiver NULL, é ele que precisamos preencher primeiro —
+      // independente de outros campos opcionais também estarem NULL.
+      const canalLower = (prospeccao?.canal || '').toLowerCase();
+      const isWpp = canalLower.includes('whatsapp');
       const templateFields = ['template_prospeccao_id', 'template_agendado_id', 'template_nao_agendado_id'] as const;
       const nullFields = templateFields.filter(f => !(prospeccao as any)?.[f]);
-      
-      // Default to template_prospeccao_id if we can't determine
-      const fieldToSet = nullFields.length > 0 ? nullFields[0] : 'template_prospeccao_id';
+
+      let fieldToSet: typeof templateFields[number] = 'template_prospeccao_id';
+      if (isWpp && !(prospeccao as any)?.template_prospeccao_id) {
+        fieldToSet = 'template_prospeccao_id';
+      } else if (nullFields.length > 0) {
+        fieldToSet = nullFields[0];
+      }
       
       const { error } = await supabase
         .from('prospeccoes')
@@ -1867,6 +1891,18 @@ export default function EventoBase() {
         templateProspeccaoId = (pData as any)?.template_prospeccao_id || null;
       }
 
+      // Para IA WhatsApp, template é obrigatório — bloquear antes de chamar o webhook
+      const isWhatsappCh = prospeccao.canal === 'Whatsapp' || prospeccao.canal === 'IA Whatsapp';
+      if (isWhatsappCh && !templateProspeccaoId) {
+        toast({
+          title: 'Template de prospecção ausente',
+          description: 'Este evento não tem um template de WhatsApp vinculado. Edite o evento e selecione um template aprovado antes de disparar.',
+          variant: 'destructive',
+        });
+        setDisparandoContato(null);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
           leads,
@@ -1915,8 +1951,8 @@ export default function EventoBase() {
       }));
     } catch (error: any) {
       console.error('Erro ao disparar IA:', error);
-      const detalhe = error?.message || error?.error || 'Erro ao enviar disparo';
-      toast({ title: "Erro", description: String(detalhe).substring(0, 200), variant: "destructive" });
+      const friendly = mapDispatchError(error);
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setDisparandoContato(null);
     }
@@ -2007,7 +2043,8 @@ export default function EventoBase() {
       ));
     } catch (error) {
       console.error('Erro ao redisparar:', error);
-      toast({ title: "Erro", description: "Erro ao enviar redisparo", variant: "destructive" });
+      const friendly = mapDispatchError(error);
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setDisparandoContato(null);
     }
@@ -2140,6 +2177,52 @@ export default function EventoBase() {
             hideTrigger
             onImportComplete={() => handleRefresh()}
           />
+        )}
+
+        {/* Banner: template ausente em WhatsApp IA SEM o flag disparos_pausados ligado.
+            Estado quebrado (ex.: desassociação histórica sem rastro). */}
+        {isIAWhatsApp && !(prospeccao as any)?.disparos_pausados && !(prospeccao as any)?.template_prospeccao_id && (
+          <div className="p-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-500">Template de prospecção ausente</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Este evento de WhatsApp está sem template de prospecção vinculado e por isso os disparos vão falhar.
+                  Selecione um template aprovado abaixo ou edite o evento para configurar manualmente.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-8">
+              <Select
+                value={selectedReplacementTemplate}
+                onValueChange={setSelectedReplacementTemplate}
+                disabled={loadingTemplates || isReplacingTemplate}
+              >
+                <SelectTrigger className="w-[300px] h-9 bg-background">
+                  <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.nome} {t.status_meta === 'APPROVED' ? '✅' : '⏳'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                onClick={handleReplaceTemplate}
+                disabled={!selectedReplacementTemplate || isReplacingTemplate}
+              >
+                {isReplacingTemplate ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Vinculando...</>
+                ) : (
+                  'Vincular template'
+                )}
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Banner de template pausado pela Meta */}
