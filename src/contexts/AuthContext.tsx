@@ -252,8 +252,21 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         }
       }
 
-      setSession(session);
-      setUser(session.user);
+      // Evitar setSession/setUser quando é a mesma sessão (mesmo user.id e mesmo access_token).
+      // Sem isso, TOKEN_REFRESHED ao voltar para a aba propaga uma nova referência de `user`
+      // e força hooks como useUserAccessType a re-renderizar / desmontar rotas protegidas.
+      setSession(prev => {
+        if (prev && prev.access_token === session.access_token && prev.user?.id === session.user.id) {
+          return prev;
+        }
+        return session;
+      });
+      setUser(prev => {
+        if (prev && prev.id === session.user.id) {
+          return prev;
+        }
+        return session.user;
+      });
     } else {
       setSession(null);
       setUser(null);
@@ -270,23 +283,21 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setUser(null);
           setLoading(false);
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Defer domain validation to avoid deadlock
+          // TOKEN_REFRESHED dispara frequentemente (inclusive ao voltar para a aba).
+          // validateAndSetUser já compara identidades e faz no-op se a sessão não mudou,
+          // evitando que toda a árvore re-renderize por causa de refresh silencioso.
           setTimeout(async () => {
             validateAndSetUser(session);
-            // Auto-provision from SSO claims (sync department, company, role)
+            // Auto-provision e deep link são exclusivos de SIGNED_IN real.
             if (event === 'SIGNED_IN' && session?.user) {
               try {
                 await supabase.rpc('auto_provision_user_from_sso', { p_user_id: session.user.id });
               } catch (err) {
                 console.error('SSO auto-provision error:', err);
               }
-            }
-            // After SSO callback, check for deep link redirect
-            if (event === 'SIGNED_IN') {
               const savedPath = localStorage.getItem(AUTH_REDIRECT_KEY);
               if (savedPath && savedPath !== '/' && savedPath !== '/login') {
                 localStorage.removeItem(AUTH_REDIRECT_KEY);
-                // Sanitize: remove any trailing /# artifacts
                 const cleanPath = savedPath.replace(/\/#$/, '').replace(/#+$/, '');
                 if (cleanPath && cleanPath !== '/') {
                   navigate(cleanPath, { replace: true });
@@ -295,8 +306,20 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
             }
           }, 0);
         } else {
-          setSession(session);
-          setUser(session?.user ?? null);
+          // INITIAL_SESSION e outros: respeitar a mesma regra de no-op.
+          setSession(prev => {
+            if (!session) return null;
+            if (prev && prev.access_token === session.access_token && prev.user?.id === session.user?.id) {
+              return prev;
+            }
+            return session;
+          });
+          setUser(prev => {
+            const next = session?.user ?? null;
+            if (!next) return null;
+            if (prev && prev.id === next.id) return prev;
+            return next;
+          });
           setLoading(false);
         }
       }
