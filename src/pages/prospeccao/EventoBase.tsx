@@ -30,6 +30,7 @@ import { EventoBaseSkeleton } from '@/components/EventoBaseSkeleton';
 import { CriarProspeccaoModal } from '@/components/CriarProspeccaoModal';
 import { UploadPlanilha } from '@/components/UploadPlanilha';
 import { CheckCircle2 as CheckIcon, Plus } from 'lucide-react';
+import { mapDispatchError } from '@/lib/dispatchErrors';
 
 interface ContatoEvento {
   id: string;
@@ -465,9 +466,11 @@ export default function EventoBase() {
 
       setProspeccao(data);
 
-      // Auto-release: se disparos estão pausados mas já tem template válido, liberar automaticamente
+      // Auto-release: se disparos estão pausados mas já tem template válido, liberar automaticamente.
+      // Para WhatsApp IA exigimos especificamente template_prospeccao_id (caso contrário o evento
+      // fica liberado mas o disparo falha porque o template de prospecção é obrigatório).
       if (data.disparos_pausados && data.canal?.toLowerCase().includes('whatsapp')) {
-        const hasValidTemplate = data.template_prospeccao_id || data.template_agendado_id || data.template_nao_agendado_id;
+        const hasValidTemplate = !!data.template_prospeccao_id;
         if (hasValidTemplate) {
           console.log('🔓 Auto-release: template válido detectado, liberando disparos...');
           const { error: releaseErr } = await supabase
@@ -492,10 +495,18 @@ export default function EventoBase() {
   // Buscar templates aprovados quando disparos estão pausados (para substituição manual)
   useEffect(() => {
     const fetchAvailableTemplates = async () => {
-      if (!(prospeccao as any)?.disparos_pausados || !activeCompany?.id) return;
-      
+      if (!activeCompany?.id) return;
+
       const canalCheck = prospeccao?.canal?.toLowerCase() || '';
       if (!canalCheck.includes('whatsapp')) return;
+
+      // Carregar templates disponíveis sempre que o evento estiver pausado
+      // OU quando o template_prospeccao_id estiver ausente (estado quebrado
+      // que pode ocorrer sem o flag disparos_pausados estar setado).
+      const needsTemplate =
+        !!(prospeccao as any)?.disparos_pausados ||
+        !(prospeccao as any)?.template_prospeccao_id;
+      if (!needsTemplate) return;
       
       setLoadingTemplates(true);
       try {
@@ -517,7 +528,12 @@ export default function EventoBase() {
     };
 
     fetchAvailableTemplates();
-  }, [(prospeccao as any)?.disparos_pausados, activeCompany?.id, prospeccao?.canal]);
+  }, [
+    (prospeccao as any)?.disparos_pausados,
+    (prospeccao as any)?.template_prospeccao_id,
+    activeCompany?.id,
+    prospeccao?.canal,
+  ]);
 
   // Handler para substituir template manualmente
   const handleReplaceTemplate = async () => {
@@ -525,12 +541,20 @@ export default function EventoBase() {
     
     setIsReplacingTemplate(true);
     try {
-      // Determine which template field is null (was cleared by the pause)
+      // Para WhatsApp IA, template_prospeccao_id é o campo obrigatório para disparo.
+      // Sempre que ele estiver NULL, é ele que precisamos preencher primeiro —
+      // independente de outros campos opcionais também estarem NULL.
+      const canalLower = (prospeccao?.canal || '').toLowerCase();
+      const isWpp = canalLower.includes('whatsapp');
       const templateFields = ['template_prospeccao_id', 'template_agendado_id', 'template_nao_agendado_id'] as const;
       const nullFields = templateFields.filter(f => !(prospeccao as any)?.[f]);
-      
-      // Default to template_prospeccao_id if we can't determine
-      const fieldToSet = nullFields.length > 0 ? nullFields[0] : 'template_prospeccao_id';
+
+      let fieldToSet: typeof templateFields[number] = 'template_prospeccao_id';
+      if (isWpp && !(prospeccao as any)?.template_prospeccao_id) {
+        fieldToSet = 'template_prospeccao_id';
+      } else if (nullFields.length > 0) {
+        fieldToSet = nullFields[0];
+      }
       
       const { error } = await supabase
         .from('prospeccoes')
