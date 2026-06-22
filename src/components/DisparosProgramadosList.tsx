@@ -141,7 +141,7 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                     <TableHead>Agendado para</TableHead>
                     <TableHead className="text-right">Contatos</TableHead>
                     <TableHead className="text-right">Tentativas</TableHead>
-                    <TableHead>Lock</TableHead>
+                    <TableHead>Em processamento desde</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -154,7 +154,7 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                         <TableCell>{fmt(b.scheduled_at)}</TableCell>
                         <TableCell className="text-right">{b.total_leads.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{b.retry_count ?? 0}</TableCell>
-                        <TableCell>{fmt(b.locked_at)}</TableCell>
+                        <TableCell>{b.status === 'processing' ? fmt(b.locked_at) : '—'}</TableCell>
                       </TableRow>
                     );
                   })}
