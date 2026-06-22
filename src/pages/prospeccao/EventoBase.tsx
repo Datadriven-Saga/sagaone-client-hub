@@ -2179,6 +2179,52 @@ export default function EventoBase() {
           />
         )}
 
+        {/* Banner: template ausente em WhatsApp IA SEM o flag disparos_pausados ligado.
+            Estado quebrado (ex.: desassociação histórica sem rastro). */}
+        {isIAWhatsApp && !(prospeccao as any)?.disparos_pausados && !(prospeccao as any)?.template_prospeccao_id && (
+          <div className="p-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-500">Template de prospecção ausente</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Este evento de WhatsApp está sem template de prospecção vinculado e por isso os disparos vão falhar.
+                  Selecione um template aprovado abaixo ou edite o evento para configurar manualmente.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-8">
+              <Select
+                value={selectedReplacementTemplate}
+                onValueChange={setSelectedReplacementTemplate}
+                disabled={loadingTemplates || isReplacingTemplate}
+              >
+                <SelectTrigger className="w-[300px] h-9 bg-background">
+                  <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.nome} {t.status_meta === 'APPROVED' ? '✅' : '⏳'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                onClick={handleReplaceTemplate}
+                disabled={!selectedReplacementTemplate || isReplacingTemplate}
+              >
+                {isReplacingTemplate ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Vinculando...</>
+                ) : (
+                  'Vincular template'
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Banner de template pausado pela Meta */}
         {(prospeccao as any)?.disparos_pausados && isIAWhatsApp && (
           <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10 space-y-3">
