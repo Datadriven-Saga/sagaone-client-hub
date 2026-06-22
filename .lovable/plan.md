@@ -1,69 +1,119 @@
-## Objetivo
 
-Consolidar em documentação permanente o que foi implementado nesta entrega (self-chain immediate, recuperação de jobs órfãos, revalidação por `eventos_prospeccao.data_disparo_ia`, view `vw_immediate_jobs_status`, validação do fluxo de template pausado). Hoje só existe registro em `.lovable/plan.md` (execução) e comentários no código.
+## Resposta direta
 
-## Arquivos a criar/atualizar
+**Não dá para afirmar quem desvinculou** porque a tabela `logs_prospeccoes` está vazia, não há trigger de auditoria em `public.prospeccoes`, e os logs da edge function não estão mais retidos. Mas restringindo às coisas que tecnicamente conseguem zerar `template_prospeccao_id`, o universo é pequeno (confirmei lendo todo o código):
 
-### 1. `docs/fluxo-disparo-whatsapp.md` (atualizar)
+```text
+1) src/components/CriarProspeccaoModal.tsx  (UI de edição)
+   - Linha 1411: seta o valor escolhido no select (não-nulo em IA Whatsapp).
+   - Linha 1465: zera apenas se trocar tipoEvento para algo != IA Whatsapp.
+   - Validação obrigatória no front impede salvar IA Whatsapp sem template.
 
-Adicionar duas seções novas, mantendo o conteúdo existente:
+2) src/pages/prospeccao/EventoBase.tsx → handleReplaceTemplate
+   - Só seta valor não-nulo.
 
-- **Self-chain immediate**
-  - Princípio: 1 isolate = 1 batch; ao final, `fetch` fire-and-forget para `process-campaign-job` com `x-chain-depth` incrementado (cap 100).
-  - Escopo: só `lot_index IS NULL`. Scheduled continua no `scheduled-campaign-dispatcher` + janela 07–20.
-  - Seleção do próximo batch e claim usam **a mesma cláusula** (`pending`/`failed` ∪ `processing > 10min`), com `ORDER BY` que prioriza `processing` stale.
-  - Cancel-check (`status='cancelled'` ou `cancelled_at IS NOT NULL`) antes de marcar job `processing` e entre elos — não ressuscita.
-  - Logs estruturados: `🔗 [CHAIN] start`, `🔗 [CHAIN] next-invoked`, `🔚 [CHAIN] end-of-chain reason=<no_more|cap_reached|cancelled|already_claimed|job_completed>`, `🏁 [BG] ... skipped_already_dispatched=<n>`.
-- **Revalidação imediata anti-duplicidade**
-  - Antes do payload da Lambda, filtrar leads do batch via `eventos_prospeccao(prospeccao_id, contato_id)` descartando `data_disparo_ia IS NOT NULL`. Sem fallback em `contatos.data_disparo_ia` (custo).
-  - Contabilizado em `skipped_already_dispatched`.
+3) supabase/functions/template-paused-webhook/index.ts (linha 354)
+   - UPDATE prospeccoes SET <campo>=NULL, disparos_pausados=true
+     WHERE <campo> = template.id (e canal ILIKE '%whatsapp%').
+   - É o ÚNICO caminho do código que zera o campo via NULL.
 
-### 2. `docs/recuperacao-jobs-orfaos.md` (novo)
+NÃO existe nenhuma função SQL/trigger no banco que toque em template_prospeccao_id
+(varredura em pg_proc.prosrc e pg_trigger confirmou).
+```
 
-- Cenário do "immediate órfão" (crash mid-chain).
-- Recuperação primária: `ActiveCampaignJobIndicator` chama `process-campaign-job` antes de marcar `failed`; poll de `updated_at` por 90s; flag `recoveryAttempted` evita loop.
-- **Limitação Opção A**: depende do frontend aberto na empresa do job. Sem ninguém na UI, batch fica órfão até abrir tela ou usar "Retomar Falhas". Recuperação server-side fora desta fase.
-- Notificação `disparo_retomado` (registrada em `src/lib/notifications/registry.ts`) versus `disparo_falhou` (idempotente por `link`).
-- View `vw_immediate_jobs_status` para diagnóstico (campos `vivo`/`orfao`/`concluido`, `immediate_open`).
-- RPC `claim_next_immediate_batch` (security definer, service_role only) — assinatura e regra de seleção.
+E o estado do template é compatível:
+- `feirao_copa_hyundai` (id `533ed363…`, `id_meta=1329425459327034`) está `APPROVED` e `ativo=true`.
+- Não há `template_pausado_log` para essa empresa nem esse `id_meta`.
+- A prospeccao tem `template_agendado_id` preenchido → por isso o auto-release zerou `disparos_pausados` e a UI de "template pausado" nunca apareceu.
 
-### 3. `docs/fluxo-template-pausado.md` (novo)
+### Hipóteses, em ordem de probabilidade
 
-Fluxo ponta a ponta de `template-paused-webhook` (validado nesta entrega):
+```text
+A) template-paused-webhook em VERSÃO ANTERIOR (sem o lock atômico do STEP 1
+   atual) rodou para o id_meta=1329425459327034, zerou os 5 TEMPLATE_FIELDS
+   da prospeccao e a Meta depois re-aprovou o template (voltou para APPROVED).
+   Como a versão antiga não inseria template_pausado_log na entrada, não há
+   rastro. É a hipótese mais provável porque é o ÚNICO caminho do código
+   atual que zera o campo.
 
-1. Lock atômico em `template_pausado_log` (índice único parcial em `id_meta_original` WHERE status NOT IN final).
-2. `whatsapp_templates` → `status_meta='PAUSED'`.
-3. 5 `TEMPLATE_FIELDS` em `prospeccoes` (whatsapp) → desassocia + `disparos_pausados=true`.
-4. `campaign_jobs` pending/processing → `cancelled` com `error_message='Template pausado pela Meta'`.
-5. Duplicação por empresa: `<base>_v<N+1>` + `tweakBodyText` + `trigger-webhook → novo_template_whatsapp`. Sem `template_id_pri` → rollback.
-6. Log `awaiting_approval` (sucesso) / `failed`.
+B) Lambda externa / n8n com SERVICE_ROLE_KEY fazendo UPDATE direto via
+   PostgREST sem passar pelo SagaOne. Tecnicamente possível, sem rastro.
 
-Inclui:
-- Evidência atual (`id_meta=4420455864866490` validado).
-- Lambda → SagaOne (`template_paused → template-paused-webhook`, `reset_disparos_pendente → reset-disparos-pendente`).
-- Reabertura: vincular template aprovado + desmarcar `disparos_pausados` → `paused-template-resolution-logic` libera "Retomar Falhas".
+C) Comando SQL ad-hoc (migration/Supabase Studio) executado por humano.
+   Sem auditoria, indetectável.
+```
 
-### 4. Memórias (`mem://`)
+Sem auditoria persistente, ficamos em hipótese forte, não em conclusão. Por isso o plano inclui ligar a auditoria **antes** de qualquer outra mudança — para o próximo caso ser determinístico.
 
-Adicionar 3 entradas curtas no índice + arquivos:
+---
 
-- `mem://architecture/campaign-jobs/self-chain-immediate` — type `architecture`. Regra: immediate usa self-chain `process-campaign-job → fetch self`; scheduled continua no cron; cap 100; mesma cláusula em select+claim com prioridade para `processing > 10min`.
-- `mem://architecture/campaign-jobs/recuperacao-orfaos-frontend` — type `constraint`. Recuperação automática depende do `ActiveCampaignJobIndicator` montado; fallback manual = "Retomar Falhas".
-- `mem://features/whatsapp/revalidacao-eventos-prospeccao-imediato` — type `feature`. Gate canônico antes da Lambda é `eventos_prospeccao.data_disparo_ia` por `(prospeccao_id, contato_id)`. Não usar `contatos.data_disparo_ia` no hot path.
+## Plano
 
-### 5. `.lovable/plan.md`
+### 1. Auditoria forense em `public.prospeccoes` (causa raiz da "não temos logs")
+Migration com trigger `AFTER INSERT OR UPDATE OR DELETE` em `prospeccoes` gravando em `logs_prospeccoes`:
 
-Marcar Parte A e Parte B como executadas; preservar critérios de aceite como referência histórica.
+- Só grava quando algum campo sensível mudar:
+  ```text
+  template_prospeccao_id, template_agendado_id, template_nao_agendado_id,
+  template_agendado_48h_id, template_agendado_24h_id,
+  disparos_pausados, ativo, event_id_pri, canal,
+  data_inicio, data_fim, evento_confirmacao, snapshot_realizado
+  ```
+- `acao`:
+  - `'desassociacao_template'` se algum `template_*_id` virou NULL.
+  - `'edicao_evento'` caso contrário.
+- `dados_anteriores` / `dados_novos`: jsonb só com os campos alterados.
+- `usuario_id` / `usuario_email` / `usuario_nome`:
+  - via `auth.uid()` + `profiles` quando vier de sessão de usuário.
+  - quando vier de service_role, gravar no `detalhes`:
+    ```text
+    {
+      "source": "service_role",
+      "application_name": current_setting('application_name', true),
+      "client_ip": coalesce(current_setting('request.headers', true)::json->>'x-forwarded-for', ''),
+      "user_agent": current_setting('request.headers', true)::json->>'user-agent',
+      "function_caller": current_setting('request.headers', true)::json->>'x-supabase-edge-function'
+    }
+    ```
+- Trigger é `SECURITY DEFINER` para sempre conseguir inserir.
+- Adicionar `GRANT INSERT ON public.logs_prospeccoes TO authenticated, service_role` se faltar.
+- Backfill explícito: marcar este caso (`prospeccao_id=0dc6e182…`, `template_prospeccao_id virou NULL em data desconhecida`) com uma linha de auditoria histórica `acao='desassociacao_template_historico'`, `detalhes={"origem":"investigacao_manual_2026-06-22"}`.
 
-## Fora do escopo
+### 2. Endurecer template-paused-webhook (evitar repetição da hipótese A)
+- Garantir que o **STEP 1 (lock) já existe no código atual** (confirmado). Adicionar **log persistente** numa nova tabela `template_pausado_audit` (não só `template_pausado_log`) que registra **TODA invocação** do webhook, com:
+  - `id_meta` recebido, timestamp, request_id, IP, payload bruto.
+  - status final.
+  - Mesmo se nenhum template for encontrado.
+- Assim, mesmo se a Lambda chamar com `id_meta` inexistente, fica o rastro.
 
-- Qualquer alteração em código, edge functions, schema, RLS ou UI.
-- Mexer em `scheduled-campaign-dispatcher`, `bulk_upsert_contatos`, `template-paused-webhook`.
+### 3. UI: tratar "template ausente" mesmo com `disparos_pausados=false`
+Em `EventoBase.tsx`:
+- Para canal WhatsApp IA, se `template_prospeccao_id` for NULL, considerar **estado "template ausente"** (independente do flag).
+- Banner amarelo no topo: "Este evento está sem template de prospecção." + reaproveitar o `<Select>` de `availableTemplates` (linhas 492–520) e o `handleReplaceTemplate` (linhas 522–565).
+- Ajustar `handleReplaceTemplate` para preencher **especificamente** `template_prospeccao_id` quando o motivo for "ausente em WhatsApp IA" (hoje pega `nullFields[0]`, que pode ser outro campo).
+- Pré-checagem em `handleDispararIndividual` (linhas 1840–1923): replicar o bloqueio amigável que `handleRedispararContato` já faz (linhas 1962–1972).
 
-## Critérios de aceite
+### 4. Endurecer auto-release
+`EventoBase.tsx:470` — trocar a regra de `hasValidTemplate`:
+- Hoje: `template_prospeccao_id || template_agendado_id || template_nao_agendado_id`.
+- Novo, para WhatsApp IA: **exigir `template_prospeccao_id` não-nulo** para liberar `disparos_pausados`. Sem isso o evento permanece pausado e o seletor de substituição aparece.
 
-1. `docs/fluxo-disparo-whatsapp.md` cita self-chain, cap 100, mesma cláusula select+claim, cancel-check, logs `🔗 [CHAIN]`, revalidação `eventos_prospeccao`.
-2. `docs/recuperacao-jobs-orfaos.md` documenta limitação Opção A, RPC `claim_next_immediate_batch`, view `vw_immediate_jobs_status`, notificações.
-3. `docs/fluxo-template-pausado.md` lista os 6 passos + reabertura + callbacks Lambda.
-4. 3 memórias novas indexadas em `mem://index.md`.
-5. `.lovable/plan.md` reflete status executado.
+### 5. Toast amigável para erros do dispatch
+- Novo helper `src/lib/dispatchErrors.ts` com `mapDispatchError(error)` → `{ title, description }`.
+- Mapear substrings conhecidas do `dispatch-leads-webhook`:
+  - "template de prospecção" → `Template ausente` / `Edite o evento e selecione um template de prospecção do WhatsApp antes de disparar.`
+  - "event_id_pri" → `Identificador do evento ausente` / `O evento não foi sincronizado com a PRI. Reabra e salve o evento para gerar o identificador.`
+  - "agente" → `Agente não configurado` / `Vincule um agente de WhatsApp ativo a esta empresa.`
+- Aplicar em `EventoBase.tsx` (1916–1922 e 2008–2012) e `useContatoData.ts:2058`.
+
+## Fora de escopo
+- Reescrita do `CriarProspeccaoModal`.
+- Backfill automático do `template_prospeccao_id` desse evento (o usuário deve escolher via UI nova).
+- Alterar `template-paused-webhook` STEP 2–6 (já validado em prod).
+
+## Aceite
+- Banco: ao alterar `template_prospeccao_id` de qualquer evento (via UI ou edge), nasce linha em `logs_prospeccoes` com `dados_anteriores`/`dados_novos` e identificação (usuário ou service_role + função chamadora).
+- UI: ao abrir o evento HYUNDAI CBA / event_id_pri=1082, aparece banner amarelo com Select; salvar grava `template_prospeccao_id` corretamente.
+- Disparar individual sem template mostra `Template ausente` (não a string crua).
+- Auto-release não libera mais eventos WhatsApp IA com `template_prospeccao_id` NULL.
+- Próxima invocação de `template-paused-webhook` (inclusive com `id_meta` inválido) deixa rastro em `template_pausado_audit`.
