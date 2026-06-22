@@ -1891,6 +1891,18 @@ export default function EventoBase() {
         templateProspeccaoId = (pData as any)?.template_prospeccao_id || null;
       }
 
+      // Para IA WhatsApp, template é obrigatório — bloquear antes de chamar o webhook
+      const isWhatsappCh = prospeccao.canal === 'Whatsapp' || prospeccao.canal === 'IA Whatsapp';
+      if (isWhatsappCh && !templateProspeccaoId) {
+        toast({
+          title: 'Template de prospecção ausente',
+          description: 'Este evento não tem um template de WhatsApp vinculado. Edite o evento e selecione um template aprovado antes de disparar.',
+          variant: 'destructive',
+        });
+        setDisparandoContato(null);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('dispatch-leads-webhook', {
         body: {
           leads,
@@ -1939,8 +1951,8 @@ export default function EventoBase() {
       }));
     } catch (error: any) {
       console.error('Erro ao disparar IA:', error);
-      const detalhe = error?.message || error?.error || 'Erro ao enviar disparo';
-      toast({ title: "Erro", description: String(detalhe).substring(0, 200), variant: "destructive" });
+      const friendly = mapDispatchError(error);
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setDisparandoContato(null);
     }
@@ -2031,7 +2043,8 @@ export default function EventoBase() {
       ));
     } catch (error) {
       console.error('Erro ao redisparar:', error);
-      toast({ title: "Erro", description: "Erro ao enviar redisparo", variant: "destructive" });
+      const friendly = mapDispatchError(error);
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setDisparandoContato(null);
     }
