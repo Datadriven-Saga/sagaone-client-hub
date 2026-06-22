@@ -779,13 +779,11 @@ showAllEvents: true
     }
   };
 
-  // Sincronizar automaticamente ao carregar a página
-  useEffect(() => {
-    if (activeCompany?.id && prospeccoes.length > 0 && !sincronizandoLigacao) {
-      // Não bloquear - executar em background
-      sincronizarEventosLigacao(false);
-    }
-  }, [activeCompany?.id, prospeccoes.length > 0]);
+  // Sincronização de eventos de Ligação NÃO roda mais automaticamente ao montar a página
+  // nem ao voltar foco para a aba. Isso causava chamadas repetidas ao webhook externo
+  // e dava a sensação de "refresh" toda vez que o usuário trocava de aba do navegador.
+  // A sincronização agora ocorre apenas por ação explícita do usuário (botão Sincronizar)
+  // ou nos fluxos que já chamavam `sincronizarEventosLigacao(true)` diretamente.
 
   // Helper to resolve kanban filters
   const getKanbanFilters = useCallback(() => {

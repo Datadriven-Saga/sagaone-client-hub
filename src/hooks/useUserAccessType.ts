@@ -20,14 +20,18 @@ export function useUserAccessType() {
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
       if (!user) {
+        setLoading(true);
         setTipoAcesso(null);
         setDepartamento(null);
         setPermissions({});
         setLoading(false);
         return;
       }
+
+      // Só mostrar loading se ainda não temos permissões resolvidas para este usuário.
+      // Evita "flash" de Carregando ao trocar de aba (TOKEN_REFRESHED) quando o user.id é o mesmo.
+      setLoading((prev) => (tipoAcesso === null ? true : prev));
 
       try {
         // Fetch profile and permission overrides in parallel
@@ -89,7 +93,10 @@ export function useUserAccessType() {
     };
 
     fetchData();
-  }, [user]);
+    // Depender apenas do user.id evita re-fetch quando o Supabase entrega uma nova
+    // referência do mesmo usuário (ex.: TOKEN_REFRESHED ao voltar para a aba).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Derived role flags (kept for backward compatibility)
   const isMasterRole = tipoAcesso === "Master";
