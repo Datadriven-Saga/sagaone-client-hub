@@ -31,6 +31,44 @@ function fmt(ts: string | null) {
   try { return format(new Date(ts), "dd/MM/yyyy HH:mm", { locale: ptBR }); } catch { return ts; }
 }
 
+// Agrupa chunks físicos (CHUNK=250) por lot_index — cada lote de negócio
+// pode ter N chunks no mesmo scheduled_at; a UI exibe 1 linha por lote.
+const STATUS_PRIORITY = ['processing', 'scheduled', 'pending', 'failed', 'cancelled', 'completed'];
+
+type GroupedLot = {
+  lot_index: number;
+  scheduled_at: string | null;
+  total_leads: number;
+  status: string;
+  retry_count: number;
+  locked_at: string | null;
+  chunk_count: number;
+};
+
+function groupBatchesByLot(batches: ScheduledJob['batches']): GroupedLot[] {
+  const byIndex = new Map<number, ScheduledJob['batches']>();
+  for (const b of batches) {
+    const idx = b.lot_index ?? 0;
+    if (!byIndex.has(idx)) byIndex.set(idx, []);
+    byIndex.get(idx)!.push(b);
+  }
+  const grouped: GroupedLot[] = [];
+  for (const [lot_index, chunks] of byIndex) {
+    const statusAgg = STATUS_PRIORITY.find(s => chunks.some(c => c.status === s)) ?? chunks[0].status;
+    const lockedAts = chunks.filter(c => c.status === 'processing' && c.locked_at).map(c => c.locked_at!);
+    grouped.push({
+      lot_index,
+      scheduled_at: chunks[0].scheduled_at,
+      total_leads: chunks.reduce((s, c) => s + (c.total_leads || 0), 0),
+      status: statusAgg,
+      retry_count: Math.max(0, ...chunks.map(c => c.retry_count ?? 0)),
+      locked_at: lockedAts.length ? lockedAts.reduce((a, b) => a < b ? a : b) : null,
+      chunk_count: chunks.length,
+    });
+  }
+  return grouped.sort((a, b) => a.lot_index - b.lot_index);
+}
+
 export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Props) {
   const { jobs, loading, cancelJob } = useScheduledCampaignJobs(prospeccaoId);
   const { toast } = useToast();
@@ -83,6 +121,7 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
           </TableHeader>
           <TableBody>
             {jobs.map(j => {
+              const lotesAgrupados = groupBatchesByLot(j.batches);
               const scheduled = j.batches.filter(b => b.status === 'scheduled');
               const proximo = scheduled.length
                 ? scheduled.reduce((a, b) => (a.scheduled_at! < (b.scheduled_at ?? '')) ? a : b).scheduled_at
@@ -96,7 +135,7 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                 <TableRow key={j.id}>
                   <TableCell><Badge className={sb.cls}>{sb.label}</Badge></TableCell>
                   <TableCell className="text-right">{j.total_records.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{j.batches.length}</TableCell>
+                  <TableCell className="text-right">{lotesAgrupados.length}</TableCell>
                   <TableCell>{fmt(proximo)}</TableCell>
                   <TableCell>{fmt(min)}</TableCell>
                   <TableCell>{fmt(max)}</TableCell>
@@ -129,7 +168,7 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
             <DialogHeader>
               <DialogTitle>Lotes programados</DialogTitle>
               <DialogDescription>
-                Total: {detailJob?.total_records.toLocaleString()} contatos · {detailJob?.batches.length} lotes
+                Total: {detailJob?.total_records.toLocaleString()} contatos · {detailJob ? groupBatchesByLot(detailJob.batches).length : 0} lotes
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-auto">
@@ -145,15 +184,15 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(detailJob?.batches ?? []).map(b => {
+                  {(detailJob ? groupBatchesByLot(detailJob.batches) : []).map(b => {
                     const sb = STATUS_BADGE[b.status] ?? { label: b.status, cls: 'bg-slate-100 text-slate-800' };
                     return (
-                      <TableRow key={b.id}>
-                        <TableCell>{(b.lot_index ?? 0) + 1}</TableCell>
+                      <TableRow key={b.lot_index}>
+                        <TableCell>{b.lot_index + 1}</TableCell>
                         <TableCell><Badge className={sb.cls}>{sb.label}</Badge></TableCell>
                         <TableCell>{fmt(b.scheduled_at)}</TableCell>
                         <TableCell className="text-right">{b.total_leads.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{b.retry_count ?? 0}</TableCell>
+                        <TableCell className="text-right">{b.retry_count}</TableCell>
                         <TableCell>{b.status === 'processing' ? fmt(b.locked_at) : '—'}</TableCell>
                       </TableRow>
                     );
