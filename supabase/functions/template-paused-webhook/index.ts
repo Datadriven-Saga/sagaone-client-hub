@@ -419,22 +419,62 @@ Deno.serve(async (req: Request) => {
 
     // =====================================================================
     // STEP 4: Cancel active campaign_jobs for affected prospeccoes
+    // Inclui jobs SCHEDULED (disparo programado) e seus lotes futuros,
+    // pois com template_*_id=NULL os lotes falham um a um quando o cron
+    // os reivindica. Lotes já completed/failed não são tocados.
     // =====================================================================
     if (prospeccaoIdsAfetados.size > 0) {
       const prosIds = Array.from(prospeccaoIdsAfetados);
       const { data: activeJobs } = await supabase
         .from('campaign_jobs')
-        .select('id')
+        .select('id, user_id, empresa_id, prospeccao_id, dispatch_mode')
         .in('prospeccao_id', prosIds)
-        .in('status', ['pending', 'processing']);
+        .in('status', ['pending', 'processing', 'scheduled', 'partially_completed']);
 
       if (activeJobs && activeJobs.length > 0) {
         const jobIds = activeJobs.map(j => j.id);
         await supabase
           .from('campaign_jobs')
-          .update({ status: 'cancelled', error_message: 'Template pausado pela Meta' })
+          .update({
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancelled_by: 'template-paused-webhook',
+            error_message: 'Template pausado pela Meta',
+          })
           .in('id', jobIds);
-        console.log(`🛑 ${activeJobs.length} campaign_jobs cancelados`);
+
+        // Cancela lotes ainda não executados (scheduled/pending/processing).
+        const { data: batchesCancelados } = await supabase
+          .from('campaign_batches')
+          .update({ status: 'cancelled', error_log: 'Template pausado pela Meta' })
+          .in('job_id', jobIds)
+          .in('status', ['scheduled', 'pending', 'processing'])
+          .select('id');
+
+        // Notifica o dono de cada job cancelado.
+        for (const job of activeJobs) {
+          if (!job.user_id) continue;
+          try {
+            await supabase.from('notificacoes').insert({
+              user_id: job.user_id,
+              empresa_id: job.empresa_id,
+              tipo: 'disparo_cancelado_template_pausado',
+              titulo: 'Disparo cancelado: template pausado pela Meta',
+              mensagem:
+                job.dispatch_mode === 'scheduled'
+                  ? 'O disparo programado foi cancelado porque o template foi pausado pela Meta. Aprove o novo template duplicado e reagende o disparo.'
+                  : 'O disparo foi cancelado porque o template foi pausado pela Meta. Aprove o novo template duplicado e refaça o disparo.',
+              link: `/prospeccao/${job.prospeccao_id || ''}?job=${job.id}`,
+              lida: false,
+            });
+          } catch (e) {
+            console.warn(`⚠️ Falha ao notificar user ${job.user_id} sobre job ${job.id}:`, e);
+          }
+        }
+
+        console.log(
+          `🛑 ${activeJobs.length} campaign_jobs cancelados (${batchesCancelados?.length ?? 0} lotes futuros cancelados)`,
+        );
       }
     }
 
