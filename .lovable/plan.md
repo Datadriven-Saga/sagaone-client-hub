@@ -1,64 +1,70 @@
-## Diagnóstico — Disparos programados
+## Resposta direta
 
-### Caso Hyundai CBA (prospecção `0dc6e182…`)
-- Job `23a45ad7-ea60-41ee-ade4-e21b14daa6e2`, `dispatch_mode=scheduled`, `cadence=by_lot_size`, `interval=30min`.
-- 6.580 contatos / 27 lotes de 250, primeiro slot 23/06 19:00 UTC (16:00 BRT).
-- Agora 20:07 UTC: 12 lotes deveriam ter rodado, **0 foram reivindicados** (`status=scheduled`, `locked_at=NULL`, `retry_count=0`). Job ainda em `scheduled`.
+**Hoje os disparos agendados NÃO são impactados pela pausa do template.** O webhook só cancela jobs em `pending`/`processing`. Jobs `scheduled` ficam vivos e, quando o lote dispara, encontra `template_prospeccao_id = NULL` (foi desassociado no STEP 3) e cai em erro lote a lote.
 
-### Estado do sistema (13 jobs ativos)
-- ~124 batches overdue acumulados; vários jobs `processing` com alguns lotes andando, outros (Hyundai, c048336d, 6ab0015a, e7a78484, 573054df, 63ddafb0) sem nenhum claim.
+### Evidência
 
-### Confirmado
-- `cron.job` 6 = `*/30 * * * *` → 2 ticks/h. Histórico em `cron.job_run_details` mostra ticks 19:00 / 19:30 / 20:00 OK.
-- `scheduled-campaign-dispatcher` chama `claim_due_campaign_batches(p_limit=10)` → no máximo **10 batches por tick** (20/h cluster-wide).
-- `claim_due_campaign_batches` ordena `scheduled_at ASC, lot_index ASC NULLS LAST` → quando vários jobs caem no mesmo slot, tie-breaker é só `lot_index`. Jobs com `lot_index=0` no mesmo horário disputam aleatoriamente.
-- `process-campaign-job` (self-chain) só atua **depois** que o batch é reivindicado pelo dispatcher (mode scheduled não usa self-chain, por design).
-- Não há `cancelled_at`, `disparos_pausados` ativos, nem batches com erro — pipeline está saudável, só lento.
+Em `supabase/functions/template-paused-webhook/index.ts` (STEP 4, linhas 421-439):
 
-### Hipótese forte (não confirmada)
-- Concentração de agendamentos no slot 19:00 UTC + cap de 10/tick → fila gigante e jobs "perdedores" do tie-breaker ficam pra trás indefinidamente enquanto novos jobs do mesmo slot chegam.
+```ts
+.in('status', ['pending', 'processing'])   // <- 'scheduled' fica de fora
+```
 
-### Descartado
-- Bug de visibilidade no front. `useScheduledCampaignJobs` lê fielmente `campaign_jobs`+`campaign_batches`; o que o usuário vê é o estado real.
-- Cron parado / dispatcher quebrado.
-- Janela 07–20 BRT bloqueando (19:00 UTC = 16:00 BRT, dentro da janela).
+Caso real no banco agora:
 
----
+- Job `63ddafb0-f26c-469b-bbb8-14cc4a91c4e7`
+- Prospecção `de7e78f6-…` — "Feirão da copa grupo saga" — **GM VGD / GM**
+- `dispatch_mode = scheduled`, `status = scheduled`, 5.621 leads, cadência `by_lot_count` a cada 30 min, 24 lotes
+- `disparos_pausados = true`, `template_prospeccao_id = NULL` (templates foram desassociados pelo webhook)
+- Lotes hoje: 4 completed, 6 processing, **14 failed** — exatamente o sintoma de lote disparando sem template.
 
-## Correção proposta (em camadas, reversível)
+## Plano de correção
 
-### Camada 1 — Observabilidade (sem risco)
-- Adicionar no `scheduled-campaign-dispatcher`: log estruturado por tick com `claimed`, `dispatched`, `tick_ts`, e — antes do claim — `SELECT count(*) FROM campaign_batches WHERE status='scheduled' AND scheduled_at <= now()` (backlog total). Permite ver fila ao vivo nos logs.
-- Painel rápido (RPC) `get_dispatcher_backlog()` → `{overdue_total, jobs_overdue, oldest_scheduled_at}` consumido em `/administracao/visao-geral` ou em um card no detalhe da prospecção.
+### Escopo
 
-### Camada 2 — Aumento de throughput (reversível por config)
-- Subir `p_limit` do dispatcher de **10 → 50** por tick.
-- Encurtar cron de `*/30` para **`*/5 * * * *`** (12 ticks/h). Resultado: ~600 batches/h teóricos vs 20 atuais. Mantém `FOR UPDATE SKIP LOCKED` que já evita disputa entre ticks.
-- Justificativa de segurança: `process-campaign-job` é fire-and-forget HTTP, cada batch é uma Edge isolate independente; subir vazão do dispatcher não muda contrato com WhatsApp (rate-limit interno de 5 req/500ms já existe por batch).
+Webhook `template-paused-webhook` passa a tratar agendados da mesma forma que immediates: cancelar job + lotes futuros e notificar o dono.
 
-### Camada 3 — Fairness entre jobs (SQL pequeno em `claim_due_campaign_batches`)
-- Mudar `ORDER BY scheduled_at ASC, lot_index ASC NULLS LAST` para incluir um round-robin por `job_id` usando `ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY scheduled_at, lot_index)` como primeiro critério. Garante que cada tick pega no máximo N lotes por job antes de passar pro próximo.
-- Mantém `FOR UPDATE SKIP LOCKED` e `SECURITY DEFINER`.
+### Mudança em `supabase/functions/template-paused-webhook/index.ts` (STEP 4)
 
-### Camada 4 — Recuperação imediata do backlog atual (one-shot)
-- Disparo manual do dispatcher em loop curto (ex.: invocar a edge 5–10 vezes seguidas) **depois** que p_limit estiver maior, pra zerar os ~124 lotes overdue sem esperar o próximo tick.
-- Alternativa: ad-hoc `SELECT claim_due_campaign_batches(100, 'manual-catchup')` no SQL editor + invocar `process-campaign-job` por batch retornado. Não recomendado sem a Camada 2 aplicada antes.
+1. Ampliar a query de jobs ativos para incluir o ciclo de vida dos agendados:
+   ```ts
+   .in('status', ['pending', 'processing', 'scheduled', 'partially_completed'])
+   ```
+2. Para os jobs encontrados:
+   - `UPDATE campaign_jobs SET status='cancelled', cancelled_at=now(), cancelled_by='template-paused-webhook', error_message='Template pausado pela Meta'`.
+   - `UPDATE campaign_batches SET status='cancelled', error_log='Template pausado pela Meta' WHERE job_id IN (...) AND status IN ('scheduled','pending','processing')` (lotes `completed`/`failed` não são tocados).
+3. Inserir `notificacoes` para o `user_id` de cada job cancelado (tipo `disparo_cancelado_template_pausado`), com link para a prospecção, para o operador saber que precisa religar o disparo após o novo template ser aprovado.
+4. Logar contagem de jobs/batches cancelados no `console.log` (já existe padrão na função).
 
----
+### Limpeza imediata do caso GM VGD
 
-## O que NÃO alterar
-- `process-campaign-job` (self-chain immediate, contrato WhatsApp, rate-limit interno).
-- `bulk_upsert_contatos`, `upsert_quarentena`, `contato_quarentena` — fora do escopo.
-- Janela 07–20 BRT no dispatcher (regra de negócio).
-- `dispatch-leads-webhook` e `logs_disparos` server-side.
-- Layout do modal "Lotes programados" no front (já mostra o estado real corretamente).
+No mesmo deploy, migration única que aplica a regra ao job órfão `63ddafb0-…`:
 
-## Testes obrigatórios antes de marcar como resolvido
-1. Após Camada 2: aguardar 1 tick e confirmar `claimed > 10` nos logs do `scheduled-campaign-dispatcher`.
-2. Backlog: `SELECT count(*) FROM campaign_batches WHERE status='scheduled' AND scheduled_at<=now()` cai consistentemente entre ticks.
-3. Job Hyundai `23a45ad7`: lotes 0 e 1 viram `processing` → `completed`, `processed_records` sobe, `logs_disparos` ganha linhas com `origem='edge_function'` e `job_id=23a45ad7…`.
-4. Sem regressão em immediate (jobs `dispatch_mode='immediate'` continuam usando self-chain e não passam pelo dispatcher).
-5. Verificar `template_pausado_audit` e `logs_disparos_falhas` não acumulam falhas novas após catch-up.
+- `campaign_jobs` → cancelled com `error_message='Template pausado pela Meta (limpeza retroativa)'`.
+- `campaign_batches scheduled/pending/processing` → cancelled.
+- 1 notificação para o `user_id` do job.
 
-## Próximo passo
-Aprovar o plano para eu aplicar Camadas 1 + 2 + 3 (migração da RPC, edit do `scheduled-campaign-dispatcher`, update da `cron.job` 6). Camada 4 (catch-up) eu rodo logo depois, com você acompanhando os logs.
+### Documentação
+
+Atualizar `docs/fluxo-template-pausado.md` (STEP 4) e a memória `mem://architecture/whatsapp/template-pausado-audit` (ou criar `mem://features/whatsapp/pause-cancela-agendados`) registrando que pausa também cancela agendados e lotes futuros.
+
+### O que NÃO alterar
+
+- STEP 1 (lock atômico em `template_pausado_log`).
+- STEP 2 (`whatsapp_templates.status_meta='PAUSED'`).
+- STEP 3 (desassociação dos `template_*_id` e `disparos_pausados=true`).
+- STEP 5 (duplicação do template).
+- `scheduled-campaign-dispatcher` e `process-campaign-job` (gate server-side de `disparos_pausados` segue como está).
+- Lotes já `completed` ou `failed`.
+
+### Testes obrigatórios
+
+1. Pausar template de teste vinculado a um job `scheduled` com lotes futuros → job vai a `cancelled`, lotes futuros vão a `cancelled`, lotes passados intactos, notificação criada.
+2. Pausar template vinculado a job `processing` (caso atual) → comportamento atual preservado.
+3. Pausar template sem nenhum job ativo → segue caminho normal até STEP 5.
+4. Reenvio idempotente do webhook (`ignored_duplicate_request`) → não cancela duas vezes.
+5. Validar no front (`DisparosProgramadosList` / `useScheduledCampaignJobs`) que job cancelado some da lista ativa.
+
+### Próximo passo
+
+Aprovar o plano para eu implementar a alteração do webhook + migration de limpeza do job GM VGD + atualização do `docs/fluxo-template-pausado.md`.
