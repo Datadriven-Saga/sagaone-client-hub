@@ -438,7 +438,6 @@ Deno.serve(async (req: Request) => {
           .update({
             status: 'cancelled',
             cancelled_at: new Date().toISOString(),
-            cancelled_by: 'template-paused-webhook',
             error_message: 'Template pausado pela Meta',
           })
           .in('id', jobIds);
