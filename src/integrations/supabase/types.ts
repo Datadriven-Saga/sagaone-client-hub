@@ -6900,6 +6900,14 @@ export type Database = {
           vendas: number
         }[]
       }
+      get_dispatcher_backlog: {
+        Args: never
+        Returns: {
+          jobs_overdue: number
+          oldest_scheduled_at: string
+          overdue_total: number
+        }[]
+      }
       get_kanban_columns: {
         Args: {
           p_date_end?: string
