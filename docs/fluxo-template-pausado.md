@@ -26,9 +26,17 @@ Lambda chama `POST /functions/v1/template-paused-webhook` com:
    `template_agendado_24h_id`) com `canal ILIKE '%whatsapp%'`:
    **desassocia** o campo (`NULL`) e seta `disparos_pausados = true`.
    Bloqueia novos disparos até template aprovado ser vinculado.
-4. **Cancela** todos os `campaign_jobs` em `pending`/`processing` das
-   prospeccoes afetadas, com
-   `error_message='Template pausado pela Meta'`.
+4. **Cancela** todos os `campaign_jobs` em `pending`/`processing`/`scheduled`/`partially_completed`
+   das prospeccoes afetadas, setando `status='cancelled'`, `cancelled_at=now()` e
+   `error_message='Template pausado pela Meta'`. Em seguida, marca os
+   `campaign_batches` desses jobs com status `scheduled`/`pending`/`processing` como
+   `failed` (a tabela não aceita `cancelled` por check constraint), com
+   `error_log='Template pausado pela Meta'`. Lotes já `completed`/`failed` não são
+   tocados. Para cada job cancelado é gravada uma `notificacoes` do tipo
+   `disparo_cancelado_template_pausado` para o `user_id` que programou o disparo,
+   linkando de volta para a prospecção. Isso vale tanto para disparos imediatos
+   quanto **programados** — sem isso, jobs `scheduled` continuariam vivos e cada
+   lote falharia ao tentar disparar com `template_*_id=NULL`.
 5. **Duplica o template por empresa** com nome `<base>_v<N+1>`, body com
    `tweakBodyText`, chamando `trigger-webhook → novo_template_whatsapp`.
    Se a Meta não devolver `template_id_pri` → rollback completo.
