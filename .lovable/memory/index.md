@@ -6,3 +6,4 @@
 - [Auditoria Prospeccoes](mem://security/audit/prospeccoes-trigger) — Trigger `trg_audit_prospeccoes` grava em `logs_prospeccoes` mudanças sensíveis (templates, flags, datas) com autor; service_role registra IP/UA quando disponível
 - [Template Pausado Audit](mem://architecture/whatsapp/template-pausado-audit) — Tabela `template_pausado_audit` registra TODA invocação do `template-paused-webhook` (inclusive payload inválido / id_meta inexistente); leitura restrita a Administrador/TI/Master
 - [Pausa cancela agendados](mem://features/whatsapp/pause-cancela-agendados) — `template-paused-webhook` cancela jobs `scheduled`/`partially_completed` além de pending/processing, marca lotes futuros como `failed` e notifica o dono do job
+- [Overload user_can_access_empresa](mem://architecture/database/user-can-access-empresa-overload-call) — callers SQL/RPC devem passar `(empresa_id, auth.uid())`; chamada com 1 arg explode `42725 is not unique` por causa do overload com DEFAULT
