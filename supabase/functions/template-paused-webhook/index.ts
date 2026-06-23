@@ -443,9 +443,12 @@ Deno.serve(async (req: Request) => {
           .in('id', jobIds);
 
         // Cancela lotes ainda não executados (scheduled/pending/processing).
+        // campaign_batches.status não aceita 'cancelled' (check constraint);
+        // usamos 'failed' com error_log explicativo, mesmo padrão do
+        // ActiveCampaignJobIndicator.
         const { data: batchesCancelados } = await supabase
           .from('campaign_batches')
-          .update({ status: 'cancelled', error_log: 'Template pausado pela Meta' })
+          .update({ status: 'failed', error_log: 'Template pausado pela Meta' })
           .in('job_id', jobIds)
           .in('status', ['scheduled', 'pending', 'processing'])
           .select('id');
