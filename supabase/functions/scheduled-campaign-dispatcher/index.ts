@@ -70,8 +70,17 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   try {
-    const limit = 10;
+    const limit = 50;
     const workerId = `cron-${new Date().toISOString()}`;
+
+    // Snapshot do backlog antes do claim (observabilidade).
+    try {
+      const { data: bl } = await supabase.rpc('get_dispatcher_backlog');
+      const row = Array.isArray(bl) ? bl[0] : bl;
+      console.log(`📊 [DISPATCHER] backlog overdue_total=${row?.overdue_total ?? '?'} jobs_overdue=${row?.jobs_overdue ?? '?'} oldest=${row?.oldest_scheduled_at ?? 'n/a'}`);
+    } catch (e: any) {
+      console.warn('⚠️ [DISPATCHER] backlog snapshot falhou:', e?.message);
+    }
 
     const { data: claimed, error } = await supabase.rpc('claim_due_campaign_batches', {
       p_limit: limit,
@@ -86,7 +95,8 @@ serve(async (req) => {
     }
 
     const batches = (claimed || []) as Array<{ id: string; job_id: string; lot_index: number | null }>;
-    console.log(`🕒 [DISPATCHER] Reivindicados ${batches.length} batches`);
+    const distinctJobs = new Set(batches.map(b => b.job_id)).size;
+    console.log(`🕒 [DISPATCHER] tick worker=${workerId} claimed=${batches.length} jobs=${distinctJobs} limit=${limit}`);
 
     // Proteção de janela: se o tick caiu fora de 07:00–20:00 (Brasília),
     // devolve TODOS os batches reivindicados para 'scheduled' com novo
