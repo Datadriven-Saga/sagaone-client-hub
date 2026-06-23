@@ -415,9 +415,12 @@ lead_ids      = slice de contatos pendentes
 
 `supabase/functions/scheduled-campaign-dispatcher/index.ts` roda como tick periódico (pg_cron) e:
 
-1. Chama RPC `claim_due_campaign_batches(p_limit=10, p_worker_id=...)` — `SECURITY DEFINER` que faz `UPDATE campaign_batches SET status='processing', locked_at=now(), locked_by=worker WHERE status='scheduled' AND scheduled_at <= now() ORDER BY scheduled_at LIMIT N FOR UPDATE SKIP LOCKED`.
+1. Chama RPC `claim_due_campaign_batches(p_limit=50, p_worker_id=...)` — `SECURITY DEFINER` que reivindica batches `scheduled` com `scheduled_at <= now()` usando `FOR UPDATE SKIP LOCKED`. **Ordenação round-robin por `job_id`** (`ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY scheduled_at, lot_index)` como primeiro critério) — garante fairness entre jobs que caem no mesmo slot.
 2. Para cada batch reivindicado, invoca `process-campaign-job` em **fire-and-forget** com `{ job_id, batch_id }`, usando `SUPABASE_SERVICE_ROLE_KEY`.
 3. Se a invocação retornar !ok, chama `handleDispatchFailure`: marca o batch como `failed`, e cria `notificacoes (tipo='disparo_falhou')` deduplicada por link `/prospeccao/<id>?job=<jobId>`.
+4. Antes do claim faz snapshot de backlog via RPC `get_dispatcher_backlog()` e loga `📊 [DISPATCHER] backlog overdue_total=… jobs_overdue=… oldest=…`.
+
+> **Throughput.** Cron `cron.job` 6 roda `*/5 * * * *` (12 ticks/h) com `p_limit=50` → vazão teórica ~600 lotes/h cluster-wide. Histórico do incidente de 23/06/2026 em [`correcao-dispatcher-disparos-programados.md`](./correcao-dispatcher-disparos-programados.md).
 
 ### 11.5 `process-campaign-job` em modo programado
 
