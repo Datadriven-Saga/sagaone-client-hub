@@ -460,6 +460,33 @@ export const useRecepcaoData = () => {
           prospeccao_id: data.evento_id
         }]);
 
+      // Dispara webhook movimentacao_lead_kanban (fire-and-forget).
+      supabase.functions
+        .invoke("trigger-webhook", {
+          body: {
+            gatilho: "movimentacao_lead_kanban",
+            dados: {
+              contato_id: contatoId,
+              empresa_id: activeCompany.id,
+              prospeccao_id: data.evento_id,
+              status_anterior: data.contato?.status ?? null,
+              status_novo: "Check-in",
+              usuario_id: user?.id ?? null,
+            },
+          },
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error(
+              "[recepcao] webhook movimentacao_lead_kanban erro:",
+              error,
+            );
+          }
+        })
+        .catch((e) =>
+          console.error("[recepcao] webhook movimentacao_lead_kanban falhou:", e),
+        );
+
       toast({
         title: "Check-in realizado!",
         description: data.isNewContact 
@@ -828,6 +855,34 @@ export const useRecepcaoData = () => {
         }]);
 
         criados += 1;
+
+        // Dispara webhook movimentacao_lead_kanban (fire-and-forget).
+        // Validações de flag/canal/status acontecem no edge function.
+        supabase.functions
+          .invoke("trigger-webhook", {
+            body: {
+              gatilho: "movimentacao_lead_kanban",
+              dados: {
+                contato_id: contatoId,
+                empresa_id: activeCompany.id,
+                prospeccao_id: match.prospeccao.id,
+                status_anterior: null,
+                status_novo: "Check-in",
+                usuario_id: user?.id ?? null,
+              },
+            },
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.error(
+                "[recepcao] webhook movimentacao_lead_kanban erro:",
+                error,
+              );
+            }
+          })
+          .catch((e) =>
+            console.error("[recepcao] webhook movimentacao_lead_kanban falhou:", e),
+          );
       } catch (e) {
         console.error("Erro registrarCheckinMulti em prospecção", match.prospeccao.id, e);
         pulados += 1;

@@ -1,92 +1,39 @@
-## Resumo
-
-Dois problemas no mesmo lugar (`/prospeccao/eventos/.../base` → "Disparos programados"):
-
-1. **Cancelar disparo agendado dá 400** — `function public.user_can_access_empresa(uuid) is not unique`.
-2. **"Vários agendamentos no mesmo horário"** — não é duplicação real, é apresentação. Cada lote de negócio é fatiado em chunks físicos de 250 leads no insert dos `campaign_batches`, e o modal lista cada chunk como uma linha.
-
----
-
 ## Diagnóstico
 
-### 1. Cancelamento — overload ambíguo
+A feature **está ativa para HYUNDAI T9** (flag `webhook_movimentacao_lead = true`, empresa `e2c4fdf8...`), mas o webhook **não foi disparado** nos check-ins de hoje (14:55–14:58 BRT — Cirsa, Osnir e Gedeany).
 
-A função `public.cancel_scheduled_campaign_job(p_job_id uuid)` chama:
+Motivo: o webhook `movimentacao_lead_kanban` só é disparado quando a mudança de status passa por `Prospeccao.tsx → handleStatusChange` (drag-and-drop no Kanban). Os check-ins recentes foram registrados pelo fluxo da **Recepção** (QR scan / `RecepcaoModal`), que chama `useRecepcaoData → registrarCheckin` e `registrarCheckinMulti`. Esses dois caminhos:
 
-```sql
-public.user_can_access_empresa(v_job.empresa_id)
-```
+- atualizam `contatos.status = 'Check-in'`,
+- gravam `logs_movimentacao_contatos`,
+- **mas NÃO invocam `trigger-webhook`** — por isso a Lambda do MobiGestor nunca é chamada.
 
-Mas hoje existem **duas** funções com esse nome (memória `intentional-function-overloads` registra esta como exceção):
+Confirmação nos logs do Edge: zero invocações de `movimentacao_lead_kanban` no período. Confirmação no DB: os 3 contatos foram para Check-in mas não houve dispatch correspondente.
 
-- `user_can_access_empresa(target_empresa_id uuid)` — wrapper de 1 arg.
-- `user_can_access_empresa(target_empresa_id uuid, user_id uuid DEFAULT auth.uid())` — implementação real.
+## O que mudar
 
-Como o segundo tem default, o Postgres considera os dois candidatos para a chamada de 1 arg → `42725 is not unique`. Cada chamada feita do RPC explode com 400.
+Adicionar o disparo do webhook (fire-and-forget, igual ao Kanban) dentro do fluxo da Recepção, mantendo todas as validações server-side existentes (flag por empresa, canal Mensal/Grande Evento, status elegível, skip Pri IA).
 
-Evidência: `pg_get_functiondef` confirma as duas assinaturas e o `RAISE EXCEPTION 'Acesso negado'` nem chega a rodar — o resolver de função quebra antes.
+### Arquivo: `src/hooks/useRecepcaoData.ts`
 
-### 2. "Vários no mesmo horário" — não é duplicação
+1. **`registrarCheckinMulti`** (após o `insert` em `recepcao_visitas`, dentro do `for`, quando `criados += 1`): invocar `supabase.functions.invoke('trigger-webhook', { body: { gatilho: 'movimentacao_lead_kanban', dados: { contato_id, empresa_id: activeCompany.id, prospeccao_id: match.prospeccao.id, status_anterior: 'Confirmado' /* ou null */, status_novo: 'Check-in', usuario_id: user?.id } } })` sem `await` bloqueante (try/catch silencioso, console.error em falha).
 
-Job `23a45ad7-…` (prospecção `0dc6e182-…`): 6.580 leads, cadência `by_lot_size` a cada 30 min → 7 lotes de negócio (`lot_index` 0–6, ~1.000 leads cada).
+2. **`registrarCheckin`** (singular, fluxo legacy/QR direto): mesma chamada, usando `data.evento_id` como `prospeccao_id`.
 
-No insert em `EventoBase.tsx` (linhas 1734-1751), cada lote de negócio é dividido em chunks físicos de `CHUNK=250` para o dispatcher:
+Em ambos os casos:
+- Não bloquear a UI — disparar em paralelo após o sucesso local.
+- Usar `status_anterior` = `data.contato?.status ?? null` para refletir o que já é gravado em `logs_movimentacao_contatos`.
+- Não filtrar canal/flag no client — o handler em `trigger-webhook`/`_shared/movimentacao-lead-webhook.ts` já faz isso e devolve `skipped: true` quando aplicável.
 
-```ts
-for (const lote of lotesNegocio) {
-  for (let i = 0; i < lote.ids.length; i += CHUNK) {
-    batchInserts.push({ ..., lot_index: lote.lot_index, scheduled_at: lote.scheduled_at });
-  }
-}
-```
+### O que NÃO mudar
 
-→ 4 registros em `campaign_batches` com mesmo `lot_index` e mesmo `scheduled_at` por lote de negócio. Total: 27 batches físicos para 7 lotes lógicos. `DisparosProgramadosList` lista cada batch físico, dando a impressão de "vários agendamentos no mesmo horário". Não é bug de duplicação — é design (o dispatcher trabalha em chunks de 250). O bug é só na apresentação.
+- Nenhuma mudança no edge function `trigger-webhook` nem no helper `_shared/movimentacao-lead-webhook.ts` — a lógica do payload, captura de `codigo_proposta` e validações continuam funcionando.
+- Nenhuma mudança no Kanban (`Prospeccao.tsx`) — já dispara corretamente.
+- Nenhuma migration.
 
----
+## Validação após implementar
 
-## Plano de correção
-
-### Mudança 1 — Fix do cancelamento (migration SQL)
-
-Recriar `public.cancel_scheduled_campaign_job` passando `auth.uid()` explicitamente para resolver o overload:
-
-```sql
-IF v_uid IS NULL OR NOT public.user_can_access_empresa(v_job.empresa_id, v_uid) THEN
-  RAISE EXCEPTION 'Acesso negado' USING ERRCODE = '42501';
-END IF;
-```
-
-Resto do corpo da função permanece igual (inclusive o `UPDATE campaign_batches SET status='cancelled'` — o check constraint já aceita `cancelled` aqui? **Confirmar antes**: o STEP 4 do webhook precisou usar `failed` porque `campaign_batches_status_check` não permite `cancelled`. Se a RPC sempre falhou no acesso, esse `UPDATE … 'cancelled'` nunca rodou — vou trocar para `'failed'` com `error_log='Cancelado pelo usuário'` para evitar o segundo erro.).
-
-### Mudança 2 — Agrupar lotes na UI por `lot_index`
-
-Em `src/components/DisparosProgramadosList.tsx`:
-
-- Na tabela principal, coluna "Lotes" passa a contar `lot_index` distintos (`new Set(batches.map(b => b.lot_index)).size`), não `batches.length`.
-- No modal de detalhes ("Lotes programados"), agrupar batches por `lot_index` antes de renderizar:
-  - 1 linha por lote de negócio.
-  - "Contatos" = soma de `total_leads` dos chunks daquele `lot_index`.
-  - "Status" = status agregado (priorizar `processing` > `scheduled` > `failed` > `cancelled` > `completed`).
-  - "Tentativas" = `max(retry_count)`.
-  - "Em processamento desde" = mínimo `locked_at` entre chunks em `processing`.
-- "Próximo lote" no card principal continua usando `min(scheduled_at)` entre batches `scheduled` — não muda.
-
-Nenhuma mudança em `EventoBase.tsx` (criação dos batches), `process-campaign-job`, ou `scheduled-campaign-dispatcher` — o chunking físico de 250 é proposital.
-
-### Documentação
-
-Atualizar memória `mem://architecture/database/intentional-function-overloads` mencionando que callers SQL de `user_can_access_empresa` devem sempre passar `(empresa_id, auth.uid())` para evitar `42725`.
-
-### O que NÃO alterar
-
-- Lógica de criação de batches (chunk físico de 250).
-- `scheduled-campaign-dispatcher`, `process-campaign-job`, `claim_due_campaign_batches`.
-- Outras callers SQL de `user_can_access_empresa` (escopo desta correção é só a RPC do cancelamento).
-- Overloads em si (memória diz que são intencionais).
-
-### Testes
-
-1. Cancelar um job `scheduled` real (após deploy da migration) → toast de sucesso, batches futuros marcados como `failed` com `error_log='Cancelado pelo usuário'`, job vai a `cancelled`.
-2. Cancelar job sem permissão de acesso à empresa → 403 "Acesso negado" (não mais 400 ambíguo).
-3. Abrir modal "Lotes programados" do job `23a45ad7-…` → mostrar 7 linhas (uma por `lot_index`), não 27.
-4. Coluna "Lotes" da tabela principal → 7, não 27.
+1. Fazer check-in via Recepção em um lead de evento Mensal/Grande Evento da HYUNDAI T9.
+2. Conferir nos logs do `trigger-webhook` a entrada `[movimentacao-lead] 📤 dispatching ...` com `status_novo: "Check-in"`.
+3. Conferir no MobiGestor / n8n que a Lambda recebeu o payload.
+4. Em empresa com a flag desligada (ex.: `SAGA - HYUNDAI T9`), conferir que o log mostra `flag_disabled` (skip esperado, sem erro).
