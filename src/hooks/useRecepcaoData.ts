@@ -839,7 +839,7 @@ export const useRecepcaoData = () => {
                 contato_id: contatoId,
                 empresa_id: activeCompany.id,
                 prospeccao_id: match.prospeccao.id,
-                status_anterior: match.contatoStatus ?? null,
+                status_anterior: null,
                 status_novo: "Check-in",
                 usuario_id: user?.id ?? null,
               },
