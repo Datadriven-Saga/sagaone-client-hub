@@ -1,39 +1,66 @@
-## Diagnóstico
+## Diagnóstico (lead `01fce4c9` — Vini, HYUNDAI É AGORA 2026 3ª EDIÇÃO)
 
-A feature **está ativa para HYUNDAI T9** (flag `webhook_movimentacao_lead = true`, empresa `e2c4fdf8...`), mas o webhook **não foi disparado** nos check-ins de hoje (14:55–14:58 BRT — Cirsa, Osnir e Gedeany).
+Pelo `logs_movimentacao_contatos`:
 
-Motivo: o webhook `movimentacao_lead_kanban` só é disparado quando a mudança de status passa por `Prospeccao.tsx → handleStatusChange` (drag-and-drop no Kanban). Os check-ins recentes foram registrados pelo fluxo da **Recepção** (QR scan / `RecepcaoModal`), que chama `useRecepcaoData → registrarCheckin` e `registrarCheckinMulti`. Esses dois caminhos:
+| Hora (UTC) | De → Para | Origem |
+|---|---|---|
+| 18:05:28 | (null) → Check-in | **Recepção** ("Check-in via Recepção - Evento: …") |
+| 19:23:17 | Check-in → Convidado | **Kanban** (você arrastou para fora) |
 
-- atualizam `contatos.status = 'Check-in'`,
-- gravam `logs_movimentacao_contatos`,
-- **mas NÃO invocam `trigger-webhook`** — por isso a Lambda do MobiGestor nunca é chamada.
+Nos logs do edge `trigger-webhook` **não há nenhuma chamada `movimentacao_lead_kanban`** — nem do check-in das 18:05, nem do retorno das 19:23.
 
-Confirmação nos logs do Edge: zero invocações de `movimentacao_lead_kanban` no período. Confirmação no DB: os 3 contatos foram para Check-in mas não houve dispatch correspondente.
+Causas confirmadas:
 
-## O que mudar
+1. **Move das 19:23 (Kanban Check-in → Convidado)**: o FE chama o webhook, mas o handler em `_shared/movimentacao-lead-webhook.ts` filtra com `STATUS_ELEGIVEIS = ['Confirmado','Check-in','Descartado']` → `Convidado` é ignorado por design. **Esperado.**
+2. **Check-in das 18:05 (Recepção)**: o FE invoca `trigger-webhook` em **fire-and-forget** (`supabase.functions.invoke(...).then(...)`). Quando o modal `CheckinConfirmModal` fecha logo após o `toast`, o componente desmonta e a Promise pendente do `fetch` é **abortada** pelo runtime do navegador antes de a função edge ser invocada. Por isso, o webhook simplesmente nunca sai. Mesmo padrão existe em `registrarCheckin` (QR) e `registrarCheckinMulti` (busca por telefone).
 
-Adicionar o disparo do webhook (fire-and-forget, igual ao Kanban) dentro do fluxo da Recepção, mantendo todas as validações server-side existentes (flag por empresa, canal Mensal/Grande Evento, status elegível, skip Pri IA).
+O mesmo risco existe no Kanban quando o usuário troca de aba/navega rápido após soltar o card (lá o `await` já existe em `handleStatusChange`, mas em `executeKanbanStatusChange` — fluxo pós opt-out — também é `await`, então o Kanban está OK).
 
-### Arquivo: `src/hooks/useRecepcaoData.ts`
+## Plano
 
-1. **`registrarCheckinMulti`** (após o `insert` em `recepcao_visitas`, dentro do `for`, quando `criados += 1`): invocar `supabase.functions.invoke('trigger-webhook', { body: { gatilho: 'movimentacao_lead_kanban', dados: { contato_id, empresa_id: activeCompany.id, prospeccao_id: match.prospeccao.id, status_anterior: 'Confirmado' /* ou null */, status_novo: 'Check-in', usuario_id: user?.id } } })` sem `await` bloqueante (try/catch silencioso, console.error em falha).
+### Parte A — Garantir entrega do webhook independente do ciclo de vida do FE (raiz do problema)
 
-2. **`registrarCheckin`** (singular, fluxo legacy/QR direto): mesma chamada, usando `data.evento_id` como `prospeccao_id`.
+Criar um **trigger Postgres em `logs_movimentacao_contatos`** que dispara o webhook via `pg_net` (HTTP assíncrono no servidor) sempre que entrar um registro com:
 
-Em ambos os casos:
-- Não bloquear a UI — disparar em paralelo após o sucesso local.
-- Usar `status_anterior` = `data.contato?.status ?? null` para refletir o que já é gravado em `logs_movimentacao_contatos`.
-- Não filtrar canal/flag no client — o handler em `trigger-webhook`/`_shared/movimentacao-lead-webhook.ts` já faz isso e devolve `skipped: true` quando aplicável.
+- `status_novo IN ('Confirmado','Check-in','Descartado')`
+- `prospeccao.canal IN ('Mensal','Grande Evento')`
+- feature flag `webhook_movimentacao_lead` ativa para a empresa
 
-### O que NÃO mudar
+O trigger chama `POST {SUPABASE_URL}/functions/v1/trigger-webhook` com `gatilho=movimentacao_lead_kanban` e os campos do log. A função edge mantém **toda a lógica de validação atual** (flag, canal, status, agente IA, montagem do payload externo, captura de `codigo_proposta`) — o trigger só dispara; quem decide tudo é o edge.
 
-- Nenhuma mudança no edge function `trigger-webhook` nem no helper `_shared/movimentacao-lead-webhook.ts` — a lógica do payload, captura de `codigo_proposta` e validações continuam funcionando.
-- Nenhuma mudança no Kanban (`Prospeccao.tsx`) — já dispara corretamente.
-- Nenhuma migration.
+Vantagens:
 
-## Validação após implementar
+- Funciona para Recepção (QR e busca), Kanban, ContatoModal, importações futuras e qualquer caminho que grave em `logs_movimentacao_contatos` (inclusive o "auto-trigger fallback" do trigger antigo).
+- Imune a unmount do componente, refresh de página, perda de conexão do cliente.
+- Idempotência: trigger só dispara em `AFTER INSERT`; mesmo se o FE também invocar, o edge `trigger-webhook` já é seguro (skip por status/canal/flag).
 
-1. Fazer check-in via Recepção em um lead de evento Mensal/Grande Evento da HYUNDAI T9.
-2. Conferir nos logs do `trigger-webhook` a entrada `[movimentacao-lead] 📤 dispatching ...` com `status_novo: "Check-in"`.
-3. Conferir no MobiGestor / n8n que a Lambda recebeu o payload.
-4. Em empresa com a flag desligada (ex.: `SAGA - HYUNDAI T9`), conferir que o log mostra `flag_disabled` (skip esperado, sem erro).
+Detalhes técnicos:
+
+- Usar `pg_net.http_post` (extensão já habilitada no projeto, usada em outros triggers).
+- Authorization: service-role JWT (segredo `SUPABASE_SERVICE_ROLE_KEY`) lido de um GUC ou Vault — seguindo o padrão dos triggers existentes.
+- Trigger marcado `SECURITY DEFINER`, `SET search_path = public`.
+- Loga em `RAISE LOG` para auditoria; falha de `pg_net` **não bloqueia** o INSERT do log.
+
+### Parte B — Retirar a invocação FE redundante (opcional, mas recomendado)
+
+Após Parte A funcionando, remover (ou manter apenas como fallback awaitado) o `supabase.functions.invoke('trigger-webhook', ...)` em:
+
+- `useRecepcaoData.ts` → `registrarCheckin` (QR)
+- `useRecepcaoData.ts` → `registrarCheckinMulti` (busca por telefone)
+
+No `Prospeccao.tsx` (`handleStatusChange` / `executeKanbanStatusChange`) a chamada já é `await`, mas como o trigger garante entrega, simplifico para apenas atualizar o `codigo_proposta` via reconciliação realtime/refetch após o INSERT.
+
+### Parte C — Verificação
+
+1. Reproduzir check-in via Recepção (busca por telefone) → conferir `pg_net._http_response` e logs do `trigger-webhook` (`[movimentacao-lead] 📤 dispatching`).
+2. Reproduzir check-in via QR.
+3. Reproduzir Kanban: Atribuído → Confirmado e Atribuído → Descartado.
+4. Confirmar que move para `Convidado`/`Em Espera`/`Atribuído` continua sendo **skipped** (esperado).
+5. Validar que `codigo_proposta` continua sendo persistido após resposta do MobiGestor (lógica intacta no edge).
+
+## Não muda
+
+- Regras de elegibilidade (canal Mensal/Grande Evento, status final, flag por empresa, exclusão de IA).
+- Payload externo enviado ao MobiGestor.
+- Captura/persistência de `codigo_proposta`.
+- RLS, permissões, telas de Recepção/Kanban.
