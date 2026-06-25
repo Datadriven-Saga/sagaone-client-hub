@@ -201,7 +201,7 @@ export async function dispararMovimentacaoLeadKanban(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(SAGA_ONE ? { "x-saga-one": SAGA_ONE } : {}),
+      ...(SAGA_ONE ? { "saga_one_supabase": SAGA_ONE } : {}),
     },
     body: JSON.stringify(payload),
   });
