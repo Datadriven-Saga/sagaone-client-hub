@@ -18,6 +18,7 @@ import { ImportarDoDataLake } from "@/components/ImportarDoDataLake";
 import { CriarProspeccaoModal } from "@/components/CriarProspeccaoModal";
 import { ContatoModal } from "@/components/ContatoModal";
 import { RecepcaoModal } from "@/components/RecepcaoModal";
+import { RecepcaoMultiContatoPicker } from "@/components/RecepcaoMultiContatoPicker";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { CheckinConfirmModal } from "@/components/CheckinConfirmModal";
 import { RecepcaoTable } from "@/components/RecepcaoTable";
@@ -41,7 +42,7 @@ import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useAutoAtribuirLeads } from "@/hooks/useAutoAtribuirLeads";
-import { useRecepcaoData } from "@/hooks/useRecepcaoData";
+import { useRecepcaoData, type ContatoSufixoMatch } from "@/hooks/useRecepcaoData";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMetricasLigacao, MetricasLigacaoExternas } from "@/hooks/useMetricasLigacao";
@@ -268,6 +269,7 @@ showAllEvents: true
     registrarCheckin,
     buscarContatoMultiAtivo,
     registrarCheckinMulti,
+    buscarContatosPorSufixo,
     validarEvento,
     recepcaoEventoFilter,
     setRecepcaoEventoFilter,
@@ -305,12 +307,37 @@ showAllEvents: true
   } | null>(null);
   const [pendingCheckin, setPendingCheckin] = useState<any>(null);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
+  const [sufixoPicker, setSufixoPicker] = useState<{ sufixo: string; contatos: ContatoSufixoMatch[] } | null>(null);
 
   // Handle search from RecepcaoModal — multi-prospecção ativa
-  const handleRecepcaoSearch = async (telefone: string) => {
-    const result = await buscarContatoMultiAtivo(telefone);
+  const handleRecepcaoSearch = async (input: string) => {
+    const digits = (input || "").replace(/\D/g, "");
+
+    // Modo sufixo: 4 dígitos → busca contatos por final do telefone
+    if (digits.length === 4) {
+      const contatos = await buscarContatosPorSufixo(digits);
+      if (contatos.length === 0) {
+        setSufixoPicker({ sufixo: digits, contatos: [] });
+        return null;
+      }
+      if (contatos.length === 1) {
+        const result = await buscarContatoMultiAtivo(contatos[0].telefone);
+        if (result) setPendingCheckin(result);
+        return result;
+      }
+      setSufixoPicker({ sufixo: digits, contatos });
+      return null;
+    }
+
+    const result = await buscarContatoMultiAtivo(input);
     if (result) setPendingCheckin(result);
     return result;
+  };
+
+  const handlePickContatoSufixo = async (contato: ContatoSufixoMatch) => {
+    setSufixoPicker(null);
+    const result = await buscarContatoMultiAtivo(contato.telefone);
+    if (result) setPendingCheckin(result);
   };
 
   // Confirm multi check-in
