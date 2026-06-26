@@ -60,9 +60,9 @@ export function EntregasTab() {
         await desativar(row.id);
         return;
       }
-      if (row) {
-        await upsert({ slug, template_id: row.template_id, ativo });
-      }
+      // Sempre faz upsert externo refletindo o novo estado do toggle,
+      // mesmo que a linha ainda não tenha sido carregada (busca pode falhar).
+      await upsert({ slug, template_id: row?.template_id ?? "", ativo });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     }
