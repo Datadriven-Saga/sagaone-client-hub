@@ -1101,13 +1101,10 @@ showAllEvents: true
     });
   };
 
-  // Função para registrar movimentações dos contatos
-  // Helper único de log: resolve prospeccao_id real do contato (priorizando filtro
-  // ativo) e mapeia o status kanban para o nome do DB. Fire-and-forget por padrão
-  // para não bloquear a UI. RLS já permite INSERT autenticado — erros são logados.
-  const logStatusChange = useCallback(
-    (itemId: string, fromCol: string, toCol: string, observacoes?: string) => {
-      if (!user) return;
+  // Resolve a prospeccao_id "preferida" para um lead, priorizando o filtro
+  // ativo do Kanban. Usado para passar contexto ao log gravado pelo RPC.
+  const resolveProspeccaoIdForLead = useCallback(
+    (itemId: string): string | null => {
       const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
       const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
       const prospeccaoId =
@@ -1115,22 +1112,23 @@ showAllEvents: true
           ? prospeccaoIdsFiltrados.find((id) => prospeccaoIdsDoLead?.has(id)) ||
             prospeccaoIdsFiltrados[0]
           : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
-      if (!prospeccaoId) {
-        console.warn('⚠️ logStatusChange: contato sem prospeccao vinculada', { itemId, fromCol, toCol });
-        return;
-      }
-      const statusAnterior = kanbanStatusMap[fromCol as keyof typeof kanbanStatusMap] || fromCol;
-      const statusNovo = kanbanStatusMap[toCol as keyof typeof kanbanStatusMap] || toCol;
-      void registrarMovimentacao({
-        leadId: itemId,
-        prospeccaoId,
-        statusAnterior,
-        statusNovo,
-        usuarioId: user.id,
-        observacoes,
-      });
+      return prospeccaoId ?? null;
     },
-    [user, contatosProspeccoes, globalFilters.prospeccaoIds, prospeccoes, registrarMovimentacao]
+    [contatosProspeccoes, globalFilters.prospeccaoIds, prospeccoes]
+  );
+
+  // DEPRECATED: o log de movimentação agora é gravado dentro do RPC
+  // `mutate_contato_status_atomic` (chamado por `atualizarStatusContato` →
+  // `setContatoStatus`). Mantido como no-op para callers legados; novos
+  // call sites devem passar `{ prospeccaoId, observacoes }` direto para
+  // `atualizarStatusContato`. Ver causa raiz: duplicidade de INSERT em
+  // `logs_movimentacao_contatos` (trigger defensivo + INSERT explícito) que
+  // disparava o webhook `movimentacao_lead_kanban` 2x.
+  const logStatusChange = useCallback(
+    (_itemId: string, _fromCol: string, _toCol: string, _observacoes?: string) => {
+      // no-op
+    },
+    []
   );
 
   // Abre o modal de confirmação regulatória. Resolve marca/uf da empresa e
