@@ -44,7 +44,7 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
   }) => {
     if (!agenteTelefone) throw new Error("Telefone do agente não disponível");
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "upsert-paty-entrega-template", agente_telefone: agenteTelefone, ...payload },
+      body: { endpoint: "upsert-paty-entrega-template", agente_telefone: agenteTelefone, gatilho: payload.slug, ...payload },
     });
     if (error) throw new Error(error.message);
     await reload();
