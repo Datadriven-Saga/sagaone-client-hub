@@ -1,33 +1,33 @@
-## Diagnóstico
+## Objetivo
 
-O fluxo de busca por **4 últimos dígitos** só está implementado no `DashboardLayout` (FAB global). A `RecepcaoModal` aberta dentro de **`/prospeccao/atendimento`** (em `src/pages/Prospeccao.tsx`, linha 3540) usa um `handleRecepcaoSearch` próprio que ignora o sufixo:
+Ajustar o `RecepcaoMultiContatoPicker` (modal que aparece ao buscar por 4 últimos dígitos) para:
 
-```ts
-// src/pages/Prospeccao.tsx (atual)
-const handleRecepcaoSearch = async (telefone: string) => {
-  const result = await buscarContatoMultiAtivo(telefone); // chama direto com "5252"
-  if (result) setPendingCheckin(result);
-  return result;
-};
-```
+1. Mostrar o telefone completo (sem mascarar) — facilita a recepcionista confirmar o lead certo na hora do check-in.
+2. Permitir editar/corrigir o nome do contato diretamente no card antes de selecioná-lo (muitos vêm como "luiz", "Lara" sem sobrenome, etc).
 
-Resultado: ao digitar `5252`/`1163`, o sistema chama `buscarContatoMultiAtivo("5252")`, nenhum contato bate na coluna `contatos.telefone` (que tem o número completo), e a UI cai no caminho "Visitante novo" com as 14 prospecções ativas — exatamente o que aparece nos prints, com o campo "Telefone" mostrando `5252`.
+## Mudanças
 
-## Correção
+### 1. `src/components/RecepcaoMultiContatoPicker.tsx`
 
-1. **Alinhar `Prospeccao.tsx` com o `DashboardLayout`**:
-   - Adicionar `buscarContatosPorSufixo` ao destructuring de `useRecepcaoData`.
-   - Adicionar estado `sufixoPicker` e renderizar `<RecepcaoMultiContatoPicker>`.
-   - Reescrever `handleRecepcaoSearch` com a mesma lógica de 3 ramos: `0` contatos → picker vazio; `1` → chama `buscarContatoMultiAtivo(contatos[0].telefone)`; `>1` → abre picker.
-   - Implementar `handlePickContato` (igual ao do `DashboardLayout`).
+- Remover `maskPhone(...)` e usar `formatPhoneForDisplay(c.telefone)` (já importado) para mostrar o número completo, ex.: `(62) 9 9999-5252`.
+- Adicionar um ícone-botão de lápis (`Pencil` do `lucide-react`) ao lado do nome. Ao clicar:
+  - Troca o `<span>` do nome por um `<Input>` inline (controlled), com botões `Salvar` / `Cancelar`.
+  - Clique no input/botões NÃO dispara o `onSelect` do card (usar `e.stopPropagation()` e mudar o wrapper de `<button>` para `<div>` com botão "Selecionar" próprio, evitando aninhamento de buttons).
+- Ao salvar:
+  - Chama `supabase.from('contatos').update({ nome: novoNome.trim() }).eq('id', c.id)`.
+  - Em caso de sucesso: toast `"Nome atualizado"` e atualiza o item localmente (estado interno do picker, sobrescrevendo `nome` para refletir na UI sem refetch).
+  - Em erro: toast destrutivo com a mensagem.
+- Validação: `trim().length >= 2`, senão desabilita Salvar.
 
-2. **Refatoração leve (mesma PR, opcional mas recomendada)**: extrair o handler compartilhado para dentro de `useRecepcaoData` como `resolveRecepcaoSearch(input, { onPicker, onMulti })` para evitar nova divergência futura entre os dois pontos de entrada.
+### 2. Tipagem
 
-3. **Guard adicional em `buscarContatoMultiAtivo`** (defesa em profundidade): se `telefone.replace(/\D/g,'').length < 10`, retornar `null` com toast "Telefone inválido — use 10/11 dígitos ou os 4 últimos" para evitar que qualquer outro caller futuro caia no mesmo bug.
+- `ContatoSufixoMatch` já tem `id`, `nome`, `telefone`, `status` — sem mudanças no hook/RPC.
 
-## Validação
+### 3. Sem alterações em
 
-- Abrir `/prospeccao/atendimento`, clicar no FAB Check-in, digitar `5252` → deve abrir o `RecepcaoMultiContatoPicker` com os contatos da loja terminados em 5252 (ou "Nenhum contato" se realmente não houver).
-- Selecionar o contato → abrir `CheckinConfirmModal` com nome real e prospecções ativas marcando "já existe" naquelas em que o lead está vinculado.
-- Repetir o mesmo teste pelo FAB global em outra rota (já funcionava) para garantir não-regressão.
-- Conferir no console que `buscarContatoMultiAtivo` nunca é chamado com string de 4 dígitos.
+- `useRecepcaoData.ts`, `DashboardLayout.tsx`, `Prospeccao.tsx`, RPC `buscar_contatos_por_sufixo_telefone`, fluxo de check-in pós-seleção.
+
+## Observações
+
+- A edição é local ao picker; o contato selecionado é repassado com o nome já atualizado para o fluxo de check-in normal.
+- Mantém compliance: o usuário já tem permissão de recepção/atendimento sobre `contatos` da própria empresa (RLS existente cobre o `update`).
