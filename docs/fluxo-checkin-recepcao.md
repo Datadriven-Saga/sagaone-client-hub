@@ -41,17 +41,16 @@ No `DashboardLayout.handleRecepcaoSearch`:
   - **Novo**: cria `contatos` (status Check-in) + insere `eventos_prospeccao (tipo=Contato Inicial)`.
   - **Existente**: `UPDATE contatos.status='Check-in'`.
   - **Idempotência**: se já existe `recepcao_visitas` para telefone+evento no dia → pula.
-  - Insere `logs_movimentacao_contatos` e `recepcao_visitas`.
-  - Dispara webhook `movimentacao_lead_kanban` (fire-and-forget no FE).
+  - Insere `logs_movimentacao_contatos` e `recepcao_visitas`; o webhook `movimentacao_lead_kanban` é disparado exclusivamente pelo trigger PG.
 
 ## 5. Fluxo QR Code (`registrarCheckin`)
 
-Single-event: `verificarCheckinExistente` → cria/atualiza contato → log → visita → webhook.
+Single-event: `verificarCheckinExistente` → cria/atualiza contato → log → visita → trigger PG → webhook.
 
 ## 6. Efeitos colaterais
 
 - `logs_movimentacao_contatos` aciona o trigger `trg_dispatch_movimentacao_lead_webhook` (server-side via `pg_net`) → edge function `trigger-webhook` (header `saga_one_supabase`) → Lambda MobiGestor.
-- **Fonte única de disparo:** apenas o trigger PG chama `trigger-webhook` com `gatilho=movimentacao_lead_kanban`. FE (`useRecepcaoData`) e edges que inserem em `logs_movimentacao_contatos` (ex.: `confirm-presence`) NÃO devem invocar a edge — isso causou disparo duplicado (visto em 26-jun: dois `Succeeded` no mesmo segundo).
+- **Fonte única de disparo:** apenas o trigger PG chama `trigger-webhook` com `gatilho=movimentacao_lead_kanban`. FE (`useRecepcaoData`, `Prospeccao.tsx`) e edges que inserem em `logs_movimentacao_contatos` (`confirm-presence`, `prospeccao-status`) NÃO devem invocar a edge — isso causou disparo duplicado (visto em 26-jun: dois `Succeeded` no mesmo segundo).
 - Quando `usuario_id IS NULL` (caminho público), o trigger faz fallback de `email_vendedor` a partir de `contatos.responsavel_email` antes de chamar a edge.
 - O webhook só é disparado para empresas com a feature flag `webhook_movimentacao_lead` ativa, e apenas para eventos **Mensal** ou **Grande Evento** (validação dentro da edge function).
 - `contatos.status` é **global** (não por evento) — débito conhecido. Atualizar para `Check-in` reflete em todas as prospecções do lead.
