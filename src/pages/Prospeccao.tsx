@@ -3627,7 +3627,10 @@ showAllEvents: true
                 .eq('contato_id', contatoId)
                 .eq('prospeccao_id', prospeccaoIdAlvo);
             }
-            await atualizarStatusContato(contatoId, 'Convidado');
+            await atualizarStatusContato(contatoId, 'Convidado', {
+              prospeccaoId: prospeccaoIdAlvo ?? resolveProspeccaoIdForLead(contatoId),
+              observacoes: 'Confirmação enviada via WhatsApp',
+            });
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             logStatusChange(contatoId, fromStatus, 'convidados', 'Confirmação enviada via WhatsApp');
             toast({
