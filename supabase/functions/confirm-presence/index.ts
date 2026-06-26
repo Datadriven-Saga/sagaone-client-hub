@@ -2,7 +2,6 @@
 // Endpoint público (sem JWT) que confirma presença do convidado.
 // Atribui a ação ao vendedor que enviou o link (confirmation_sent_by).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { dispararMovimentacaoLeadKanban } from '../_shared/movimentacao-lead-webhook.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
