@@ -3568,6 +3568,16 @@ showAllEvents: true
         prospeccoes={prospeccoes}
       />
 
+      {sufixoPicker && (
+        <RecepcaoMultiContatoPicker
+          isOpen={!!sufixoPicker}
+          onClose={() => setSufixoPicker(null)}
+          sufixo={sufixoPicker.sufixo}
+          contatos={sufixoPicker.contatos}
+          onSelect={handlePickContatoSufixo}
+        />
+      )}
+
       <HistoricoImportacaoModal
         isOpen={isHistoricoModalOpen}
         onClose={() => setIsHistoricoModalOpen(false)}
