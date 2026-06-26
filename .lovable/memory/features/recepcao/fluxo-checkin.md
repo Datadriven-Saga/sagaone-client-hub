@@ -19,8 +19,9 @@ type: feature
 - Insere `logs_movimentacao_contatos` + `recepcao_visitas` + atualiza `contatos.status='Check-in'`.
 
 ## Webhook MobiGestor
-- Trigger PG `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos` chama `trigger-webhook` via `pg_net` com header `saga_one_supabase`.
+- Trigger PG `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos` chama `trigger-webhook` via `pg_net` com header `saga_one_supabase` — **única fonte de disparo**, FE não invoca a edge (evita duplicação).
 - Gated pela flag `webhook_movimentacao_lead` (per_empresa) e por tipo de evento (Mensal/Grande Evento).
+- Quando `usuario_id IS NULL` (confirm-presence público), trigger faz fallback de `email_vendedor` via `contatos.responsavel_email`.
 
 ## Doc completa
 `docs/fluxo-checkin-recepcao.md`
