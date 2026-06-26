@@ -71,7 +71,7 @@ export function RecepcaoMultiContatoPicker({ isOpen, onClose, sufixo, contatos, 
           </DialogTitle>
           <DialogDescription>
             {isEmpty
-              ? "Nenhum contato encontrado com esses 4 últimos dígitos."
+              ? "Nenhum lead encontrado com esses 4 dígitos em eventos ativos desta loja."
               : `Encontramos ${items.length} contato(s). Selecione qual fará o check-in.`}
           </DialogDescription>
         </DialogHeader>

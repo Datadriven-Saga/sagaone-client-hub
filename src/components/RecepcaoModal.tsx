@@ -98,7 +98,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps)
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                {modoBusca === 'sufixo' && '🔎 Buscando pelos 4 últimos dígitos — escolha o contato na próxima tela.'}
+                {modoBusca === 'sufixo' && '🔎 Buscando pelos 4 últimos dígitos entre leads de eventos ativos da loja.'}
                 {modoBusca === 'completo' && '🔎 Busca por telefone completo nas prospecções ativas.'}
                 {!modoBusca && 'Use o telefone completo ou apenas os 4 últimos dígitos do celular.'}
               </p>

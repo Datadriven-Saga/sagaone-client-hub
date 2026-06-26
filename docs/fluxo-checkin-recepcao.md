@@ -26,7 +26,8 @@ Documento de referência do fluxo de check-in de leads no SagaOne. Atualizado em
 
 1. Chama RPC `buscar_contatos_por_sufixo_telefone(empresa_id, sufixo)` (SECURITY DEFINER, valida acesso à empresa).
 2. RPC usa índice funcional `idx_contatos_tel_last4` em `right(regexp_replace(telefone,'\D','','g'), 4)`.
-3. Retorna até 50 contatos.
+3. **Filtra apenas contatos vinculados a prospecções ativas da empresa** — mesma janela do multi-ativo: `data_inicio <= now()` e `data_fim >= now() - 3 dias`. Leads sem evento vigente nesse intervalo não aparecem na busca por sufixo (usar telefone completo / fluxo de novo visitante nesses casos).
+4. Retorna até 50 contatos (DISTINCT por contato).
 
 No `DashboardLayout.handleRecepcaoSearch`:
 - 0 resultados → abre picker com mensagem "Nenhum contato encontrado".
