@@ -6637,6 +6637,15 @@ export type Database = {
         }
         Returns: Json
       }
+      buscar_contatos_por_sufixo_telefone: {
+        Args: { p_empresa_id: string; p_sufixo: string }
+        Returns: {
+          id: string
+          nome: string
+          status: string
+          telefone: string
+        }[]
+      }
       can_manage_users: { Args: { user_id?: string }; Returns: boolean }
       can_user_login: {
         Args: { _method?: string; _user_id: string }

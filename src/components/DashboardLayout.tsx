@@ -9,10 +9,11 @@ import { FloatingActionButton } from "./FloatingActionButton";
 import { ContatoModal } from "./ContatoModal";
 import { CheckinConfirmModal } from "./CheckinConfirmModal";
 import { RecepcaoModal } from "./RecepcaoModal";
+import { RecepcaoMultiContatoPicker } from "./RecepcaoMultiContatoPicker";
 import { PanelLeft, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Contato } from "@/hooks/useContatoData";
-import { useRecepcaoData, MultiCheckinData } from "@/hooks/useRecepcaoData";
+import { useRecepcaoData, MultiCheckinData, ContatoSufixoMatch } from "@/hooks/useRecepcaoData";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -28,12 +29,13 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
   const [isRecepcaoModalOpen, setIsRecepcaoModalOpen] = useState(false);
   const [pendingMultiCheckin, setPendingMultiCheckin] = useState<MultiCheckinData | null>(null);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
+  const [sufixoPicker, setSufixoPicker] = useState<{ sufixo: string; contatos: ContatoSufixoMatch[] } | null>(null);
   const [contatoModalState, setContatoModalState] = useState<{
     isOpen: boolean;
     contato: Contato | null;
   }>({ isOpen: false, contato: null });
 
-  const { buscarContatoMultiAtivo, registrarCheckinMulti } = useRecepcaoData();
+  const { buscarContatoMultiAtivo, registrarCheckinMulti, buscarContatosPorSufixo } = useRecepcaoData();
 
   const handleNovoCheckin = () => {
     setIsRecepcaoModalOpen(true);
@@ -46,11 +48,35 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
     });
   };
 
-  // Handle search from RecepcaoModal — agora multi-prospecção ativa
-  const handleRecepcaoSearch = async (telefone: string): Promise<MultiCheckinData | null> => {
-    const result = await buscarContatoMultiAtivo(telefone);
+  // Handle search from RecepcaoModal — aceita telefone completo (10-11 dígitos)
+  // ou sufixo de 4 dígitos (abre picker se houver múltiplos contatos).
+  const handleRecepcaoSearch = async (input: string): Promise<MultiCheckinData | null> => {
+    const digits = (input || "").replace(/\D/g, "");
+
+    if (digits.length === 4) {
+      const contatos = await buscarContatosPorSufixo(digits);
+      if (contatos.length === 0) {
+        setSufixoPicker({ sufixo: digits, contatos: [] });
+        return null;
+      }
+      if (contatos.length === 1) {
+        const result = await buscarContatoMultiAtivo(contatos[0].telefone);
+        if (result) setPendingMultiCheckin(result);
+        return result;
+      }
+      setSufixoPicker({ sufixo: digits, contatos });
+      return null;
+    }
+
+    const result = await buscarContatoMultiAtivo(input);
     if (result) setPendingMultiCheckin(result);
     return result;
+  };
+
+  const handlePickContato = async (contato: ContatoSufixoMatch) => {
+    setSufixoPicker(null);
+    const result = await buscarContatoMultiAtivo(contato.telefone);
+    if (result) setPendingMultiCheckin(result);
   };
 
   const handleConfirmMultiCheckin = async (
@@ -122,6 +148,16 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           onClose={() => setIsRecepcaoModalOpen(false)}
           onSearch={handleRecepcaoSearch}
         />
+
+        {sufixoPicker && (
+          <RecepcaoMultiContatoPicker
+            isOpen={!!sufixoPicker}
+            onClose={() => setSufixoPicker(null)}
+            sufixo={sufixoPicker.sufixo}
+            contatos={sufixoPicker.contatos}
+            onSelect={handlePickContato}
+          />
+        )}
 
         <CheckinConfirmModal
           isOpen={!!pendingMultiCheckin}

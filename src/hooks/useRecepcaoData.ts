@@ -71,6 +71,14 @@ export interface MultiCheckinData {
   hasAnyExisting: boolean; // ao menos uma prospecção já tem o contato
 }
 
+// === Busca por sufixo de telefone ===
+export interface ContatoSufixoMatch {
+  id: string;
+  nome: string;
+  telefone: string;
+  status: string | null;
+}
+
 // Usa a função centralizada de phoneUtils
 const normalizePhone = (phone: string): string => {
   return extractPhoneDigits(phone);
@@ -623,6 +631,32 @@ export const useRecepcaoData = () => {
     }
   };
 
+  // Busca contatos da empresa cujo telefone termina com os 4 dígitos informados.
+  const buscarContatosPorSufixo = async (
+    sufixo: string
+  ): Promise<ContatoSufixoMatch[]> => {
+    if (!activeCompany) return [];
+    const digits = (sufixo || "").replace(/\D/g, "");
+    if (digits.length !== 4) return [];
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "buscar_contatos_por_sufixo_telefone" as any,
+        { p_empresa_id: activeCompany.id, p_sufixo: digits }
+      );
+      if (error) throw error;
+      return (data || []) as ContatoSufixoMatch[];
+    } catch (e: any) {
+      console.error("Erro buscarContatosPorSufixo:", e);
+      toast({
+        title: "Erro ao buscar por sufixo",
+        description: e?.message || "Não foi possível consultar contatos.",
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
   // ===== Multi-prospecção ativa =====
   // Retorna prospecções da empresa onde data_inicio <= now() <= data_fim,
   // junto com o vínculo do telefone (contato existente ou não).
@@ -921,6 +955,7 @@ export const useRecepcaoData = () => {
     registrarCheckin,
     validarEvento,
     buscarContatoMultiAtivo,
+    buscarContatosPorSufixo,
     registrarCheckinMulti,
     refetch: fetchVisitas,
     // Filter/pagination
