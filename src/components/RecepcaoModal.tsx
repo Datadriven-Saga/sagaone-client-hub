@@ -10,13 +10,15 @@ import { UserPlus, Loader2, Search } from "lucide-react";
 interface RecepcaoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSearch: (telefone: string) => Promise<MultiCheckinData | null>;
+  onSearch: (input: string) => Promise<MultiCheckinData | null>;
   prospeccoes?: Prospeccao[]; // mantido por compat, não usado
 }
 
-// Máscara de telefone
+// Máscara de telefone — aplicada apenas quando o usuário digita 5+ dígitos.
+// Com 1-4 dígitos puros, mantemos sem máscara (busca por sufixo).
 const formatPhone = (value: string): string => {
   const digits = value.replace(/\D/g, '');
+  if (digits.length <= 4) return digits;
   if (digits.length <= 2) return digits;
   if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
   if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
@@ -42,9 +44,10 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const digitsOnly = telefone.replace(/\D/g, '');
-    if (digitsOnly.length < 10) {
+    // Aceita: 4 dígitos (sufixo) OU telefone completo (10-11)
+    if (digitsOnly.length !== 4 && digitsOnly.length < 10) {
       return;
     }
 
@@ -59,6 +62,11 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps)
     }
   };
 
+  const digits = telefone.replace(/\D/g, '');
+  const isValid = digits.length === 4 || digits.length >= 10;
+  const modoBusca: 'sufixo' | 'completo' | null =
+    digits.length === 4 ? 'sufixo' : digits.length >= 10 ? 'completo' : null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] sm:max-w-[500px] p-4 sm:p-6 rounded-2xl">
@@ -68,7 +76,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps)
             Registrar Visita
           </DialogTitle>
           <DialogDescription>
-            Informe o telefone — o sistema identifica automaticamente as prospecções ativas
+            Informe o telefone completo ou apenas os 4 últimos dígitos do celular
           </DialogDescription>
         </DialogHeader>
         
@@ -77,20 +85,22 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps)
             {/* Telefone */}
             <div className="space-y-2">
               <Label htmlFor="telefone" className="text-sm font-medium">
-                Telefone <span className="text-destructive">*</span>
+                Telefone ou 4 últimos dígitos <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="telefone"
                 value={telefone}
                 onChange={handleTelefoneChange}
-                placeholder="(00) 00000-0000"
+                placeholder="(00) 00000-0000 ou 1234"
                 className="h-11"
                 required
                 maxLength={16}
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                O sistema buscará o contato em todas as prospecções ativas no momento
+                {modoBusca === 'sufixo' && '🔎 Buscando pelos 4 últimos dígitos — escolha o contato na próxima tela.'}
+                {modoBusca === 'completo' && '🔎 Busca por telefone completo nas prospecções ativas.'}
+                {!modoBusca && 'Use o telefone completo ou apenas os 4 últimos dígitos do celular.'}
               </p>
             </div>
           </div>
@@ -107,7 +117,7 @@ export const RecepcaoModal = ({ isOpen, onClose, onSearch }: RecepcaoModalProps)
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || telefone.replace(/\D/g, '').length < 10}
+              disabled={loading || !isValid}
               className="w-full sm:w-auto order-1 sm:order-2 gap-2"
             >
               {loading ? (
