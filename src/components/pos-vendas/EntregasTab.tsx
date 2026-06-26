@@ -56,12 +56,9 @@ export function EntregasTab() {
       return;
     }
     try {
-      if (!ativo && row?.id) {
-        await desativar(row.id);
-        return;
-      }
-      // Sempre faz upsert externo refletindo o novo estado do toggle,
-      // mesmo que a linha ainda não tenha sido carregada (busca pode falhar).
+      // Toggle sempre dispara upsert-paty-entrega-template (ativar ou desativar),
+      // espelhando o comportamento desejado no n8n. Não usa o endpoint de desativar
+      // para evitar dependência de `id` numérico (que pode não existir se a busca falhar).
       await upsert({ slug, template_id: row?.template_id ?? "", ativo });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
