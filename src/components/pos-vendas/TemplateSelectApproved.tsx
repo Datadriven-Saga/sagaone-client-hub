@@ -18,7 +18,7 @@ export function TemplateSelectApproved({ templates, value, onChange, placeholder
 
   return (
     <div className="space-y-1">
-      <Select value={value ?? undefined} onValueChange={(v) => onChange(v)} disabled={disabled}>
+      <Select value={value ?? ""} onValueChange={(v) => onChange(v || null)} disabled={disabled}>
         <SelectTrigger>
           <SelectValue placeholder={placeholder ?? "Selecione um template aprovado"} />
         </SelectTrigger>
