@@ -11,7 +11,7 @@ type: feature
 
 ## Busca
 - **Telefone completo (10-11 dígitos)** → `buscarContatoMultiAtivo`: lista prospecções ativas (`data_inicio <= now <= data_fim + 3d`) e tenta match por variações (9º dígito, DDI 55).
-- **4 últimos dígitos** → `buscarContatosPorSufixo` chama RPC `buscar_contatos_por_sufixo_telefone(empresa_id, sufixo)` (índice `idx_contatos_tel_last4`). 1 resultado segue direto; N abrem `RecepcaoMultiContatoPicker`.
+- **4 últimos dígitos** → `buscarContatosPorSufixo` chama RPC `buscar_contatos_por_sufixo_telefone(empresa_id, sufixo)` (índice `idx_contatos_tel_last4`). Filtra apenas contatos com prospecção ativa (`data_inicio <= now <= data_fim + 3d`). 1 resultado segue direto; N abrem `RecepcaoMultiContatoPicker`.
 
 ## Confirmação (`registrarCheckinMulti`)
 - Pré-seleciona a prospecção com maior base.
