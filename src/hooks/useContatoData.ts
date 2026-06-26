@@ -5,6 +5,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizePhone } from '@/lib/utils';
 import { sendCrmEventEmail } from '@/lib/sendCrmEventEmail';
+import { setContatoStatus } from '@/lib/contatoStatusApi';
 
 export interface Contato {
   id: string;
@@ -1080,22 +1081,45 @@ export const useContatoData = () => {
     }
   };
 
-  // Atualizar status - COM WEBHOOK (apenas para campanhas WhatsApp)
-  const atualizarStatusContato = async (contatoId: string, novoStatus: Contato['status']) => {
+  // Atualizar status do contato.
+  //
+  // IMPORTANTE: roteia 100% via `setContatoStatus` (edge `prospeccao-status` →
+  // RPC `mutate_contato_status_atomic`). O RPC seta a flag
+  // `app.status_change_logged` e grava o log na MESMA transação, suprimindo o
+  // trigger defensivo `trg_log_contato_status` e evitando o log duplicado com
+  // observacao `auto-trigger (fallback de migracao)`.
+  //
+  // `skipWebhooks: true` porque o webhook `movimentacao_lead_kanban` é
+  // disparado pelo trigger PG `trg_dispatch_movimentacao_lead_webhook` no
+  // INSERT em `logs_movimentacao_contatos` — single source of truth.
+  //
+  // Callers do Kanban NÃO devem mais chamar `registrarMovimentacao` /
+  // `logStatusChange` em seguida — o log já é gravado dentro do RPC.
+  const atualizarStatusContato = async (
+    contatoId: string,
+    novoStatus: Contato['status'],
+    opts?: { prospeccaoId?: string | null; observacoes?: string }
+  ) => {
     try {
-      // Buscar contato atual para pegar o telefone
       const contatoAtual = contatos.find(c => c.id === contatoId);
-      
-      const { error } = await supabase
-        .from('contatos')
-        .update({ status: novoStatus })
-        .eq('id', contatoId);
 
-      if (error) throw error;
-      
+      const result = await setContatoStatus({
+        contatoId,
+        novoStatus,
+        prospeccaoId: opts?.prospeccaoId ?? null,
+        observacoes: opts?.observacoes,
+        skipWebhooks: true,
+      });
+
+      if (!result.ok) {
+        console.error('Erro ao atualizar status (setContatoStatus):', result.error);
+        return false;
+      }
+
       setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, status: novoStatus } : c));
-      
-      // Disparar webhook de status - a função verifica internamente se é campanha WhatsApp
+
+      // Webhook separado (campanha WhatsApp). Não tem relação com
+      // `movimentacao_lead_kanban`; permanece como estava.
       if (contatoAtual?.telefone) {
         dispararWebhookStatusAtendimento(contatoId, contatoAtual.telefone, novoStatus, 'mudanca_status');
       }
@@ -1103,7 +1127,6 @@ export const useContatoData = () => {
       return true;
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-
       return false;
     }
   };
