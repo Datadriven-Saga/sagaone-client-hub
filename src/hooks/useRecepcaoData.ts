@@ -665,6 +665,19 @@ export const useRecepcaoData = () => {
   ): Promise<MultiCheckinData | null> => {
     if (!activeCompany) return null;
 
+    // Guard: evita callers que passem sufixo de 4 dígitos como se fosse telefone completo.
+    // O fluxo de sufixo deve usar buscarContatosPorSufixo antes e chamar esta função
+    // com o telefone real do contato selecionado.
+    const digitsOnly = (telefone || "").replace(/\D/g, "");
+    if (digitsOnly.length < 10) {
+      toast({
+        title: "Telefone inválido",
+        description: "Use o telefone completo (10/11 dígitos) ou os 4 últimos dígitos para buscar.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     try {
       const nowIso = new Date().toISOString();
       // Janela de tolerância: inclui eventos encerrados nos últimos 3 dias
