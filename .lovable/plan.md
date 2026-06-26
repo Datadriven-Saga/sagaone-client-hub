@@ -1,41 +1,75 @@
-## Escopo reduzido
 
-Aplicar apenas as partes 3 e 4 do plano anterior. Sem alterar trigger PG nem criar tabela de idempotência por enquanto.
+## Diagnóstico do lead D7F0D57A
 
-## 1. Remover callers explícitos remanescentes de `movimentacao_lead_kanban`
+**Não foi o usuário** convidando/confirmando 2x. É **duplicação no sistema**, gerada pelo próprio Kanban.
 
-### `src/pages/Prospeccao.tsx`
-Remover os dois `supabase.functions.invoke('trigger-webhook', { gatilho: 'movimentacao_lead_kanban', ... })`:
-- `executeKanbanStatusChange` (~linha 1218-1232).
-- Fluxo principal de drag-and-drop do Kanban (~linha 1503-1527), incluindo o `whResult`/log/`fetchKanbanColumns` que dependiam do retorno.
+### Evidência (logs_movimentacao_contatos)
 
-Substituir por comentário explicando que o dispatch agora é server-side via trigger PG.
+Cada movimentação aparece como **par**, mesmo `usuario_id`, mesma transição, com ~180ms de diferença:
 
-Efeito colateral conhecido: a reconciliação silenciosa do kanban para capturar `codigo_proposta` deixa de ser disparada nesse retorno. Como o `codigo_proposta` é gravado pelo backend ao processar o webhook do trigger PG, ele continuará aparecendo no próximo refresh natural do kanban. Se notarmos atraso visível, tratamos em iteração separada (ex.: realtime em `contatos.codigo_proposta`).
+| ts | status | observacoes |
+|---|---|---|
+| 17:59:19.676 | Em Espera → Confirmado | `auto-trigger (fallback de migracao)` |
+| 17:59:19.859 | Em Espera → Confirmado | `NULL` |
+| 17:59:20.906 | Confirmado → Convidado | `auto-trigger (fallback de migracao)` |
+| 17:59:21.088 | Confirmado → Convidado | `NULL` |
 
-### `supabase/functions/prospeccao-status/index.ts`
-Remover o bloco "webhook secundário (movimentação kanban)" (~linha 452-468). O `UPDATE contatos.status` desta edge já insere em `logs_movimentacao_contatos`, e o trigger PG cuida do dispatch.
+E os mesmos pares aparecem nas mudanças de 7 dias atrás (Novo→Atribuído, Atribuído→Em Espera) — sempre que o usuário move pelo Kanban.
 
-Manter intacto:
-- webhook principal `alteracao_status_contato`.
-- extração de `codigo_proposta` quando `webhook_kind = 'criacao_lead'`.
+### Causa raiz
 
-## 2. Atualizar documentação
+`Prospeccao.tsx → executeKanbanStatusChange` faz **duas** escritas para cada drag-and-drop:
 
-### `docs/fluxo-checkin-recepcao.md`
-- Substituir a linha 45 ("Dispara webhook `movimentacao_lead_kanban` (fire-and-forget no FE)") por: dispatch ocorre exclusivamente via trigger PG após o `INSERT` em `logs_movimentacao_contatos`.
-- Reforçar na seção 6 que Kanban (`Prospeccao.tsx`) e `prospeccao-status` também não invocam mais a edge para esse gatilho.
+1. `atualizarStatusContato` (em `useContatoData.ts:1090`) → `supabase.from('contatos').update({ status })` direto.
+   - Dispara o trigger defensivo `trg_log_contato_status` (migração `20260519195455`), que **não** vê a flag `app.status_change_logged` (a flag só é setada pelo RPC `mutate_contato_status_atomic`) → **INSERT 1** com obs `auto-trigger (fallback de migracao)`.
+2. `logStatusChange` → `registrarMovimentacao` (`useProspeccaoLogs.ts`) → INSERT direto em `logs_movimentacao_contatos` → **INSERT 2** com obs `NULL`.
 
-## 3. Validação
+Cada INSERT em `logs_movimentacao_contatos` dispara `trg_dispatch_movimentacao_lead_webhook` (única fonte de sync MobiGestor, conforme memória `movimentacao-lead-single-source`). Por isso o webhook saiu 2x — exatamente o sintoma reportado.
 
-- Mover lead no Kanban → 1 execução em `trigger-webhook`.
-- Check-in via FAB/QR → 1 execução.
-- `PUT /prospeccao-status` (alteração de status via edge) → 1 execução de `movimentacao_lead_kanban` (vinda do trigger PG) + 1 execução de `alteracao_status_contato` (já era assim).
-- Conferir em `net._http_response` que não há mais dois dispatches no mesmo segundo para o mesmo `contato_id`.
+O `contatoStatusApi.ts` já documenta que "`supabase.from('contatos').update({ status })` é proibido — use sempre `setContatoStatus`", mas o Kanban nunca foi migrado (era um dos PRs pendentes "1-4" mencionados no comentário do arquivo).
 
-## O que não vou alterar
+---
 
-- Trigger `trg_dispatch_movimentacao_lead_webhook` permanece como está.
-- Não crio tabela de idempotência ainda.
-- Não mexo no payload nem no `confirm-presence`.
-- Não mexo no `prospeccao-anotacao` (gatilho diferente).
+## Plano de correção
+
+### Passo 1 — Migrar `executeKanbanStatusChange` para `setContatoStatus`
+
+Em `src/pages/Prospeccao.tsx`:
+
+- Substituir `atualizarStatusContato(itemId, novoStatusDb)` por `setContatoStatus({ contatoId, novoStatus, prospeccaoId, observacoes, skipWebhooks: true })`.
+- `skipWebhooks: true` porque o webhook `movimentacao_lead_kanban` é disparado pelo trigger PG após o INSERT do log; não queremos o webhook `alteracao_status_contato` do `prospeccao-status`.
+- Resolver `prospeccaoId` igual ao `logStatusChange` faz hoje (filtro ativo > vínculos do lead > fallback).
+- **Remover** a chamada `logStatusChange(itemId, fromStatus, toStatus)` — o próprio RPC `mutate_contato_status_atomic` já grava o log (com a flag setada, suprimindo o fallback).
+- Atualizar localmente o `setContatos` (hoje feito dentro de `atualizarStatusContato`) para preservar a UX otimista.
+
+### Passo 2 — Aplicar mesma migração nos outros call sites do Kanban
+
+Mesma substituição (RPC atômico via `setContatoStatus`, sem `logStatusChange` redundante) em:
+
+- `Prospeccao.tsx:1394` (Venda quick-action)
+- `Prospeccao.tsx:1452` (handleStatusChange genérico)
+- `Prospeccao.tsx:2227, 2240, 2308, 2320, 2460` (descartes/atribuições/convites/vendas)
+- `Prospeccao.tsx:3560, 3607, 3634` (Descartado/Convidado pós-modais)
+
+Em cada caso, conferir se o observacoes hoje passado para `logStatusChange` precisa virar `observacoes` do `setContatoStatus`.
+
+### Passo 3 — Marcar `atualizarStatusContato` como deprecated
+
+Em `src/hooks/useContatoData.ts`, manter a função para outros call sites por enquanto, mas adicionar comentário deprecando e apontando para `setContatoStatus`. Não remover ainda — fora do escopo desta correção.
+
+### Passo 4 — Validação manual
+
+1. Mover um lead de teste no Kanban e verificar em `logs_movimentacao_contatos`:
+   - **1 linha** por movimentação, com `observacoes` real (não `auto-trigger ...`).
+2. Verificar logs do `trigger-webhook` (Edge): **1 invocação** por movimentação, não 2.
+3. Conferir que o status do contato e o histórico de Anotações/Histórico no modal continuam corretos.
+
+### O que NÃO alterar
+
+- Trigger `trg_log_contato_status` e função `log_contato_status_change` — continuam como rede de segurança para call sites legados (recepção, modais, etc.) que ainda fazem `.update({ status })` direto.
+- Função `mutate_contato_status_atomic`, edge `prospeccao-status`, trigger `trg_dispatch_movimentacao_lead_webhook` — todas já estão corretas; o problema é só o caller no Kanban.
+- `useContatoData.atualizarStatusContato` — manter funcionando para evitar regressão em telas que ainda dependem dela.
+
+### Resposta direta à pergunta
+
+Não, o usuário não confirmou/convidou 2x no mesmo segundo. Cada ação do Kanban gerava **dois INSERTs** em `logs_movimentacao_contatos` (um do trigger defensivo, um do `registrarMovimentacao` explícito), e como o webhook MobiGestor é disparado por INSERT nessa tabela, ele saiu 2x. A correção é migrar o Kanban para o RPC atômico que já existe (`mutate_contato_status_atomic`, via `setContatoStatus`).
