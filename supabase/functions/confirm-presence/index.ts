@@ -2,7 +2,6 @@
 // Endpoint público (sem JWT) que confirma presença do convidado.
 // Atribui a ação ao vendedor que enviou o link (confirmation_sent_by).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { dispararMovimentacaoLeadKanban } from '../_shared/movimentacao-lead-webhook.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -158,38 +157,11 @@ Deno.serve(async (req) => {
     })
   }
 
-  // 9. Webhook de movimentação (best-effort, chamada in-process via helper compartilhado).
-  // Evita o gateway/JWT: este endpoint é público e não tem Authorization de usuário.
-  // Atribuição preservada via usuario_id = confirmation_sent_by (necessário para
-  // MobiGestor e para o guard PRI_IA_USER_ID dentro do helper).
-  try {
-    const result = await dispararMovimentacaoLeadKanban(supabase, {
-      contato_id: contato.id,
-      empresa_id: contato.empresa_id,
-      prospeccao_id: prospeccaoId ?? '',
-      status_anterior: statusAnterior,
-      status_novo: 'Confirmado',
-      origem: 'link_confirmacao',
-      usuario_id: sentBy,
-      // Fallback: quando confirmation_sent_by é nulo (token gerado por default
-      // sem passar pelo fluxo "Enviar convite"), usa o responsável do contato
-      // para preencher email_vendedor no payload do MobiGestor.
-      email_vendedor: (contato as any).responsavel_email ?? null,
-    })
-    console.log('[confirm-presence] movimentacao-lead result', {
-      contato_id: contato.id,
-      empresa_id: contato.empresa_id,
-      prospeccao_id: prospeccaoId,
-      ...result,
-    })
-  } catch (e) {
-    console.error('[confirm-presence] movimentacao-lead exception', {
-      contato_id: contato.id,
-      empresa_id: contato.empresa_id,
-      prospeccao_id: prospeccaoId,
-      error: e instanceof Error ? e.message : String(e),
-    })
-  }
+  // 9. Webhook de movimentação: disparado server-side pelo trigger PG
+  // `trg_dispatch_movimentacao_lead_webhook` (INSERT no passo 8 em
+  // logs_movimentacao_contatos). O fallback de email_vendedor via
+  // contatos.responsavel_email é resolvido dentro do trigger e propagado para
+  // o helper dispararMovimentacaoLeadKanban.
 
   return json({
     success: true,
