@@ -3558,20 +3558,15 @@ showAllEvents: true
         onConfirm={async (motivoId, justificativa) => {
           try {
             // Atualizar status do contato para Descartado
-            await atualizarStatusContato(descarteModal.contatoId, 'Descartado');
-            
-            // Registrar movimentação com motivo e justificativa
             const motivoDescricao = await supabase
               .from('motivos_insucesso')
               .select('descricao')
               .eq('id', motivoId)
               .single();
-            logStatusChange(
-              descarteModal.contatoId,
-              descarteModal.fromStatus,
-              'descartados',
-              `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`
-            );
+            await atualizarStatusContato(descarteModal.contatoId, 'Descartado', {
+              prospeccaoId: resolveProspeccaoIdForLead(descarteModal.contatoId),
+              observacoes: `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`,
+            });
             
             toast({
               title: "Lead Descartado",
