@@ -2222,7 +2222,10 @@ showAllEvents: true
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
       
       if (novoStatusDb) {
-        await atualizarStatusContato(contatoId, novoStatusDb);
+        await atualizarStatusContato(contatoId, novoStatusDb, {
+          prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+          observacoes: `Produto vendido: ${produtoVendidoId}`,
+        });
       }
 
       // Auto-atribuir responsável quando sair da coluna "novos"
