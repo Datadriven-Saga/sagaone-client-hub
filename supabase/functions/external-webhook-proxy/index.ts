@@ -41,6 +41,9 @@ const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }>
   'desativa-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-paty-pecas-template', method: 'POST' },
   'busca-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-prazo', method: 'GET' },
   'upsert-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-prazo', method: 'POST' },
+  'busca-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-entrega-template', method: 'POST' },
+  'upsert-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-entrega-template', method: 'POST' },
+  'desativa-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-paty-entrega-template', method: 'POST' },
 };
 
 // Domínios permitidos para webhook genérico (passthrough)
