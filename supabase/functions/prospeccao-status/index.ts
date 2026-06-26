@@ -449,23 +449,9 @@ serve(async (req) => {
           }
         }
 
-        // Webhook secundário (movimentação kanban) — só humanos; não afeta webhook_status principal
-        if (!isAdminToken) {
-          invokeWebhookWithTimeout(
-            {
-              gatilho: 'movimentacao_lead_kanban',
-              dados: {
-                contato_id: contato.id,
-                empresa_id: contato.empresa_id,
-                prospeccao_id: prospeccaoIdFinal,
-                status_anterior: statusAnterior,
-                status_novo: statusNormalizado,
-                usuario_id: userId,
-              },
-            },
-            WEBHOOK_TIMEOUT_MS,
-          ).catch((e) => console.error('Webhook movimentação falhou:', e));
-        }
+        // Webhook secundário `movimentacao_lead_kanban` é despachado
+        // exclusivamente pelo trigger PG após o INSERT em
+        // `logs_movimentacao_contatos`. Não invocar aqui para evitar duplicação.
       }
 
       return new Response(

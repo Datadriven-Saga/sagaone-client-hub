@@ -1210,26 +1210,8 @@ showAllEvents: true
       logStatusChange(itemId, fromStatus, toStatus);
       if (isLimitedUser) contarLeadsPendentes();
 
-      const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
-      const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
-      const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0
-        ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
-        : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
-      if (prospeccaoIdParaWebhook && activeCompany?.id) {
-        await supabase.functions.invoke('trigger-webhook', {
-          body: {
-            gatilho: 'movimentacao_lead_kanban',
-            dados: {
-              contato_id: itemId,
-              empresa_id: activeCompany.id,
-              prospeccao_id: prospeccaoIdParaWebhook,
-              status_anterior: kanbanStatusMap[fromStatus as keyof typeof kanbanStatusMap] || fromStatus,
-              status_novo: kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap] || toStatus,
-              usuario_id: user?.id,
-            },
-          },
-        });
-      }
+      // Webhook `movimentacao_lead_kanban` é despachado exclusivamente pelo
+      // trigger PG após o INSERT em `logs_movimentacao_contatos`.
     } catch (err) {
       console.error('executeKanbanStatusChange falhou:', err);
     }
@@ -1486,48 +1468,8 @@ showAllEvents: true
         contarLeadsPendentes();
       }
 
-      // Webhook de movimentação — AGUARDADO (retorna codigo_proposta do MobiGestor
-      // que precisa ser persistido). O card já está visível na coluna destino via
-      // optimistic update do DnD, então o await aqui não trava a UI; apenas a
-      // resolução do drop é adiada. Depois do retorno, reconciliamos o kanban
-      // silenciosamente para refletir o codigo_proposta gravado.
-      try {
-        const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
-        const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
-        const prospeccaoIdParaWebhook = (prospeccaoIdsFiltrados.length > 0
-          ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
-          : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
-
-        console.log('🔄 Webhook movimentação - prospeccaoId:', prospeccaoIdParaWebhook, 'empresa:', activeCompany?.id, 'contato:', itemId);
-
-        if (prospeccaoIdParaWebhook && activeCompany?.id) {
-          const { data: whResult, error: whError } = await supabase.functions.invoke('trigger-webhook', {
-            body: {
-              gatilho: 'movimentacao_lead_kanban',
-              dados: {
-                contato_id: itemId,
-                empresa_id: activeCompany.id,
-                prospeccao_id: prospeccaoIdParaWebhook,
-                status_anterior: kanbanStatusMap[fromStatus as keyof typeof kanbanStatusMap] || fromStatus,
-                status_novo: kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap] || toStatus,
-                usuario_id: user?.id
-              }
-            }
-          });
-          if (whError) {
-            console.error('❌ Webhook movimentação erro:', whError);
-          } else {
-            console.log('✅ Webhook movimentação resultado:', whResult);
-            // Reconciliação silenciosa só do kanban para capturar codigo_proposta
-            // gravado pelo backend após o retorno do MobiGestor.
-            fetchKanbanColumns(getKanbanFilters(), { silent: true });
-          }
-        } else {
-          console.warn('⚠️ Webhook movimentação não disparado - prospeccaoId:', prospeccaoIdParaWebhook, 'empresaId:', activeCompany?.id);
-        }
-      } catch (err) {
-        console.error('Webhook movimentação falhou:', err);
-      }
+      // Webhook `movimentacao_lead_kanban` é despachado exclusivamente pelo
+      // trigger PG após o INSERT em `logs_movimentacao_contatos`.
 
       return true;
     } catch (err) {
