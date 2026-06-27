@@ -782,7 +782,8 @@ export const useRecepcaoData = () => {
   const registrarCheckinMulti = async (
     data: MultiCheckinData,
     selectedProspeccaoIds?: string[],
-    nomeVisitanteNovo?: string
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ): Promise<{ ok: boolean; total: number; criados: number; pulados: number }> => {
     if (!activeCompany) return { ok: false, total: 0, criados: 0, pulados: 0 };
 
