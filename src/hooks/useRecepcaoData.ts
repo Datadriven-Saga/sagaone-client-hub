@@ -784,6 +784,11 @@ export const useRecepcaoData = () => {
     selectedProspeccaoIds?: string[],
     nomeVisitanteNovo?: string,
     vendedorAtendimento?: VendedorAtendimento | null
+  ): ReturnType<typeof Promise.resolve> & any => null as any;
+    data: MultiCheckinData,
+    selectedProspeccaoIds?: string[],
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ): Promise<{ ok: boolean; total: number; criados: number; pulados: number }> => {
     if (!activeCompany) return { ok: false, total: 0, criados: 0, pulados: 0 };
 
