@@ -779,6 +779,32 @@ export const useRecepcaoData = () => {
   // - selectedProspeccaoIds: subconjunto opcional (usado quando recepcionista marca/desmarca).
   //   Se omitido, registra em TODAS as prospecções onde o contato já existe (modo "só onde existe").
   // - nomeVisitanteNovo: usado apenas para criar contatos quando o visitante é 100% novo.
+  // - vendedorAtendimento: vendedor que irá atender o visitante (opcional). Persistido
+  //   nas colunas vendedor_atendimento_nome/email de logs_movimentacao_contatos, de onde
+  //   o trigger PG inclui no payload do webhook movimentacao_lead_kanban.
+
+  // Lista vendedores ativos da empresa para o combobox do modal de check-in.
+  const fetchVendedoresEmpresa = async (): Promise<VendedorAtendimento[]> => {
+    if (!activeCompany) return [];
+    try {
+      const { data, error } = await supabase.rpc("get_vendedores_atendimento", {
+        p_empresa_id: activeCompany.id,
+      });
+      if (error) {
+        console.error("Erro ao buscar vendedores:", error);
+        return [];
+      }
+      return (data || []).map((v: any) => ({
+        id: v.id,
+        nome: v.nome ?? "",
+        email: v.email && String(v.email).trim() !== "" ? String(v.email) : null,
+      }));
+    } catch (e) {
+      console.error("Erro ao buscar vendedores:", e);
+      return [];
+    }
+  };
+
   const registrarCheckinMulti = async (
     data: MultiCheckinData,
     selectedProspeccaoIds?: string[],
