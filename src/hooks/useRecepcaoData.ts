@@ -79,6 +79,13 @@ export interface ContatoSufixoMatch {
   status: string | null;
 }
 
+// === Vendedor que irá atender (preenchido pela recepção no check-in) ===
+export interface VendedorAtendimento {
+  id?: string | null;
+  nome: string;
+  email: string | null;
+}
+
 // Usa a função centralizada de phoneUtils
 const normalizePhone = (phone: string): string => {
   return extractPhoneDigits(phone);
@@ -772,10 +779,37 @@ export const useRecepcaoData = () => {
   // - selectedProspeccaoIds: subconjunto opcional (usado quando recepcionista marca/desmarca).
   //   Se omitido, registra em TODAS as prospecções onde o contato já existe (modo "só onde existe").
   // - nomeVisitanteNovo: usado apenas para criar contatos quando o visitante é 100% novo.
+  // - vendedorAtendimento: vendedor que irá atender o visitante (opcional). Persistido
+  //   nas colunas vendedor_atendimento_nome/email de logs_movimentacao_contatos, de onde
+  //   o trigger PG inclui no payload do webhook movimentacao_lead_kanban.
+
+  // Lista vendedores ativos da empresa para o combobox do modal de check-in.
+  const fetchVendedoresEmpresa = async (): Promise<VendedorAtendimento[]> => {
+    if (!activeCompany) return [];
+    try {
+      const { data, error } = await supabase.rpc("get_vendedores_atendimento", {
+        p_empresa_id: activeCompany.id,
+      });
+      if (error) {
+        console.error("Erro ao buscar vendedores:", error);
+        return [];
+      }
+      return (data || []).map((v: any) => ({
+        id: v.id,
+        nome: v.nome ?? "",
+        email: v.email && String(v.email).trim() !== "" ? String(v.email) : null,
+      }));
+    } catch (e) {
+      console.error("Erro ao buscar vendedores:", e);
+      return [];
+    }
+  };
+
   const registrarCheckinMulti = async (
     data: MultiCheckinData,
     selectedProspeccaoIds?: string[],
-    nomeVisitanteNovo?: string
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ): Promise<{ ok: boolean; total: number; criados: number; pulados: number }> => {
     if (!activeCompany) return { ok: false, total: 0, criados: 0, pulados: 0 };
 
@@ -868,6 +902,8 @@ export const useRecepcaoData = () => {
           status_novo: "Check-in",
           usuario_id: user?.id || null,
           observacoes: `Check-in via Recepção - Evento: ${match.prospeccao.titulo}`,
+          vendedor_atendimento_nome:  vendedorAtendimento?.nome?.trim() || null,
+          vendedor_atendimento_email: vendedorAtendimento?.email?.trim() || null,
         }]);
 
         await supabase.from("recepcao_visitas").insert([{
@@ -922,6 +958,7 @@ export const useRecepcaoData = () => {
     buscarContatoMultiAtivo,
     buscarContatosPorSufixo,
     registrarCheckinMulti,
+    fetchVendedoresEmpresa,
     refetch: fetchVisitas,
     // Filter/pagination
     recepcaoEventoFilter,

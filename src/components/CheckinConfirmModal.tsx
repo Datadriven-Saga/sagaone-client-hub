@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, User, Phone, Calendar, Loader2, Sparkles } from "lucide-react";
-import type { MultiCheckinData } from "@/hooks/useRecepcaoData";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { CheckCircle2, User, Phone, Calendar, Loader2, Sparkles, ChevronsUpDown, Check, UserCheck } from "lucide-react";
+import type { MultiCheckinData, VendedorAtendimento } from "@/hooks/useRecepcaoData";
+import { cn } from "@/lib/utils";
 
 interface CheckinConfirmModalProps {
   isOpen: boolean;
@@ -23,8 +26,11 @@ interface CheckinConfirmModalProps {
   multiData?: MultiCheckinData | null;
   onConfirmMulti?: (
     selectedProspeccaoIds: string[],
-    nomeVisitanteNovo?: string
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ) => Promise<void>;
+  // Lista de vendedores da empresa (FAB multi). Opcional — quando ausente, esconde o campo.
+  vendedores?: VendedorAtendimento[];
 }
 
 export function CheckinConfirmModal({ 
@@ -35,9 +41,13 @@ export function CheckinConfirmModal({
   loading = false,
   multiData,
   onConfirmMulti,
+  vendedores,
 }: CheckinConfirmModalProps) {
   const [nomeVisitante, setNomeVisitante] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [vendedorNome, setVendedorNome] = useState("");
+  const [vendedorEmail, setVendedorEmail] = useState<string | null>(null);
+  const [vendedorPopoverOpen, setVendedorPopoverOpen] = useState(false);
 
   const isMulti = !!multiData;
 
@@ -57,6 +67,15 @@ export function CheckinConfirmModal({
       setNomeVisitante(placeholder ? "" : data.nome);
     }
   }, [isOpen, data?.isNewContact, data?.nome, isMulti, multiData]);
+
+  // Reset vendedor sempre que o modal abre/fecha
+  useEffect(() => {
+    if (!isOpen) {
+      setVendedorNome("");
+      setVendedorEmail(null);
+      setVendedorPopoverOpen(false);
+    }
+  }, [isOpen]);
 
   // ===== Seleção default de prospecções =====
   useEffect(() => {
@@ -107,7 +126,11 @@ export function CheckinConfirmModal({
 
   const handleConfirmClick = () => {
     if (isMulti) {
-      onConfirmMulti?.(selectedIds, hasSelectedNew ? nomeTrim : undefined);
+      const nomeVendedorTrim = vendedorNome.trim();
+      const vendedorPayload: VendedorAtendimento | null = nomeVendedorTrim
+        ? { nome: nomeVendedorTrim, email: vendedorEmail }
+        : null;
+      onConfirmMulti?.(selectedIds, hasSelectedNew ? nomeTrim : undefined, vendedorPayload);
     } else if (data) {
       onConfirm?.(data.isNewContact ? nomeTrim : undefined);
     }
@@ -213,6 +236,89 @@ export function CheckinConfirmModal({
                   );
                 })}
               </div>
+            </div>
+
+            {/* Vendedor que irá atender (opcional) */}
+            <div className="space-y-2">
+              <Label htmlFor="vendedor-atendimento" className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4" /> Vendedor que irá atender
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Popover open={vendedorPopoverOpen} onOpenChange={setVendedorPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="vendedor-atendimento"
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={vendedorPopoverOpen}
+                    disabled={loading}
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {vendedorNome
+                        ? vendedorNome + (vendedorEmail ? ` — ${vendedorEmail}` : "")
+                        : "Selecionar ou digitar nome do vendedor"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[60]" align="start">
+                  <Command shouldFilter={true}>
+                    <CommandInput
+                      placeholder="Buscar vendedor ou digitar nome..."
+                      value={vendedorNome}
+                      onValueChange={(v) => {
+                        setVendedorNome(v);
+                        // Quando o usuário edita o texto livremente, perdemos o email
+                        // amarrado a um vendedor da lista (vira texto livre).
+                        setVendedorEmail(null);
+                      }}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {vendedorNome.trim()
+                          ? `Sem correspondência — usar "${vendedorNome.trim()}" como texto livre.`
+                          : "Nenhum vendedor cadastrado."}
+                      </CommandEmpty>
+                      {(vendedores ?? []).length > 0 && (
+                        <CommandGroup heading="Vendedores da empresa">
+                          {(vendedores ?? []).map((v) => (
+                            <CommandItem
+                              key={(v.id ?? v.nome) + (v.email ?? "")}
+                              value={`${v.nome} ${v.email ?? ""}`}
+                              onSelect={() => {
+                                setVendedorNome(v.nome);
+                                setVendedorEmail(v.email ?? null);
+                                setVendedorPopoverOpen(false);
+                              }}
+                              className="flex items-center gap-2"
+                            >
+                              <Check
+                                className={cn(
+                                  "h-4 w-4",
+                                  vendedorNome === v.nome ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate">{v.nome}</span>
+                                {v.email && (
+                                  <span className="text-xs text-muted-foreground truncate">{v.email}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {vendedorNome.trim() && !vendedorEmail && (
+                <p className="text-xs text-muted-foreground">
+                  Vendedor não está na lista — será enviado apenas o nome.
+                </p>
+              )}
             </div>
           </div>
         ) : (

@@ -3229,6 +3229,8 @@ export type Database = {
           status_anterior: string | null
           status_novo: string
           usuario_id: string | null
+          vendedor_atendimento_email: string | null
+          vendedor_atendimento_nome: string | null
         }
         Insert: {
           contato_id: string
@@ -3240,6 +3242,8 @@ export type Database = {
           status_anterior?: string | null
           status_novo: string
           usuario_id?: string | null
+          vendedor_atendimento_email?: string | null
+          vendedor_atendimento_nome?: string | null
         }
         Update: {
           contato_id?: string
@@ -3251,6 +3255,8 @@ export type Database = {
           status_anterior?: string | null
           status_novo?: string
           usuario_id?: string | null
+          vendedor_atendimento_email?: string | null
+          vendedor_atendimento_nome?: string | null
         }
         Relationships: []
       }
@@ -7117,6 +7123,14 @@ export type Database = {
           status: string
           tipo_acesso: string
           total_count: number
+        }[]
+      }
+      get_vendedores_atendimento: {
+        Args: { p_empresa_id: string }
+        Returns: {
+          email: string
+          id: string
+          nome: string
         }[]
       }
       heartbeat_import_processing: {

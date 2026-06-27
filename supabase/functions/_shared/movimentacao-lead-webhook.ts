@@ -21,6 +21,11 @@ export interface MovimentacaoLeadDados {
   // não seja possível resolver pelo usuario_id (ex.: confirmação via link
   // público onde confirmation_sent_by é nulo).
   email_vendedor?: string | null;
+  // Vendedor que irá atender o visitante (preenchido pela recepção no check-in).
+  // Quando informado, viaja no payload do MobiGestor em campos próprios — não
+  // substitui `email_vendedor` (que representa quem operou o sistema).
+  vendedor_atendimento_nome?: string | null;
+  vendedor_atendimento_email?: string | null;
 }
 
 export interface MovimentacaoLeadResult {
@@ -193,6 +198,14 @@ export async function dispararMovimentacaoLeadKanban(
     codigo_proposta: contatoData.codigo_proposta ?? null,
     email_vendedor: emailVendedor,
   };
+
+  // Anexa vendedor que irá atender quando vier do log de movimentação
+  if (dados.vendedor_atendimento_nome && String(dados.vendedor_atendimento_nome).trim() !== "") {
+    payload.vendedor_atendimento_nome = String(dados.vendedor_atendimento_nome).trim();
+    payload.vendedor_atendimento_email = dados.vendedor_atendimento_email
+      ? String(dados.vendedor_atendimento_email)
+      : "";
+  }
 
   console.log("[movimentacao-lead] 📤 dispatching", JSON.stringify(payload));
 
