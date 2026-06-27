@@ -876,6 +876,8 @@ export const useRecepcaoData = () => {
           status_novo: "Check-in",
           usuario_id: user?.id || null,
           observacoes: `Check-in via Recepção - Evento: ${match.prospeccao.titulo}`,
+          vendedor_atendimento_nome:  vendedorAtendimento?.nome?.trim() || null,
+          vendedor_atendimento_email: vendedorAtendimento?.email?.trim() || null,
         }]);
 
         await supabase.from("recepcao_visitas").insert([{
