@@ -1,43 +1,81 @@
 ## Objetivo
 
-Atualizar `/mnt/documents/status-ingest-base-clientes.md` (v2) refletindo o reprocessamento retroativo executado hoje (27/jun/2026), que trouxe o pool para ~1 ano completo de leads.
+Adicionar campo opcional **"Vendedor que irá atender"** no modal de check-in da Recepção (FAB global / multi-prospecção). Quando preenchido, o nome (e e-mail, se houver correspondência) viaja no webhook `movimentacao_lead_kanban` em um novo par de campos, sem alterar o `email_vendedor` atual (que representa quem operou o sistema).
 
-## Dados novos coletados
+## Fluxo de preenchimento
 
-**Saúde geral**
-- Jobs totais: **250** (77 → 250) — **246 done** / **4 error** / 0 processing / 0 pending.
-- Recebidos: **1.102.450** | Processados: **1.102.430** (≈100%) | Órfãos acumulados: **492**.
-- Pool atual: **853.494** linhas — **853.079 ativo** / **415 órfão**.
-- Janela coberta: **27/jun/2025 → 27/jun/2026** (1 ano completo, conforme solicitado).
+- Combobox com busca dos vendedores da empresa ativa (profiles vinculados via `user_empresas` da empresa atual, filtrando perfis comerciais).
+- Se a recepcionista achar pelo nome → seleciona → guardamos `nome` + `email`.
+- Se digitar um nome que não bate com ninguém → mantém como texto livre → guardamos só `nome`, `email = null`.
+- Campo é **opcional**: se vazio, nada novo vai no payload (compatibilidade total).
 
-**Pico de reprocessamento (27/jun/2026)**
-- 170 jobs no dia, **837.387 leads** processados, apenas 1 órfão.
-- Demais dias da última semana mantêm a cadência normal (1 job/dia, 1-6 leads).
+## Campos no webhook
 
-**Distribuição mensal (pool_clientes_externos por `criado_em_origem`)**
-- jun/25: 7.123 (parcial, início da janela)
-- jul/25: 63.332 · ago/25: 58.188 · set/25: 61.167 · out/25: 66.932 · nov/25: 72.828 · dez/25: 69.924
-- jan/26: 87.102 · fev/26: 76.476 · mar/26: 95.380 · abr/26: 81.381 · mai/26: 73.347 · jun/26: 40.314 (parcial)
+Adicionar ao payload de `movimentacao_lead_kanban` (sem mexer em `email_vendedor`):
 
-**Erros históricos**
-- Mantidos os 4 jobs `error` de 29/abr/2026 (constraint `ON CONFLICT` antiga). Nenhum erro novo desde então, inclusive durante o backfill massivo de hoje.
+```json
+{
+  "vendedor_atendimento_nome":  "Fulano da Silva",
+  "vendedor_atendimento_email": "fulano@empresa.com" // ou ""
+}
+```
 
-**Órfãos**
-- Total caiu de 414 → **415** (estável). Concentração inalterada:
-  - `72341` → 370 · `59925` → 44 · `18399` → 1 (novo, 1 lead).
-- Ação pendente continua: cadastrar/ajustar `empresas.crm_id` nessas lojas.
+Quando o campo do modal não for preenchido, ambos saem como `null`/ausentes — não regredir nenhum payload existente.
 
-## O que muda no documento
+## Onde persistir (para o trigger PG ler)
 
-1. Substituir números de saúde, volume, pool e cadência pelos novos.
-2. Adicionar seção **"Backfill 27/jun/2026"** descrevendo o reprocessamento (170 jobs, 837k leads, 0 erros).
-3. Atualizar a tabela de distribuição mensal mostrando que a meta de **1 ano de histórico** foi atingida.
-4. Atualizar lista de órfãos (incluir loja `18399`).
-5. Manter seção de riscos (sem alerta de ausência, sem notificação de órfãos, rotação do `DATALAKE_INGEST_TOKEN`).
-6. Acrescentar nota: pipeline aguentou 170 jobs/~837k leads no mesmo dia sem erro nem fila — capacidade validada.
+O webhook `movimentacao_lead_kanban` hoje é disparado **exclusivamente** pelo trigger `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos`. Para o trigger conseguir incluir os novos campos, precisamos persistir o vendedor na própria linha do log.
 
-## Entregável
+- Migration: adicionar a `public.logs_movimentacao_contatos`
+  - `vendedor_atendimento_nome  text null`
+  - `vendedor_atendimento_email text null`
+- Atualizar o trigger `trg_dispatch_movimentacao_lead_webhook` para anexar esses dois campos ao body que vai para `trigger-webhook` quando não forem nulos.
+- Atualizar `supabase/functions/_shared/movimentacao-lead-webhook.ts` para encaminhar `vendedor_atendimento_nome` / `vendedor_atendimento_email` ao endpoint externo (passa-through, sem afetar o resolver de `email_vendedor`).
+- `recepcao_visitas`: nenhuma mudança de schema. (Posso espelhar o nome lá se você quiser histórico visível na listagem — confirmar depois.)
 
-- Novo arquivo versionado: `/mnt/documents/status-ingest-base-clientes_v2.md` (não sobrescreve o v1).
-- Exposto via `<presentation-artifact>`.
-- Nenhuma alteração de código.
+## Mudanças no frontend
+
+1. `src/components/CheckinConfirmModal.tsx`
+   - Novo bloco no fluxo multi (`isMulti`): label "Vendedor que irá atender (opcional)" + Combobox (shadcn `Command` + `Popover`) com busca por nome.
+   - Estado local `vendedorAtendimento: { nome: string; email: string | null } | null`.
+   - Permite digitar nome fora da lista → vira `{ nome, email: null }`.
+   - Passa o objeto adiante via `onConfirmMulti(selectedIds, nomeVisitanteNovo, vendedorAtendimento)`.
+
+2. `src/hooks/useRecepcaoData.ts`
+   - Nova função `fetchVendedoresEmpresa()` retornando `[{ id, nome, email }]` da empresa ativa (join `user_empresas` + `profiles`, restrito a cargos comerciais — ex.: Vendedor, Gerente Comercial).
+   - `registrarCheckinMulti(...)` ganha 4º arg `vendedor?: { nome: string; email: string | null }` e grava `vendedor_atendimento_nome/email` em cada `INSERT logs_movimentacao_contatos`.
+
+3. `src/components/DashboardLayout.tsx`
+   - Repassar o novo arg na chamada `registrarCheckinMulti`.
+   - Carregar a lista de vendedores ao abrir o modal (lazy) e passar para o `CheckinConfirmModal`.
+
+## Migrations (em uma migration única)
+
+```sql
+ALTER TABLE public.logs_movimentacao_contatos
+  ADD COLUMN IF NOT EXISTS vendedor_atendimento_nome  text,
+  ADD COLUMN IF NOT EXISTS vendedor_atendimento_email text;
+
+-- recriar trg_dispatch_movimentacao_lead_webhook incluindo os 2 campos
+-- no JSON enviado ao trigger-webhook (somente quando não nulos)
+```
+
+Sem mudança de RLS/GRANT (colunas novas em tabela existente).
+
+## Edge functions a atualizar
+
+- `supabase/functions/trigger-webhook/index.ts`: aceitar `vendedor_atendimento_nome` / `vendedor_atendimento_email` no body e passar para `_shared/movimentacao-lead-webhook.ts`.
+- `supabase/functions/_shared/movimentacao-lead-webhook.ts`: incluir os dois campos no payload final POSTado ao endpoint MobiGestor.
+
+## Fora de escopo (não tocar agora)
+
+- QR Code (`registrarCheckin` single-event) e drag no Kanban — confirmado: só FAB global.
+- Página `/recepcao` listagem — não exibir vendedor por enquanto.
+- Webhooks que não sejam `movimentacao_lead_kanban`.
+
+## Validação
+
+- Check-in pelo FAB sem preencher vendedor → payload sai igual ao de hoje.
+- Check-in pelo FAB selecionando vendedor da lista → payload traz `nome + email`.
+- Check-in pelo FAB digitando nome novo → payload traz `nome` e `email: ""`.
+- Conferir 1 invocação única em `function_edge_logs` para `trigger-webhook` (não regredir a dedupe do trigger PG).
