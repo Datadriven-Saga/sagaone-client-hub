@@ -86,6 +86,8 @@ export interface VendedorAtendimento {
   email: string | null;
 }
 
+type StatusLeadRecepcao = "Check-in";
+
 // Usa a função centralizada de phoneUtils
 const normalizePhone = (phone: string): string => {
   return extractPhoneDigits(phone);
@@ -121,6 +123,23 @@ export const useRecepcaoData = () => {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
   const { toast } = useToast();
+
+  const atualizarStatusSemLogAutomatico = async (
+    contatoId: string,
+    novoStatus: StatusLeadRecepcao,
+    statusAnterior?: string | null,
+  ) => {
+    const { error } = await supabase.rpc("mutate_contato_status_atomic", {
+      p_contato: contatoId,
+      p_novo: novoStatus,
+      p_anterior: statusAnterior ?? null,
+      p_prospeccao: null,
+      p_usuario: user?.id ?? null,
+      p_obs: "Atualização de status via Recepção; log gerado pelo fluxo de check-in",
+    });
+
+    if (error) throw error;
+  };
 
   // Filter/pagination state
   const [recepcaoEventoFilter, setRecepcaoEventoFilter] = useState<string>("none"); // "none" | "todos" | prospeccao_id
@@ -412,15 +431,7 @@ export const useRecepcaoData = () => {
       if (data.contato && !data.isNewContact) {
         // Atualizar contato existente para Check-in
         contatoId = data.contato.id;
-        const { error: updateError } = await supabase
-          .from("contatos")
-          .update({
-            status: "Check-in" as any,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", contatoId);
-
-        if (updateError) throw updateError;
+        await atualizarStatusSemLogAutomatico(contatoId, "Check-in", data.contato.status);
       } else {
         // Criar novo contato com status Check-in
         const { data: newContato, error: insertError } = await supabase
@@ -865,11 +876,10 @@ export const useRecepcaoData = () => {
             descricao: "Check-in via Recepção",
           }]);
         } else if (contatoId) {
-          // Atualiza status do contato existente
-          await supabase
-            .from("contatos")
-            .update({ status: "Check-in" as any, updated_at: new Date().toISOString() })
-            .eq("id", contatoId);
+          // Atualiza status do contato existente sem acionar o trigger defensivo
+          // `trg_log_contato_status`; o log intencional abaixo é a única origem
+          // do webhook e carrega vendedor_atendimento_* quando preenchido.
+          await atualizarStatusSemLogAutomatico(contatoId, "Check-in", null);
         }
 
         if (!contatoId) {
