@@ -1,81 +1,45 @@
-## Objetivo
+## Diagnóstico
 
-Adicionar campo opcional **"Vendedor que irá atender"** no modal de check-in da Recepção (FAB global / multi-prospecção). Quando preenchido, o nome (e e-mail, se houver correspondência) viaja no webhook `movimentacao_lead_kanban` em um novo par de campos, sem alterar o `email_vendedor` atual (que representa quem operou o sistema).
+**1. Por que o vendedor não chegou no webhook**
 
-## Fluxo de preenchimento
+O check-in foi feito pela página `/prospeccao/recepcao` (`Prospeccao.tsx`), não pelo FAB global do `DashboardLayout`. Nessa página o modal ainda usa a integração antiga:
 
-- Combobox com busca dos vendedores da empresa ativa (profiles vinculados via `user_empresas` da empresa atual, filtrando perfis comerciais).
-- Se a recepcionista achar pelo nome → seleciona → guardamos `nome` + `email`.
-- Se digitar um nome que não bate com ninguém → mantém como texto livre → guardamos só `nome`, `email = null`.
-- Campo é **opcional**: se vazio, nada novo vai no payload (compatibilidade total).
+- `handleConfirmMultiCheckin` (linha 344) só aceita `(selectedIds, nomeVisitanteNovo)` — descarta o 3º argumento `vendedorAtendimento` que o modal já envia.
+- `<CheckinConfirmModal>` (linha 3656) é renderizado **sem** a prop `vendedores`, então o combobox sempre aparece vazio e o nome digitado vira texto livre — mas nem isso é propagado, porque o handler ignora.
 
-## Campos no webhook
+Confirmado no banco: o log `66710354-...` desse check-in tem `vendedor_atendimento_nome = NULL` e `vendedor_atendimento_email = NULL`. O trigger PG está correto — ele só inclui os campos quando o log os tem preenchidos.
 
-Adicionar ao payload de `movimentacao_lead_kanban` (sem mexer em `email_vendedor`):
+**2. UX do combobox**
 
-```json
-{
-  "vendedor_atendimento_nome":  "Fulano da Silva",
-  "vendedor_atendimento_email": "fulano@empresa.com" // ou ""
-}
-```
+- Pressionar Enter no `CommandInput` dispara `onSelect` do primeiro item visível e/ou reabre o popover, em vez de simplesmente confirmar o texto digitado e fechar.
+- Quando o usuário já digitou um nome (ex: "Larissa") e clica fora, o popover às vezes reabre porque o `Input` interno do trigger e o `CommandInput` competem pelo foco.
 
-Quando o campo do modal não for preenchido, ambos saem como `null`/ausentes — não regredir nenhum payload existente.
+---
 
-## Onde persistir (para o trigger PG ler)
+## Plano
 
-O webhook `movimentacao_lead_kanban` hoje é disparado **exclusivamente** pelo trigger `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos`. Para o trigger conseguir incluir os novos campos, precisamos persistir o vendedor na própria linha do log.
+### 1. Propagar `vendedorAtendimento` na página de Recepção
+Em `src/pages/Prospeccao.tsx`:
 
-- Migration: adicionar a `public.logs_movimentacao_contatos`
-  - `vendedor_atendimento_nome  text null`
-  - `vendedor_atendimento_email text null`
-- Atualizar o trigger `trg_dispatch_movimentacao_lead_webhook` para anexar esses dois campos ao body que vai para `trigger-webhook` quando não forem nulos.
-- Atualizar `supabase/functions/_shared/movimentacao-lead-webhook.ts` para encaminhar `vendedor_atendimento_nome` / `vendedor_atendimento_email` ao endpoint externo (passa-through, sem afetar o resolver de `email_vendedor`).
-- `recepcao_visitas`: nenhuma mudança de schema. (Posso espelhar o nome lá se você quiser histórico visível na listagem — confirmar depois.)
+- Importar `VendedorAtendimento` de `@/hooks/useRecepcaoData` e desestruturar `fetchVendedoresEmpresa` do `useRecepcaoData()`.
+- Adicionar `const [vendedores, setVendedores] = useState<VendedorAtendimento[]>([])` e carregar via `useEffect` quando o modal multi abrir (mesmo padrão lazy do `DashboardLayout`).
+- Atualizar `handleConfirmMultiCheckin` para receber `(selectedIds, nomeVisitanteNovo, vendedorAtendimento)` e repassar como 4º argumento de `registrarCheckinMulti(...)`.
+- Passar `vendedores={vendedores}` ao `<CheckinConfirmModal>` (linha 3656).
 
-## Mudanças no frontend
+Nenhuma mudança no hook, no trigger PG, no shared webhook helper ou na migração — esse caminho já está pronto e funcionando no FAB.
 
-1. `src/components/CheckinConfirmModal.tsx`
-   - Novo bloco no fluxo multi (`isMulti`): label "Vendedor que irá atender (opcional)" + Combobox (shadcn `Command` + `Popover`) com busca por nome.
-   - Estado local `vendedorAtendimento: { nome: string; email: string | null } | null`.
-   - Permite digitar nome fora da lista → vira `{ nome, email: null }`.
-   - Passa o objeto adiante via `onConfirmMulti(selectedIds, nomeVisitanteNovo, vendedorAtendimento)`.
+### 2. Melhorar UX do combobox de vendedor
+Em `src/components/CheckinConfirmModal.tsx`, no bloco "Vendedor que irá atender":
 
-2. `src/hooks/useRecepcaoData.ts`
-   - Nova função `fetchVendedoresEmpresa()` retornando `[{ id, nome, email }]` da empresa ativa (join `user_empresas` + `profiles`, restrito a cargos comerciais — ex.: Vendedor, Gerente Comercial).
-   - `registrarCheckinMulti(...)` ganha 4º arg `vendedor?: { nome: string; email: string | null }` e grava `vendedor_atendimento_nome/email` em cada `INSERT logs_movimentacao_contatos`.
+- Abrir o popover apenas em clique/foco explícito do trigger; ao digitar dentro do `CommandInput`, **não** disparar reabertura.
+- Tratar `onKeyDown` no `CommandInput`: ao pressionar **Enter**, fechar o popover mantendo o texto atual como texto livre (sem selecionar o primeiro item, que hoje é o comportamento default do `cmdk`). Isso pode ser feito com `e.preventDefault()` + `setVendedorPopoverOpen(false)` quando não houver match exato.
+- Garantir que clicar fora (`onOpenChange(false)`) preserve o texto digitado — já preserva, mas vamos confirmar não resetar `vendedorEmail` indevidamente.
+- Pequeno ajuste visual: quando há texto livre, manter a mensagem "Vendedor não está na lista — será enviado apenas o nome" (já existe), só evitar que o popover pisque de volta.
 
-3. `src/components/DashboardLayout.tsx`
-   - Repassar o novo arg na chamada `registrarCheckinMulti`.
-   - Carregar a lista de vendedores ao abrir o modal (lazy) e passar para o `CheckinConfirmModal`.
+### 3. Validação manual
+- Fazer um check-in pela página `/prospeccao/recepcao` selecionando um vendedor da lista → conferir no log da Edge `trigger-webhook` que o payload contém `vendedor_atendimento_nome` e `vendedor_atendimento_email`.
+- Repetir digitando um nome que não existe → conferir `vendedor_atendimento_nome` preenchido e `vendedor_atendimento_email: ""`.
+- Confirmar que pressionar Enter no campo de vendedor fecha o popover sem reabrir.
 
-## Migrations (em uma migration única)
-
-```sql
-ALTER TABLE public.logs_movimentacao_contatos
-  ADD COLUMN IF NOT EXISTS vendedor_atendimento_nome  text,
-  ADD COLUMN IF NOT EXISTS vendedor_atendimento_email text;
-
--- recriar trg_dispatch_movimentacao_lead_webhook incluindo os 2 campos
--- no JSON enviado ao trigger-webhook (somente quando não nulos)
-```
-
-Sem mudança de RLS/GRANT (colunas novas em tabela existente).
-
-## Edge functions a atualizar
-
-- `supabase/functions/trigger-webhook/index.ts`: aceitar `vendedor_atendimento_nome` / `vendedor_atendimento_email` no body e passar para `_shared/movimentacao-lead-webhook.ts`.
-- `supabase/functions/_shared/movimentacao-lead-webhook.ts`: incluir os dois campos no payload final POSTado ao endpoint MobiGestor.
-
-## Fora de escopo (não tocar agora)
-
-- QR Code (`registrarCheckin` single-event) e drag no Kanban — confirmado: só FAB global.
-- Página `/recepcao` listagem — não exibir vendedor por enquanto.
-- Webhooks que não sejam `movimentacao_lead_kanban`.
-
-## Validação
-
-- Check-in pelo FAB sem preencher vendedor → payload sai igual ao de hoje.
-- Check-in pelo FAB selecionando vendedor da lista → payload traz `nome + email`.
-- Check-in pelo FAB digitando nome novo → payload traz `nome` e `email: ""`.
-- Conferir 1 invocação única em `function_edge_logs` para `trigger-webhook` (não regredir a dedupe do trigger PG).
+### Escopo
+Apenas frontend (`src/pages/Prospeccao.tsx` e `src/components/CheckinConfirmModal.tsx`). Sem migração, sem alteração de Edge Functions, sem mudança no trigger.
