@@ -1,39 +1,40 @@
 ## Diagnóstico confirmado
 
-- O check-in do Fernando gravou **dois logs no mesmo instante**:
-  - `auto-trigger (fallback de migracao)` para outra prospecção, sem `vendedor_atendimento_nome`.
-  - `Check-in via Recepção` para a prospecção correta, com `vendedor_atendimento_nome = Romilson`.
-- Isso explica o payload que você viu: ele veio do **log automático gerado pelo update direto em `contatos.status`**, antes do log manual com Romilson.
-- O problema principal não é só UI: o fluxo de recepção ainda faz `supabase.from('contatos').update({ status: 'Check-in' })`, o que aciona o trigger defensivo `trg_log_contato_status` e dispara webhook sem os campos de atendimento.
+No caso da Keile (`contato_id=99655a8a-4b00-49bc-a2ec-c55a0201f3c8`), o log correto foi gravado com `vendedor_atendimento_nome = Pedro`.
+
+O `trigger-webhook` também recebeu esse campo:
+
+```text
+vendedor_atendimento_nome: "Pedro"
+vendedor_atendimento_email: ""
+```
+
+Mas o payload final enviado para o MobiGestor saiu sem esses campos. Portanto o problema não está mais na tela nem no insert do log: está na Edge Function/shared helper implantado que não está refletindo a versão atual do código, ou está executando uma versão sem os campos anexados ao payload final.
 
 ## Plano de correção
 
-1. **Parar o disparo duplicado no check-in multi**
-   - Trocar o update direto de status dentro de `registrarCheckinMulti` por uma mutação atômica que silencie o trigger defensivo.
-   - Garantir que somente o log intencional do check-in gere o webhook.
+1. **Reforçar o handler do webhook**
+   - Ajustar `supabase/functions/trigger-webhook/index.ts` para normalizar `vendedor_atendimento_nome` e `vendedor_atendimento_email` logo na entrada do gatilho `movimentacao_lead_kanban`.
+   - Garantir que esses campos sejam preservados ao chamar `dispararMovimentacaoLeadKanban`.
 
-2. **Preservar o vendedor digitado/selecionado**
-   - Manter `vendedor_atendimento_nome` e `vendedor_atendimento_email` no insert de `logs_movimentacao_contatos`.
-   - O webhook correto continuará enviando:
-     - `email_vendedor`: usuário logado que operou o sistema.
-     - `vendedor_atendimento_nome`: vendedor que irá atender, ex. `Romilson`.
-     - `vendedor_atendimento_email`: e-mail somente se foi selecionado da lista.
+2. **Blindar o helper compartilhado**
+   - Ajustar `supabase/functions/_shared/movimentacao-lead-webhook.ts` para sempre copiar `vendedor_atendimento_nome` e `vendedor_atendimento_email` para o payload final quando vierem preenchidos nos `dados`.
+   - Adicionar log explícito antes do envio mostrando se os campos de vendedor de atendimento foram anexados.
 
-3. **Corrigir também o fluxo single/QR Code**
-   - Ajustar `registrarCheckin` para não fazer update direto de status sem suprimir o trigger.
-   - Esse fluxo hoje não recebe vendedor de atendimento, então não vou adicionar campo novo nele a menos que você peça; vou apenas impedir duplicidade.
+3. **Redeploy direcionado da Edge Function**
+   - Reimplantar `trigger-webhook` após a mudança para eliminar a suspeita de código antigo rodando no Supabase.
 
-4. **Ajuste pequeno de UX do combobox**
-   - Quando o usuário digitar um nome livre e confirmar, fechar o popover e manter exatamente o texto digitado.
-   - Evitar que Enter selecione item errado ou reabra dropdown.
+4. **Validação pós-correção**
+   - Conferir logs da Edge Function após um novo check-in.
+   - Critério de sucesso: o log `[movimentacao-lead] dispatching` deve incluir:
 
-5. **Validação pós-correção**
-   - Conferir que um novo check-in gera **apenas um log relevante** para a prospecção selecionada.
-   - Conferir que o payload do `trigger-webhook` contém `vendedor_atendimento_nome` quando preenchido.
-   - Não alterar o destino do webhook nem regras do MobiGestor.
+```json
+{
+  "vendedor_atendimento_nome": "<nome digitado/selecionado>",
+  "vendedor_atendimento_email": "<email se existir, ou string vazia>"
+}
+```
 
-## O que não vou alterar
+## Observação
 
-- Não vou mexer em `bulk_upsert_contatos`, importação ou quarentena.
-- Não vou remover o trigger defensivo global `trg_log_contato_status`; ele ainda protege outros call sites legados.
-- Não vou mudar o significado de `email_vendedor`: ele continua sendo quem executou a ação no sistema, não o vendedor de atendimento.
+O payload que você colou mostra `email_vendedor: aila.gsouza@...`; esse campo é o usuário operador logado/quem fez o check-in. O novo campo do vendedor que irá atender deve ir separado como `vendedor_atendimento_nome` e `vendedor_atendimento_email`, sem substituir `email_vendedor`.

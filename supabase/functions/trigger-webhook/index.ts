@@ -171,6 +171,38 @@ function isValidWebhookUrl(url: string): { valid: boolean; error?: string } {
   }
 }
 
+function normalizeOptionalText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeMovimentacaoLeadDados(dados: any) {
+  if (!dados || typeof dados !== 'object') return dados;
+
+  const vendedorAtendimentoNome = normalizeOptionalText(
+    dados.vendedor_atendimento_nome ??
+    dados.vendedorAtendimentoNome ??
+    dados.vendedor_atendimento?.nome ??
+    dados.vendedorAtendimento?.nome
+  );
+
+  const vendedorAtendimentoEmail = normalizeOptionalText(
+    dados.vendedor_atendimento_email ??
+    dados.vendedorAtendimentoEmail ??
+    dados.vendedor_atendimento?.email ??
+    dados.vendedorAtendimento?.email
+  );
+
+  if (!vendedorAtendimentoNome) return dados;
+
+  return {
+    ...dados,
+    vendedor_atendimento_nome: vendedorAtendimentoNome,
+    vendedor_atendimento_email: vendedorAtendimentoEmail ?? '',
+  };
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -251,7 +283,14 @@ serve(async (req) => {
     if (gatilho === 'movimentacao_lead_kanban') {
       console.log('🔄 Processando movimentacao_lead_kanban');
 
-      const result = await dispararMovimentacaoLeadKanban(supabaseServiceClient, dados);
+      const dadosNormalizados = normalizeMovimentacaoLeadDados(dados);
+      console.log('👤 vendedor_atendimento normalizado:', {
+        presente: !!dadosNormalizados?.vendedor_atendimento_nome,
+        vendedor_atendimento_nome: dadosNormalizados?.vendedor_atendimento_nome ?? null,
+        vendedor_atendimento_email: dadosNormalizados?.vendedor_atendimento_email ?? null,
+      });
+
+      const result = await dispararMovimentacaoLeadKanban(supabaseServiceClient, dadosNormalizados);
       const status = result.success
         ? 200
         : (result.error === "campos_ausentes" ? 400

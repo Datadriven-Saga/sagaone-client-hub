@@ -37,6 +37,12 @@ export interface MovimentacaoLeadResult {
   detail?: string;
 }
 
+function normalizeOptionalText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 function isValidWebhookUrl(url: string): { valid: boolean; error?: string } {
   try {
     const parsed = new URL(url);
@@ -183,6 +189,9 @@ export async function dispararMovimentacaoLeadKanban(
     emailVendedor = dados.email_vendedor;
   }
 
+  const vendedorAtendimentoNome = normalizeOptionalText(dados.vendedor_atendimento_nome);
+  const vendedorAtendimentoEmail = normalizeOptionalText(dados.vendedor_atendimento_email) ?? "";
+
   // 7. Payload + dispatch
   const payload: Record<string, unknown> = {
     nome: contatoData.nome,
@@ -200,11 +209,15 @@ export async function dispararMovimentacaoLeadKanban(
   };
 
   // Anexa vendedor que irá atender quando vier do log de movimentação
-  if (dados.vendedor_atendimento_nome && String(dados.vendedor_atendimento_nome).trim() !== "") {
-    payload.vendedor_atendimento_nome = String(dados.vendedor_atendimento_nome).trim();
-    payload.vendedor_atendimento_email = dados.vendedor_atendimento_email
-      ? String(dados.vendedor_atendimento_email)
-      : "";
+  if (vendedorAtendimentoNome) {
+    payload.vendedor_atendimento_nome = vendedorAtendimentoNome;
+    payload.vendedor_atendimento_email = vendedorAtendimentoEmail;
+    console.log("[movimentacao-lead] 👤 vendedor_atendimento anexado", JSON.stringify({
+      vendedor_atendimento_nome: vendedorAtendimentoNome,
+      vendedor_atendimento_email: vendedorAtendimentoEmail,
+    }));
+  } else {
+    console.log("[movimentacao-lead] 👤 vendedor_atendimento ausente no payload de entrada");
   }
 
   console.log("[movimentacao-lead] 📤 dispatching", JSON.stringify(payload));
