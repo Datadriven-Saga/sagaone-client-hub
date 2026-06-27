@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import ActiveCampaignJobIndicator from "./ActiveCampaignJobIndicator";
 import NotificacoesBell from "./NotificacoesBell";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -13,7 +13,7 @@ import { RecepcaoMultiContatoPicker } from "./RecepcaoMultiContatoPicker";
 import { PanelLeft, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Contato } from "@/hooks/useContatoData";
-import { useRecepcaoData, MultiCheckinData, ContatoSufixoMatch } from "@/hooks/useRecepcaoData";
+import { useRecepcaoData, MultiCheckinData, ContatoSufixoMatch, VendedorAtendimento } from "@/hooks/useRecepcaoData";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -34,8 +34,19 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
     isOpen: boolean;
     contato: Contato | null;
   }>({ isOpen: false, contato: null });
+  const [vendedores, setVendedores] = useState<VendedorAtendimento[]>([]);
 
-  const { buscarContatoMultiAtivo, registrarCheckinMulti, buscarContatosPorSufixo } = useRecepcaoData();
+  const { buscarContatoMultiAtivo, registrarCheckinMulti, buscarContatosPorSufixo, fetchVendedoresEmpresa } = useRecepcaoData();
+
+  // Carrega vendedores ao abrir o modal de confirmação de check-in (lazy)
+  useEffect(() => {
+    if (!pendingMultiCheckin) return;
+    let cancelled = false;
+    fetchVendedoresEmpresa().then((list) => {
+      if (!cancelled) setVendedores(list);
+    });
+    return () => { cancelled = true; };
+  }, [pendingMultiCheckin, fetchVendedoresEmpresa]);
 
   const handleNovoCheckin = () => {
     setIsRecepcaoModalOpen(true);
@@ -81,12 +92,18 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
 
   const handleConfirmMultiCheckin = async (
     selectedIds: string[],
-    nomeVisitanteNovo?: string
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ) => {
     if (!pendingMultiCheckin) return;
     setIsConfirmingCheckin(true);
     try {
-      const res = await registrarCheckinMulti(pendingMultiCheckin, selectedIds, nomeVisitanteNovo);
+      const res = await registrarCheckinMulti(
+        pendingMultiCheckin,
+        selectedIds,
+        nomeVisitanteNovo,
+        vendedorAtendimento ?? null,
+      );
       if (res.ok) window.dispatchEvent(new CustomEvent('lead-created'));
     } finally {
       setIsConfirmingCheckin(false);
@@ -166,6 +183,7 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           multiData={pendingMultiCheckin}
           onConfirmMulti={handleConfirmMultiCheckin}
           loading={isConfirmingCheckin}
+          vendedores={vendedores}
         />
 
         {contatoModalState.contato && (
