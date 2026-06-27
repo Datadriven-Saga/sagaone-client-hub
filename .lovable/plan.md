@@ -1,37 +1,43 @@
-# Status Report — `ingest-base-clientes`
+## Objetivo
 
-Levantei os dados em `pool_ingestao_jobs`, `pool_clientes_externos` e nos logs da edge. Abaixo o resumo que vai virar o documento.
+Atualizar `/mnt/documents/status-ingest-base-clientes.md` (v2) refletindo o reprocessamento retroativo executado hoje (27/jun/2026), que trouxe o pool para ~1 ano completo de leads.
 
-## Saúde geral
-- **Status atual:** operando normalmente (último job 2026-06-27 03:00 UTC, `done`, 4 leads em 0,9s).
-- **Jobs totais:** 81 — **77 done** / **4 error** (todos em 29/abr/2026, mesma causa).
-- **Volume acumulado:** 265.047 leads recebidos = 265.047 processados (100%), 491 marcados como `orfao`.
-- **Pool atual (`pool_clientes_externos`):** 229.196 `ativo` + 414 `orfao` = 229.610 linhas.
-- **Edge logs:** sem entradas recentes (função fica idle entre os ticks diários — esperado, sem invocações com erro recente).
+## Dados novos coletados
 
-## Cadência observada (últimos 30 dias)
-- Recebimento diário ~03:00 UTC (00:00 BRT), 1 job/dia, payloads pequenos (1-6 leads).
-- Pico isolado em 02/jun: 10 jobs / 45.069 leads (provável re-ingestão histórica).
-- Sem falhas, sem órfãos novos no período.
+**Saúde geral**
+- Jobs totais: **250** (77 → 250) — **246 done** / **4 error** / 0 processing / 0 pending.
+- Recebidos: **1.102.450** | Processados: **1.102.430** (≈100%) | Órfãos acumulados: **492**.
+- Pool atual: **853.494** linhas — **853.079 ativo** / **415 órfão**.
+- Janela coberta: **27/jun/2025 → 27/jun/2026** (1 ano completo, conforme solicitado).
 
-## Erros históricos
-- Todos os 4 jobs `error` ocorreram em 29/abr/2026 com a mesma mensagem:  
-  `there is no unique or exclusion constraint matching the ON CONFLICT specification`.
-- Causa: upsert usa `onConflict: 'codigo_proposta'` e a unique global em `pool_clientes_externos.codigo_proposta` ainda não existia. Foi corrigido depois (jobs seguintes passaram).
-- **Nenhum erro desde 29/abr** — backlog zerado.
+**Pico de reprocessamento (27/jun/2026)**
+- 170 jobs no dia, **837.387 leads** processados, apenas 1 órfão.
+- Demais dias da última semana mantêm a cadência normal (1 job/dia, 1-6 leads).
 
-## Órfãos
-- 414 registros `orfao` no pool, concentrados em 2 `codigo_loja` sem empresa cadastrada:
-  - `72341` → 370 leads
-  - `59925` → 44 leads
-- Motivo: `empresas.crm_id` não bate. Resolver é cadastrar/ajustar `crm_id` nessas duas empresas — o reprocessamento move automaticamente para `ativo` no próximo upsert.
+**Distribuição mensal (pool_clientes_externos por `criado_em_origem`)**
+- jun/25: 7.123 (parcial, início da janela)
+- jul/25: 63.332 · ago/25: 58.188 · set/25: 61.167 · out/25: 66.932 · nov/25: 72.828 · dez/25: 69.924
+- jan/26: 87.102 · fev/26: 76.476 · mar/26: 95.380 · abr/26: 81.381 · mai/26: 73.347 · jun/26: 40.314 (parcial)
 
-## Riscos / pontos de atenção
-1. **Sem alerta automático** se nenhum job chegar em determinado dia (Datalake pode falhar silenciosamente).
-2. **Órfãos não geram notificação** — só aparecem se alguém consultar a tabela.
-3. **`DATALAKE_INGEST_TOKEN`** é o único gate de auth — confirmar rotação periódica.
+**Erros históricos**
+- Mantidos os 4 jobs `error` de 29/abr/2026 (constraint `ON CONFLICT` antiga). Nenhum erro novo desde então, inclusive durante o backfill massivo de hoje.
+
+**Órfãos**
+- Total caiu de 414 → **415** (estável). Concentração inalterada:
+  - `72341` → 370 · `59925` → 44 · `18399` → 1 (novo, 1 lead).
+- Ação pendente continua: cadastrar/ajustar `empresas.crm_id` nessas lojas.
+
+## O que muda no documento
+
+1. Substituir números de saúde, volume, pool e cadência pelos novos.
+2. Adicionar seção **"Backfill 27/jun/2026"** descrevendo o reprocessamento (170 jobs, 837k leads, 0 erros).
+3. Atualizar a tabela de distribuição mensal mostrando que a meta de **1 ano de histórico** foi atingida.
+4. Atualizar lista de órfãos (incluir loja `18399`).
+5. Manter seção de riscos (sem alerta de ausência, sem notificação de órfãos, rotação do `DATALAKE_INGEST_TOKEN`).
+6. Acrescentar nota: pipeline aguentou 170 jobs/~837k leads no mesmo dia sem erro nem fila — capacidade validada.
 
 ## Entregável
-Gerar `/mnt/documents/status-ingest-base-clientes.md` com o conteúdo acima estruturado (sumário executivo, métricas, tabela de cadência, erros, órfãos, riscos e recomendações) e expô-lo via `<presentation-artifact>` para download.
 
-Nenhuma alteração de código nesta tarefa — somente leitura + documento.
+- Novo arquivo versionado: `/mnt/documents/status-ingest-base-clientes_v2.md` (não sobrescreve o v1).
+- Exposto via `<presentation-artifact>`.
+- Nenhuma alteração de código.
