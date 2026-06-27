@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, User, Phone, Calendar, Loader2, Sparkles } from "lucide-react";
-import type { MultiCheckinData } from "@/hooks/useRecepcaoData";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { CheckCircle2, User, Phone, Calendar, Loader2, Sparkles, ChevronsUpDown, Check, UserCheck } from "lucide-react";
+import type { MultiCheckinData, VendedorAtendimento } from "@/hooks/useRecepcaoData";
+import { cn } from "@/lib/utils";
 
 interface CheckinConfirmModalProps {
   isOpen: boolean;
@@ -23,8 +26,11 @@ interface CheckinConfirmModalProps {
   multiData?: MultiCheckinData | null;
   onConfirmMulti?: (
     selectedProspeccaoIds: string[],
-    nomeVisitanteNovo?: string
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ) => Promise<void>;
+  // Lista de vendedores da empresa (FAB multi). Opcional — quando ausente, esconde o campo.
+  vendedores?: VendedorAtendimento[];
 }
 
 export function CheckinConfirmModal({ 
@@ -35,9 +41,13 @@ export function CheckinConfirmModal({
   loading = false,
   multiData,
   onConfirmMulti,
+  vendedores,
 }: CheckinConfirmModalProps) {
   const [nomeVisitante, setNomeVisitante] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [vendedorNome, setVendedorNome] = useState("");
+  const [vendedorEmail, setVendedorEmail] = useState<string | null>(null);
+  const [vendedorPopoverOpen, setVendedorPopoverOpen] = useState(false);
 
   const isMulti = !!multiData;
 
@@ -57,6 +67,15 @@ export function CheckinConfirmModal({
       setNomeVisitante(placeholder ? "" : data.nome);
     }
   }, [isOpen, data?.isNewContact, data?.nome, isMulti, multiData]);
+
+  // Reset vendedor sempre que o modal abre/fecha
+  useEffect(() => {
+    if (!isOpen) {
+      setVendedorNome("");
+      setVendedorEmail(null);
+      setVendedorPopoverOpen(false);
+    }
+  }, [isOpen]);
 
   // ===== Seleção default de prospecções =====
   useEffect(() => {
@@ -107,7 +126,11 @@ export function CheckinConfirmModal({
 
   const handleConfirmClick = () => {
     if (isMulti) {
-      onConfirmMulti?.(selectedIds, hasSelectedNew ? nomeTrim : undefined);
+      const nomeVendedorTrim = vendedorNome.trim();
+      const vendedorPayload: VendedorAtendimento | null = nomeVendedorTrim
+        ? { nome: nomeVendedorTrim, email: vendedorEmail }
+        : null;
+      onConfirmMulti?.(selectedIds, hasSelectedNew ? nomeTrim : undefined, vendedorPayload);
     } else if (data) {
       onConfirm?.(data.isNewContact ? nomeTrim : undefined);
     }
