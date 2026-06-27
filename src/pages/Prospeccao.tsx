@@ -3680,6 +3680,7 @@ showAllEvents: true
         data={checkinConfirmData}
         multiData={pendingCheckin?.matches ? pendingCheckin : null}
         onConfirmMulti={handleConfirmMultiCheckin}
+        vendedores={vendedoresRecepcao}
         onConfirm={async (nomeVisitante?: string) => {
           // Fluxo single (QR Code)
           if (!pendingCheckin) return;
