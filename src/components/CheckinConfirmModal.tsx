@@ -264,7 +264,19 @@ export function CheckinConfirmModal({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[60]" align="start">
-                  <Command shouldFilter={true}>
+                  <Command
+                    shouldFilter={true}
+                    // Evita que Enter selecione o primeiro item visível e/ou
+                    // dispare comportamento indesejado quando o usuário só quer
+                    // confirmar o texto livre digitado.
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setVendedorPopoverOpen(false);
+                      }
+                    }}
+                  >
                     <CommandInput
                       placeholder="Buscar vendedor ou digitar nome..."
                       value={vendedorNome}
@@ -273,6 +285,8 @@ export function CheckinConfirmModal({
                         // Quando o usuário edita o texto livremente, perdemos o email
                         // amarrado a um vendedor da lista (vira texto livre).
                         setVendedorEmail(null);
+                        // Mantém o popover aberto enquanto digita, mas sem reabrir
+                        // se o usuário já o fechou propositalmente.
                       }}
                     />
                     <CommandList>

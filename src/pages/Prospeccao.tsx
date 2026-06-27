@@ -42,7 +42,7 @@ import { useProspeccaoLogs } from "@/hooks/useProspeccaoLogs";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useContatoData, kanbanStatusMap, Contato } from "@/hooks/useContatoData";
 import { useAutoAtribuirLeads } from "@/hooks/useAutoAtribuirLeads";
-import { useRecepcaoData, type ContatoSufixoMatch } from "@/hooks/useRecepcaoData";
+import { useRecepcaoData, type ContatoSufixoMatch, type VendedorAtendimento } from "@/hooks/useRecepcaoData";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMetricasLigacao, MetricasLigacaoExternas } from "@/hooks/useMetricasLigacao";
@@ -271,6 +271,7 @@ showAllEvents: true
     registrarCheckinMulti,
     buscarContatosPorSufixo,
     validarEvento,
+    fetchVendedoresEmpresa,
     recepcaoEventoFilter,
     setRecepcaoEventoFilter,
     recepcaoStatusFilter,
@@ -306,6 +307,17 @@ showAllEvents: true
     isNewContact: boolean;
   } | null>(null);
   const [pendingCheckin, setPendingCheckin] = useState<any>(null);
+  const [vendedoresRecepcao, setVendedoresRecepcao] = useState<VendedorAtendimento[]>([]);
+
+  // Lazy-load vendedores da empresa quando o modal multi-checkin abre
+  useEffect(() => {
+    if (!pendingCheckin?.matches) return;
+    let cancelled = false;
+    fetchVendedoresEmpresa().then((list) => {
+      if (!cancelled) setVendedoresRecepcao(list);
+    });
+    return () => { cancelled = true; };
+  }, [pendingCheckin, fetchVendedoresEmpresa]);
   const [isConfirmingCheckin, setIsConfirmingCheckin] = useState(false);
   const [sufixoPicker, setSufixoPicker] = useState<{ sufixo: string; contatos: ContatoSufixoMatch[] } | null>(null);
 
@@ -343,12 +355,18 @@ showAllEvents: true
   // Confirm multi check-in
   const handleConfirmMultiCheckin = async (
     selectedIds: string[],
-    nomeVisitanteNovo?: string
+    nomeVisitanteNovo?: string,
+    vendedorAtendimento?: VendedorAtendimento | null
   ) => {
     if (!pendingCheckin) return;
     setIsConfirmingCheckin(true);
     try {
-      await registrarCheckinMulti(pendingCheckin, selectedIds, nomeVisitanteNovo);
+      await registrarCheckinMulti(
+        pendingCheckin,
+        selectedIds,
+        nomeVisitanteNovo,
+        vendedorAtendimento ?? null,
+      );
       refetch();
     } finally {
       setIsConfirmingCheckin(false);
@@ -3662,6 +3680,7 @@ showAllEvents: true
         data={checkinConfirmData}
         multiData={pendingCheckin?.matches ? pendingCheckin : null}
         onConfirmMulti={handleConfirmMultiCheckin}
+        vendedores={vendedoresRecepcao}
         onConfirm={async (nomeVisitante?: string) => {
           // Fluxo single (QR Code)
           if (!pendingCheckin) return;
