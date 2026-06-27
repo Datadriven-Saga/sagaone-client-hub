@@ -79,6 +79,13 @@ export interface ContatoSufixoMatch {
   status: string | null;
 }
 
+// === Vendedor que irá atender (preenchido pela recepção no check-in) ===
+export interface VendedorAtendimento {
+  id?: string | null;
+  nome: string;
+  email: string | null;
+}
+
 // Usa a função centralizada de phoneUtils
 const normalizePhone = (phone: string): string => {
   return extractPhoneDigits(phone);
