@@ -932,6 +932,7 @@ export const useRecepcaoData = () => {
     buscarContatoMultiAtivo,
     buscarContatosPorSufixo,
     registrarCheckinMulti,
+    fetchVendedoresEmpresa,
     refetch: fetchVisitas,
     // Filter/pagination
     recepcaoEventoFilter,
