@@ -6999,6 +6999,7 @@ export type Database = {
         Args: { p_empresa_id: string }
         Returns: Json
       }
+      get_pool_permission: { Args: { p_user: string }; Returns: Json }
       get_prospeccao_metricas: {
         Args: { p_empresa_id: string; p_prospeccao_id: string }
         Returns: {
@@ -7140,10 +7141,24 @@ export type Database = {
         Args: { p_import_id: string; p_worker_id: string }
         Returns: boolean
       }
-      importar_pool_para_evento: {
-        Args: { p_empresa_id: string; p_itens: Json; p_prospeccao_id: string }
-        Returns: Json
-      }
+      importar_pool_para_evento:
+        | {
+            Args: {
+              p_empresa_id: string
+              p_itens: Json
+              p_prospeccao_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_empresa_id: string
+              p_itens: Json
+              p_prospeccao_id: string
+              p_segmentacao_id?: string
+            }
+            Returns: Json
+          }
       increment_job_counters: {
         Args: {
           p_duplicate?: number
@@ -7208,6 +7223,7 @@ export type Database = {
       normalize_phone_e164: { Args: { phone_input: string }; Returns: string }
       password_login_enabled: { Args: never; Returns: boolean }
       phone_match_variants: { Args: { phone: string }; Returns: string[] }
+      pool_marca_to_api: { Args: { p_marca: string }; Returns: string }
       preview_importacao_conflitos: {
         Args: {
           p_empresa_id: string
