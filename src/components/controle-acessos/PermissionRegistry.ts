@@ -157,17 +157,6 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canAccessOptOutGlobal", label: "Acessar Opt-Out Global", moduleId: "base_contatos", action: "administrar", description: "Gerenciar lista negra global de números bloqueados" },
   { key: "canRegisterExternalOptOut", label: "Registrar Opt-Out Externo (regulatório)", moduleId: "base_contatos", action: "executar", description: "Registrar contato na API externa de opt-out (efeito regulatório)" },
   {
-    key: "canImportPool",
-    label: "Importar do DataLake (Pool)",
-    moduleId: "base_contatos",
-    action: "executar",
-    description: "Importar leads do pool de clientes externos (DataLake) para um evento",
-    hasValor: true,
-    valorSchema: {
-      dias_max: { type: "number", label: "Limite de dias", nullable: true, nullLabel: "Ilimitado", step: 30, min: 1 },
-    },
-  },
-  {
     key: "canImportPoolFull",
     label: "Segmentar Base — Acesso Completo",
     moduleId: "base_contatos",
@@ -395,7 +384,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canGovernancaDados = isAdmin || isTI || isCRM; // CRM gerencia governança de dados
   defaults.canAccessOptOutGlobal = isAdmin || isTI || isCRM; // CRM acessa opt-out global
   defaults.canRegisterExternalOptOut = isAdmin || isTI || isCRM || isGerenteLeads || isGerenteLoja || isCoordenadoraLeads;
-  defaults.canImportPool = isAdmin || isCRM; // Master herda via flag global
+  // canImportPool legado removido — usar canImportPoolFull / canImportPoolReadOnly
 
   // ── Recepção ──
   defaults.canAccessRecepcao = isAdmin || isRecepcionista || isGerente || isCRM;
