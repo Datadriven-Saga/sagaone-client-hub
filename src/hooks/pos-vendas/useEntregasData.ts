@@ -5,16 +5,64 @@ export interface EntregaTemplateRow {
   id: number;
   agente_telefone: string;
   slug: string;
+  gatilho: string;
+  sequencia: number;
   template_id: string; // ID PRI
   ativo: boolean;
 }
 
+export const ENTREGA_SLUGS_FIXOS = [
+  "novo-lead-criacao",
+  "confirma-agendamento",
+  "entrega-confirmada",
+  "aviso-entrega-24h",
+  "MESSAGE_SENT_BEFORE_1H",
+  "MESSAGE_SENT_AFTER_1H",
+  "MESSAGE_SENT_AFTER_1D",
+] as const;
+
+export type EntregaRowsBySlug = Record<string, EntregaTemplateRow[]>;
+
 export function usePatyEntregasTemplates(agenteTelefone: string | null) {
-  const [rows, setRows] = useState<EntregaTemplateRow[]>([]);
+  const [rowsBySlug, setRowsBySlug] = useState<EntregaRowsBySlug>({});
   const [loading, setLoading] = useState(false);
 
+  const buildInitial = useCallback((agente: string, raw: any[]): EntregaRowsBySlug => {
+    const grouped: EntregaRowsBySlug = {};
+    for (const slug of ENTREGA_SLUGS_FIXOS) grouped[slug] = [];
+    for (const r of raw) {
+      const slug = String(r.gatilho ?? r.slug ?? "");
+      if (!slug) continue;
+      if (!grouped[slug]) grouped[slug] = [];
+      grouped[slug].push({
+        id: Number(r.id ?? -1),
+        agente_telefone: String(r.agente_telefone ?? agente),
+        slug,
+        gatilho: slug,
+        sequencia: Number(r.sequencia ?? 0),
+        template_id: String(r.template_id ?? ""),
+        ativo: r.ativo !== false,
+      });
+    }
+    for (const slug of Object.keys(grouped)) {
+      grouped[slug].sort((a, b) => a.sequencia - b.sequencia);
+      if (grouped[slug].length === 0) {
+        grouped[slug].push({
+          id: -1,
+          agente_telefone: agente,
+          slug,
+          gatilho: slug,
+          sequencia: 0,
+          template_id: "",
+          ativo: false,
+        });
+      }
+    }
+    return grouped;
+  }, []);
+
   const reload = useCallback(async () => {
-    if (!agenteTelefone) { setRows([]); return; }
+    if (!agenteTelefone) { setRowsBySlug({}); return; }
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
@@ -22,49 +70,51 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
       });
       if (error) throw new Error(error.message);
       const arr = Array.isArray(data) ? data : [];
-      setRows(arr.map((r: any) => ({
-        id: Number(r.id),
-        agente_telefone: String(r.agente_telefone ?? ""),
-        slug: String(r.slug ?? ""),
-        template_id: String(r.template_id ?? ""),
-        ativo: r.ativo !== false,
-      })));
+      setRowsBySlug(buildInitial(agenteTelefone, arr));
     } catch (e) {
       console.error("[usePatyEntregasTemplates] reload error:", e);
-      setRows([]);
+      setRowsBySlug(buildInitial(agenteTelefone, []));
     } finally {
       setLoading(false);
     }
-  }, [agenteTelefone]);
+  }, [agenteTelefone, buildInitial]);
 
   useEffect(() => { reload(); }, [reload]);
 
   const upsert = useCallback(async (payload: {
-    slug: string; template_id: string; ativo: boolean;
+    slug: string; sequencia: number; template_id: string; ativo: boolean;
   }) => {
     if (!agenteTelefone) throw new Error("Telefone do agente não disponível");
-    const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "upsert-paty-entrega-template", agente_telefone: agenteTelefone, gatilho: payload.slug, ...payload },
-    });
-    if (error) throw new Error(error.message);
-    // Atualização otimista — busca-paty-entrega-template pode falhar e deixar `rows` vazio.
-    setRows(prev => {
-      const idx = prev.findIndex(r => r.slug === payload.slug);
+    // Otimismo: atualiza local antes da chamada
+    setRowsBySlug(prev => {
+      const list = prev[payload.slug] ? [...prev[payload.slug]] : [];
+      const idx = list.findIndex(r => r.sequencia === payload.sequencia);
       const next: EntregaTemplateRow = {
-        id: idx >= 0 ? prev[idx].id : Date.now(),
+        id: idx >= 0 ? list[idx].id : -1,
         agente_telefone: agenteTelefone,
         slug: payload.slug,
+        gatilho: payload.slug,
+        sequencia: payload.sequencia,
         template_id: payload.template_id,
         ativo: payload.ativo,
       };
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = { ...copy[idx], ...next };
-        return copy;
-      }
-      return [...prev, next];
+      if (idx >= 0) list[idx] = { ...list[idx], ...next };
+      else list.push(next);
+      list.sort((a, b) => a.sequencia - b.sequencia);
+      return { ...prev, [payload.slug]: list };
     });
-    // Tenta recarregar do backend, mas não bloqueia o estado otimista se falhar.
+    const { error } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: {
+        endpoint: "upsert-paty-entrega-template",
+        agente_telefone: agenteTelefone,
+        gatilho: payload.slug,
+        slug: payload.slug,
+        sequencia: payload.sequencia,
+        template_id: payload.template_id,
+        ativo: payload.ativo,
+      },
+    });
+    if (error) throw new Error(error.message);
     reload().catch(() => {});
   }, [agenteTelefone, reload]);
 
@@ -73,9 +123,46 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
       body: { endpoint: "desativa-paty-entrega-template", id },
     });
     if (error) throw new Error(error.message);
-    setRows(prev => prev.map(r => r.id === id ? { ...r, ativo: false } : r));
     reload().catch(() => {});
   }, [reload]);
 
-  return { rows, loading, reload, upsert, desativar };
+  // Manipulações puramente locais (rascunhos visuais)
+  const addDraftSequencia = useCallback((slug: string) => {
+    setRowsBySlug(prev => {
+      const list = prev[slug] ? [...prev[slug]] : [];
+      const nextSeq = list.length === 0 ? 0 : Math.max(...list.map(r => r.sequencia)) + 1;
+      list.push({
+        id: -1,
+        agente_telefone: agenteTelefone ?? "",
+        slug,
+        gatilho: slug,
+        sequencia: nextSeq,
+        template_id: "",
+        ativo: false,
+      });
+      return { ...prev, [slug]: list };
+    });
+  }, [agenteTelefone]);
+
+  const removeLocalRow = useCallback((slug: string, sequencia: number) => {
+    setRowsBySlug(prev => {
+      const list = prev[slug] ? prev[slug].filter(r => r.sequencia !== sequencia) : [];
+      // Garante que sequencia 0 sempre exista para manter UI consistente
+      if (!list.some(r => r.sequencia === 0)) {
+        list.unshift({
+          id: -1,
+          agente_telefone: agenteTelefone ?? "",
+          slug,
+          gatilho: slug,
+          sequencia: 0,
+          template_id: "",
+          ativo: false,
+        });
+      }
+      list.sort((a, b) => a.sequencia - b.sequencia);
+      return { ...prev, [slug]: list };
+    });
+  }, [agenteTelefone]);
+
+  return { rowsBySlug, loading, reload, upsert, desativar, addDraftSequencia, removeLocalRow };
 }
