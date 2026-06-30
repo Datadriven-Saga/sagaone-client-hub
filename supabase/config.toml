@@ -113,6 +113,9 @@ verify_jwt = false
 [functions.create-lead-ligacao]
 verify_jwt = false
 
+[functions.create-lead-pri]
+verify_jwt = false
+
 [functions.template-paused-webhook]
 verify_jwt = false
 
