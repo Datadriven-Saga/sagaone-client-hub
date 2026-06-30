@@ -293,8 +293,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const isFull = !!permissions['canImportPoolFull'];
   const isReadOnly = !isFull && !!permissions['canImportPoolReadOnly'];
   const hasAccess = isFull || isReadOnly;
-  const poolConfig = getPermissionValor(isFull ? 'canImportPoolFull' : 'canImportPoolReadOnly')
-    || getPermissionValor('canImportPool');
+  const poolConfig = getPermissionValor(isFull ? 'canImportPoolFull' : 'canImportPoolReadOnly');
   const diasMaxPermitido: number | null = poolConfig?.dias_max ?? null;
   const eventosPermitidosCfg: string = poolConfig?.eventos_permitidos ?? 'todos';
 
@@ -321,6 +320,7 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
   const [importando, setImportando] = useState(false);
   const [historico, setHistorico] = useState<SegmentacaoSalva[]>([]);
   const [showHistorico, setShowHistorico] = useState(false);
+  const [segmentacaoId, setSegmentacaoId] = useState<string | null>(null);
 
   // Carrega facets e histórico quando abre
   useEffect(() => {
@@ -471,11 +471,12 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
       return;
     }
     // Salva log de segmentação automaticamente (nome auto)
+    let savedId: string | null = null;
     if (user && facets) {
       const ts = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
       const nomeAuto = `SEG-${facets.marca?.toUpperCase()}-${facets.uf?.toUpperCase()}-${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}`;
-      await supabase.from('pool_segmentacoes').insert({
+      const { data: segRow } = await supabase.from('pool_segmentacoes').insert({
         empresa_id: activeCompany!.id,
         prospeccao_id: selectedProspeccao,
         criado_por: user.id,
@@ -484,8 +485,10 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
         uf: facets.uf,
         filtros: buildFiltrosPayload(filtros) as never,
         total_resultados: resultados.length,
-      });
+      }).select('id').single();
+      savedId = segRow?.id ?? null;
     }
+    setSegmentacaoId(savedId);
     setStep('edicao');
   };
 
@@ -519,18 +522,32 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
         p_empresa_id: activeCompany.id,
         p_prospeccao_id: selectedProspeccao,
         p_itens: itens as any,
+        p_segmentacao_id: segmentacaoId,
       });
       if (error) throw error;
       const r = data as any;
+      const partes = [
+        `${r.linked ?? 0} vinculados`,
+        r.already_linked ? `${r.already_linked} já existiam` : null,
+        r.blocked_quarentena ? `${r.blocked_quarentena} em quarentena` : null,
+        r.blocked_optout_global ? `${r.blocked_optout_global} opt-out global` : null,
+        r.blocked_optout_externo ? `${r.blocked_optout_externo} opt-out externo` : null,
+        r.blocked_janela ? `${r.blocked_janela} fora da janela` : null,
+        r.blocked_evento_encerrado ? `${r.blocked_evento_encerrado} bloqueados (evento encerrado)` : null,
+        r.errors ? `${r.errors} erros` : null,
+      ].filter(Boolean).join(' • ');
+      const isBlock = (r.linked ?? 0) === 0 && (r.blocked_evento_encerrado ?? 0) > 0;
       toast({
-        title: 'Importação concluída',
-        description: `${r.linked} vinculados • ${r.already_linked} já existiam • ${r.errors} erros`,
+        title: isBlock ? 'Importação bloqueada' : 'Importação concluída',
+        description: r.message ? `${r.message}. ${partes}` : partes,
+        variant: isBlock ? 'destructive' : 'default',
       });
       setIsOpen(false);
       setStep('filtros');
       setResultados([]);
       setExcluidos(new Set());
       setFiltros(emptyFiltros);
+      setSegmentacaoId(null);
       onImportComplete?.();
     } catch (err: any) {
       toast({ title: 'Erro ao importar', description: err.message, variant: 'destructive' });
@@ -566,13 +583,20 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
 
   const visiveis = useMemo(() => filtrados.filter(r => !excluidos.has(r.id)), [filtrados, excluidos]);
 
-  // Validação se evento está permitido (somente ReadOnly com whitelist)
-  const eventoPermitido = useMemo(() => {
-    if (!isReadOnly) return true;
-    if (eventosPermitidosCfg === 'todos') return true;
-    // 'futuros' ou outras restrições — por padrão permite, hook futuro
-    return true;
-  }, [isReadOnly, eventosPermitidosCfg]);
+  // Eventos liberados para esse usuário (ReadOnly + 'futuros' = só eventos em andamento/futuros)
+  const isEventoBloqueadoReadOnly = useCallback((prospeccaoId: string): boolean => {
+    if (!isReadOnly || eventosPermitidosCfg !== 'futuros') return false;
+    const p: any = prospeccoes.find((x: any) => x.id === prospeccaoId);
+    const fim = p?.data_fim ? new Date(p.data_fim) : null;
+    if (!fim) return false;
+    // bloqueado se já encerrou (data_fim < hoje)
+    const today = new Date(); today.setHours(0,0,0,0);
+    return fim < today;
+  }, [isReadOnly, eventosPermitidosCfg, prospeccoes]);
+  const eventoPermitido = useMemo(
+    () => !selectedProspeccao || !isEventoBloqueadoReadOnly(selectedProspeccao),
+    [selectedProspeccao, isEventoBloqueadoReadOnly]
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) { setStep('filtros'); } }}>
