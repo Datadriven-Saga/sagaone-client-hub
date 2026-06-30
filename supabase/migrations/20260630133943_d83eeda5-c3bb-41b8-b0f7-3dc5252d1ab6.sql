@@ -1,0 +1,2 @@
+ALTER TABLE public.contatos ADD COLUMN IF NOT EXISTS origem_pri text NULL;
+CREATE INDEX IF NOT EXISTS idx_contatos_empresa_origem_pri ON public.contatos(empresa_id, origem_pri) WHERE origem_pri IS NOT NULL;
