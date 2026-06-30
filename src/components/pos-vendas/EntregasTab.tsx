@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AgenteSelector } from "./AgenteSelector";
 import { TemplateSelectApproved } from "./TemplateSelectApproved";
@@ -19,7 +21,8 @@ export function EntregasTab() {
   const agenteTelefone = agente?.telefone ?? null;
 
   const { templates } = usePatyTemplates(effectiveId, true);
-  const { rows, upsert, desativar } = usePatyEntregasTemplates(agenteTelefone);
+  const { rowsBySlug, upsert, desativar, addDraftSequencia, removeLocalRow } =
+    usePatyEntregasTemplates(agenteTelefone);
 
   // localId (UUID) -> template_id_pri
   const priById = useMemo(() => {
@@ -33,33 +36,56 @@ export function EntregasTab() {
     return m;
   }, [templates]);
 
-  const findRow = (slug: string) => rows.find(r => r.slug === slug);
+  const getList = (slug: string) => rowsBySlug[slug] ?? [];
 
-  const handleTemplate = async (slug: string, localId: string | null) => {
-    const row = findRow(slug);
+  const handleTemplateChange = async (slug: string, sequencia: number, localId: string | null) => {
+    const list = getList(slug);
+    const row = list.find(r => r.sequencia === sequencia);
     const pri = localId ? priById.get(localId) : null;
     if (localId && !pri) {
       toast({ title: "Template sem ID PRI", description: "Sincronize o template com a Meta para obter o ID PRI.", variant: "destructive" });
       return;
     }
     try {
-      await upsert({ slug, template_id: pri ?? "", ativo: row?.ativo ?? true });
+      await upsert({
+        slug,
+        sequencia,
+        template_id: pri ?? "",
+        ativo: row?.ativo ?? true,
+      });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     }
   };
 
-  const handleToggle = async (slug: string, ativo: boolean) => {
-    const row = findRow(slug);
-    if (ativo && !row?.template_id) {
-      toast({ title: "Selecione um template", description: "Vincule um template antes de ativar.", variant: "destructive" });
+  const handleToggleCard = async (slug: string, ativo: boolean) => {
+    const list = getList(slug);
+    const primeira = list.find(r => r.sequencia === 0);
+    if (ativo && !primeira?.template_id) {
+      toast({
+        title: "Selecione um template",
+        description: "Selecione um template para o primeiro passo.",
+        variant: "destructive",
+      });
       return;
     }
     try {
-      // Toggle sempre dispara upsert-paty-entrega-template (ativar ou desativar),
-      // espelhando o comportamento desejado no n8n. Não usa o endpoint de desativar
-      // para evitar dependência de `id` numérico (que pode não existir se a busca falhar).
-      await upsert({ slug, template_id: row?.template_id ?? "", ativo });
+      // Percorre todas as linhas visíveis salvas (com template_id) e propaga o novo `ativo`.
+      const tarefas = list
+        .filter(r => r.template_id)
+        .map(r => upsert({ slug, sequencia: r.sequencia, template_id: r.template_id, ativo }));
+      await Promise.all(tarefas);
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleRemoveSequencia = async (slug: string, row: { id: number; sequencia: number }) => {
+    try {
+      if (row.id && row.id > 0) {
+        await desativar(row.id);
+      }
+      removeLocalRow(slug, row.sequencia);
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     }
@@ -74,11 +100,10 @@ export function EntregasTab() {
       {agenteTelefone && (
         <div className="grid gap-4">
           {GATILHOS_ENTREGA.map(g => {
-            const row = findRow(g.slug);
-            const ativo = row?.ativo ?? false;
-            const selectedLocalId = row?.template_id ? (idByPri.get(row.template_id) ?? null) : null;
+            const list = getList(g.slug);
+            const ativo = list.some(r => r.ativo);
             return (
-              <Card key={g.slug} className={ativo ? "" : "opacity-70"}>
+              <Card key={g.slug} className={ativo ? "" : "opacity-80"}>
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                   <div className="space-y-1">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -88,20 +113,58 @@ export function EntregasTab() {
                     <p className="text-xs text-muted-foreground">{g.descricao}</p>
                     <p className="text-xs text-muted-foreground font-mono">slug: {g.slug}</p>
                   </div>
-                  <Switch checked={ativo} onCheckedChange={(v) => handleToggle(g.slug, v)} />
+                  <Switch checked={ativo} onCheckedChange={(v) => handleToggleCard(g.slug, v)} />
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <Label className="text-xs">Template vinculado</Label>
-                  <TemplateSelectApproved
-                    templates={templates}
-                    value={selectedLocalId}
-                    onChange={(id) => handleTemplate(g.slug, id)}
-                  />
-                  {row?.template_id && !selectedLocalId && (
-                    <p className="text-xs text-muted-foreground">
-                      Template configurado (ID PRI {row.template_id}) não foi encontrado na lista local.
-                    </p>
-                  )}
+                <CardContent className="space-y-3">
+                  {list.map((row, index) => {
+                    const selectedLocalId = row.template_id ? (idByPri.get(row.template_id) ?? null) : null;
+                    const isFirst = index === 0;
+                    return (
+                      <div key={`${row.sequencia}-${row.id}`} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">
+                            Passo {index + 1}
+                          </Label>
+                          {!isFirst && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleRemoveSequencia(g.slug, { id: row.id, sequencia: row.sequencia })}
+                              aria-label="Remover seguimento"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className={isFirst ? "" : "text-sm"}>
+                          <TemplateSelectApproved
+                            templates={templates}
+                            value={selectedLocalId}
+                            onChange={(id) => handleTemplateChange(g.slug, row.sequencia, id)}
+                          />
+                        </div>
+                        {row.template_id && !selectedLocalId && (
+                          <p className="text-xs text-muted-foreground">
+                            Template configurado (ID PRI {row.template_id}) não foi encontrado na lista local.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => addDraftSequencia(g.slug)}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Adicionar seguimento
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
