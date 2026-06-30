@@ -636,6 +636,12 @@ export const ImportarDoDataLake = ({ prospeccoes, onImportComplete }: ImportarDo
                   <History className="h-4 w-4 mr-2" /> Histórico ({historico.length})
                 </Button>
               </div>
+              {selectedProspeccao && !eventoPermitido && (
+                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-md p-2">
+                  <Lock className="h-3.5 w-3.5" />
+                  Seu perfil (somente leitura) só pode importar para eventos em andamento ou futuros — este evento já encerrou.
+                </div>
+              )}
 
               {showHistorico && (
                 <div className="border rounded-md max-h-48 overflow-y-auto">
