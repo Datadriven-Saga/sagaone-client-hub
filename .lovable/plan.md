@@ -1,51 +1,55 @@
-## Problema confirmado
+## Plano — Liberar Segmentar Base (Pool / DataLake) para uso
 
-Os dois leads (03F5F6E8 - Haroldo, 0D2DF088 - Wenderson) pertencem ao mesmo vendedor **Lorena Bernardo de Camargos**, mas estão armazenados com `responsavel_email` em casing diferente:
+Decisões confirmadas:
 
-- `Lorena.bcamargos@gruposaga.com.br` (com L maiúsculo) → ícone mostra o e-mail cru
-- `lorena.bcamargos@gruposaga.com.br` (minúsculo) → ícone mostra o nome corretamente
+1. **Escopo:** validar + paridade total com planilha (quarentena, opt-out global, opt-out externo, `import_logs`, auditoria item-a-item).
+2. **ReadOnly + eventos:** bloquear quando o evento já terminou (`data_fim < now()`). Eventos em progresso e futuros continuam permitidos.
+3. **Governança:** leads em quarentena / opt-out são bloqueados silenciosamente e contados no toast (mesmo padrão da planilha).
+4. **Auditoria:** resumo em `pool_segmentacoes` (já existe) + 1 entrada em `logs_prospeccoes` por importação.
 
-Causa raiz: as comparações de e-mail (frontend + RPCs `get_kanban_columns` / `get_contatos_paginated` / filtro de responsável) são **case-sensitive**. Quando o casing diverge do que está em `profiles.email`, o lookup falha:
-1. O nome do vendedor não é resolvido → exibe o e-mail bruto.
-2. O filtro "Responsável: Lorena…" não bate → o card some da visão filtrada (é exatamente o que o usuário vê no print: só 3 cards aparecem, faltando o Haroldo).
+### Mudanças por área
 
-## Plano de correção
+**Banco (migration)**
 
-### 1. Normalização no banco (fonte da verdade)
-Migração para padronizar e prevenir recorrência:
+- `get_pool_clientes_for_empresa`
+  - Ler `dias_max` da permissão efetiva do `auth.uid()` (`canImportPoolFull` ou `canImportPoolReadOnly`) e clampar `p_dias_atras` server-side.
+  - Aplicar mascaramento `LEFT(digits,4) || '****'` no telefone quando o usuário só tem `canImportPoolReadOnly`.
+  - Retornar 401/erro se o usuário não tem nenhuma das duas permissões (defesa em profundidade — o front já bloqueia).
 
-- **Backfill**: `UPDATE contatos SET responsavel_email = lower(responsavel_email) WHERE responsavel_email <> lower(responsavel_email);`
-- Mesmo backfill em `eventos_prospeccao.responsavel_email` (se a coluna existir lá), `logs_movimentacao_contatos` e qualquer coluna correlata identificada na auditoria.
-- **Trigger BEFORE INSERT/UPDATE** em `contatos` (e tabelas afins) que força `responsavel_email = lower(responsavel_email)`.
-- **Índice funcional** `lower(responsavel_email)` se ainda não existir, para garantir performance das comparações.
+- `importar_pool_para_evento`
+  - Revalidar `dias_max` contra `criado_em_origem` de cada item em `p_itens`.
+  - Quando `eventos_permitidos='futuros'` no `valor` do ReadOnly: recusar se `prospeccoes.data_fim < now()` (evento encerrado). Permite em progresso e futuros.
+  - Validar `global_opt_outs` (telefone).
+  - Validar `contato_quarentena` por marca/UF/canal (mesma lógica usada pelo `bulk_upsert_contatos`).
+  - Validar opt-out externo via cache `external_optout_snapshots` (mesmo helper do `process-import`, fail-closed).
+  - Retornar contadores estruturados: `imported`, `blocked_quarentena`, `blocked_optout_global`, `blocked_optout_externo`, `blocked_janela`, `blocked_evento_encerrado`.
+  - Inserir 1 linha em `logs_prospeccoes` com `acao='importacao_pool'`, `detalhes` (JSON com `segmentacao_id`, contadores, filtros).
+  - Inserir 1 linha em `import_logs` com origem `pool` (para auditoria unificada com a planilha).
 
-### 2. RPCs
-Auditar e ajustar para comparar sempre em lowercase:
-- `get_kanban_columns`
-- `get_contatos_paginated`
-- `get_vendedores_atendimento`
-- Qualquer RPC de filtro por responsável
+**Frontend**
 
-Padrão: `WHERE lower(c.responsavel_email) = lower($param)` e join com `profiles` por `lower(email)`.
+- `PermissionRegistry.ts` / `useUserAccessType.ts`: remover o macro `canImportPool` legado, manter só `canImportPoolFull` e `canImportPoolReadOnly` (corrige a inconsistência de CRM "ter acesso macro" sem entrar na tela).
+- `ImportarDoDataLake.tsx`:
+  - Toast de resumo com os 6 contadores (Importados / Quarentena / Opt-out global / Opt-out externo / Fora da janela / Evento encerrado), reaproveitando o componente do resumo da planilha.
+  - Mensagem clara quando o ReadOnly tenta um evento encerrado.
 
-### 3. Frontend
-- Lookup de nome do vendedor (`src/pages/Prospeccao.tsx` + hooks de Kanban/atendimento): normalizar ambos os lados (`.toLowerCase()`) antes da comparação no `Map`/lookup de `profiles`.
-- Filtro "Responsável": enviar valor em lowercase para o RPC.
-- Mesma normalização no `CheckinConfirmModal` ao gravar `vendedor_atendimento_email`.
+**Docs**
 
-### 4. Pontos de escrita
-Garantir lowercase também em:
-- `bulk_upsert_contatos` / fluxo de importação (planilha e pool).
-- `create-lead-pri`.
-- Qualquer atualização manual de responsável no front (atribuição de SDR/vendedor).
+- `docs/fluxo-importacao-pool.md`: fluxo, RPCs, permissões, regras de quarentena/opt-out, auditoria, checklist de liberação.
 
-### 5. Validação
-- Confirmar que após backfill os dois leads aparecem com o nome "Lorena Bernardo de Camargos" e ambos passam a aparecer no filtro por responsável.
-- Conferir que o filtro do print passa a mostrar 4 cards (incluindo Haroldo) na Toyota Goianésia.
+### Checklist de pré-liberação
 
-## Áreas críticas — NÃO alterar sem validação adicional
-- `bulk_upsert_contatos`: só adicionar `lower()` no campo `responsavel_email` da entrada, mantendo o restante intacto. Testar planilha + pool + quarentena antes de liberar.
+- Admin Master → slider ilimitado, importa qualquer evento.
+- CRM (`dias_max=90`) → slider trava em 90 mesmo chamando o RPC direto.
+- SDR (`dias_max=30`, `eventos_permitidos='futuros'`) → bloqueado para eventos já encerrados, telefone mascarado, sem edição inline.
+- Sem permissão → opção "Segmentar Base" desabilitada e RPC rejeita.
+- Lead em quarentena / opt-out global / opt-out externo aparece como bloqueado no toast e não vincula.
+- `logs_prospeccoes` ganha 1 entrada `importacao_pool` por importação.
+- `import_logs` ganha 1 entrada com origem `pool`.
 
-## Fora de escopo
-- Não alterar lógica de visibilidade SDR/vendedor.
-- Não tocar em status, RLS ou auditoria.
+### Áreas críticas / fora de escopo
+
+- **Não alterar** `bulk_upsert_contatos`.
+- Não mexer em RLS de `eventos_prospeccao` nem em visibilidade de leads.
+- Não tocar no fluxo de planilha.
+- Não adicionar busca textual server-side agora (segue local, conforme decisão anterior).
