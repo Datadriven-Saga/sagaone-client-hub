@@ -1645,9 +1645,10 @@ showAllEvents: true
         const selectedProfiles = globalFilters.responsavelIds
           .map(id => profiles.find(p => p.id === id))
           .filter(Boolean) as typeof profiles;
+        const respEmailLower = contato.responsavel_email?.toLowerCase();
         const matchResponsavel = selectedProfiles.some(profile =>
           contato.responsavel_email === profile.id ||
-          contato.responsavel_email === profile.email ||
+          respEmailLower === profile.email?.toLowerCase() ||
           contato.responsavel_email === profile.celular
         );
         if (!matchResponsavel) return false;
@@ -1830,9 +1831,10 @@ showAllEvents: true
         // Mapear responsavel_email (que contém o ID do usuário) para o nome completo
         let assigneeName: string | undefined = undefined;
         if (contato.responsavel_email) {
-          // responsavel_email pode conter tanto ID quanto email - tentar ambos
-          const responsavelProfile = profiles.find(p => 
-            p.id === contato.responsavel_email || p.email === contato.responsavel_email
+          // responsavel_email pode conter tanto ID quanto email - tentar ambos (case-insensitive)
+          const respEmailLower = contato.responsavel_email.toLowerCase();
+          const responsavelProfile = profiles.find(p =>
+            p.id === contato.responsavel_email || p.email?.toLowerCase() === respEmailLower
           );
           assigneeName = responsavelProfile?.nome_completo || contato.responsavel_email;
         }
@@ -3205,12 +3207,15 @@ showAllEvents: true
                           .sort((a, b) => {
                             const direction = listaSortDirection === 'asc' ? 1 : -1;
                             
-                            // Helper para buscar responsável
-                            const getResponsavelProfile = (contato: Contato) => profiles.find(p => 
-                              p.id === contato.responsavel_email || 
-                              p.email === contato.responsavel_email || 
-                              p.celular === contato.responsavel_email
-                            );
+                            // Helper para buscar responsável (case-insensitive no email)
+                            const getResponsavelProfile = (contato: Contato) => {
+                              const respEmailLower = contato.responsavel_email?.toLowerCase();
+                              return profiles.find(p =>
+                                p.id === contato.responsavel_email ||
+                                p.email?.toLowerCase() === respEmailLower ||
+                                p.celular === contato.responsavel_email
+                              );
+                            };
                             
                             switch (listaSortColumn) {
                               case 'status':
@@ -3245,10 +3250,11 @@ showAllEvents: true
                             }
                           })
                           .map((contato) => {
-                          // Buscar nome do responsável
-                          const responsavelProfile = profiles.find(p => 
-                            p.id === contato.responsavel_email || 
-                            p.email === contato.responsavel_email || 
+                          // Buscar nome do responsável (case-insensitive no email)
+                          const respEmailLowerCard = contato.responsavel_email?.toLowerCase();
+                          const responsavelProfile = profiles.find(p =>
+                            p.id === contato.responsavel_email ||
+                            p.email?.toLowerCase() === respEmailLowerCard ||
                             p.celular === contato.responsavel_email
                           );
                           
