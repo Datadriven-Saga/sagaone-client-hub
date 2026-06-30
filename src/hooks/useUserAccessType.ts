@@ -172,7 +172,6 @@ export function useUserAccessType() {
     canAccessKanban: p("canAccessKanban"),
     canManageEvents: p("canManageEvents"),
     canImportClientes: p("canImportClientes"),
-    canImportPool: p("canImportPool"),
     canImportPoolFull: p("canImportPoolFull"),
     canImportPoolReadOnly: p("canImportPoolReadOnly"),
     canGenerateInvites: p("canGenerateInvites"),
