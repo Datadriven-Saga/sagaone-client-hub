@@ -3207,12 +3207,15 @@ showAllEvents: true
                           .sort((a, b) => {
                             const direction = listaSortDirection === 'asc' ? 1 : -1;
                             
-                            // Helper para buscar responsável
-                            const getResponsavelProfile = (contato: Contato) => profiles.find(p => 
-                              p.id === contato.responsavel_email || 
-                              p.email === contato.responsavel_email || 
-                              p.celular === contato.responsavel_email
-                            );
+                            // Helper para buscar responsável (case-insensitive no email)
+                            const getResponsavelProfile = (contato: Contato) => {
+                              const respEmailLower = contato.responsavel_email?.toLowerCase();
+                              return profiles.find(p =>
+                                p.id === contato.responsavel_email ||
+                                p.email?.toLowerCase() === respEmailLower ||
+                                p.celular === contato.responsavel_email
+                              );
+                            };
                             
                             switch (listaSortColumn) {
                               case 'status':
@@ -3247,10 +3250,11 @@ showAllEvents: true
                             }
                           })
                           .map((contato) => {
-                          // Buscar nome do responsável
-                          const responsavelProfile = profiles.find(p => 
-                            p.id === contato.responsavel_email || 
-                            p.email === contato.responsavel_email || 
+                          // Buscar nome do responsável (case-insensitive no email)
+                          const respEmailLowerCard = contato.responsavel_email?.toLowerCase();
+                          const responsavelProfile = profiles.find(p =>
+                            p.id === contato.responsavel_email ||
+                            p.email?.toLowerCase() === respEmailLowerCard ||
                             p.celular === contato.responsavel_email
                           );
                           
