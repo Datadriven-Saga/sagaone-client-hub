@@ -507,7 +507,7 @@ lead_ids      = slice de contatos pendentes
 
 ## 12. Notificações in-app do disparo
 
-Sistema canônico documentado em [`docs/notificacoes.md`](./notificacoes.md). Esta seção
+Sistema canônico documentado em [`../arquitetura/notificacoes.md`](../arquitetura/notificacoes.md). Esta seção
 lista apenas os pontos do fluxo de disparo que emitem notificação.
 
 | Origem | `tipo` | Quando | `link` |

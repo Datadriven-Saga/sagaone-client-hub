@@ -1,7 +1,7 @@
 # Recuperação de jobs immediate órfãos
 
 > Contexto: a partir de jun/2026 disparos immediate usam **self-chain**
-> (`docs/fluxo-disparo-whatsapp.md` §13). Este documento descreve o que
+> ([`dispatch-whatsapp.md`](./dispatch-whatsapp.md) §13). Este documento descreve o que
 > acontece quando a cadeia é interrompida e como o sistema se recupera.
 
 ## Cenário

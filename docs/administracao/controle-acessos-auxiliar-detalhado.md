@@ -1,6 +1,6 @@
 # Controle de Acessos — Documento Auxiliar Detalhado
 
-> Documento complementar de `docs/controle-acessos.md`. **Escopo:** mapear de forma técnica e exaustiva o **modelo atual** (problema), cruzar as inconsistências listadas em §4.1–§4.13 com o resumo executivo (§5) e as recomendações (§8), e organizar tudo num formato que possa ser endereçado por um RBAC de granularidade fina no eixo **Escopo > Recurso > Ação**.
+> Documento complementar de [`controle-acessos.md`](./controle-acessos.md). **Escopo:** mapear de forma técnica e exaustiva o **modelo atual** (problema), cruzar as inconsistências listadas em §4.1–§4.13 com o resumo executivo (§5) e as recomendações (§8), e organizar tudo num formato que possa ser endereçado por um RBAC de granularidade fina no eixo **Escopo > Recurso > Ação**.
 >
 > **Fora de escopo:** propor solução, redesenhar schema, refatorar hooks/RLS ou deprecar flags. Esse documento serve como base de evidência para o desenho da solução, que será feito em uma etapa seguinte pelo time.
 
