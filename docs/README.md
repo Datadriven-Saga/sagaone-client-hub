@@ -7,12 +7,12 @@ Este diretório é a fonte oficial de documentação técnica e funcional do sis
 ## Índice
 
 ### Arquitetura & fundamentos
-- [Visão geral da plataforma](arquitetura/visao-geral.md) *(pendente)*
-- [Multi-tenant e empresa ativa](arquitetura/multi-tenant.md) *(pendente)*
-- [Autenticação, SSO e sessão](arquitetura/autenticacao-e-sessao.md) *(pendente)*
-- [Permissões, RBAC e Controle de Acessos](arquitetura/permissoes-e-rbac.md) *(pendente — merge de RBAC)*
-- [Webhooks e integrações externas](arquitetura/webhooks-e-integracoes.md) *(pendente)*
-- [Performance e limites](arquitetura/performance.md) *(pendente)*
+- [Visão geral da plataforma](arquitetura/visao-geral.md)
+- [Multi-tenant e empresa ativa](arquitetura/multi-tenant.md)
+- [Autenticação, SSO e sessão](arquitetura/autenticacao-e-sessao.md)
+- [Permissões, RBAC e Controle de Acessos](arquitetura/permissoes-e-rbac.md)
+- [Webhooks e integrações externas](arquitetura/webhooks-e-integracoes.md)
+- [Performance e limites](arquitetura/performance.md)
 - [Notificações](arquitetura/notificacoes.md)
 
 ### Prospecção
@@ -36,45 +36,49 @@ Este diretório é a fonte oficial de documentação técnica e funcional do sis
 - [Cadência](pos-vendas/cadencia.md)
 - [Agendamentos](pos-vendas/agendamentos.md)
 
-### Entra Dados
-- [Visão geral](entra-dados/visao-geral.md) *(pendente)*
-- [Importação por planilha](entra-dados/importacao-planilha.md) *(pendente)*
-- [Importação do Pool / DataLake](entra-dados/importacao-pool.md)
-- [`ingest-base-clientes`](entra-dados/ingest-base-clientes.md) *(pendente)*
-- [`bulk_upsert_contatos` — regras críticas](entra-dados/bulk-upsert-contatos.md) *(pendente)*
+### Entra Dados (hub /entra-dados e /de-para)
+- [Visão geral](entra-dados/visao-geral.md)
+- [De-Para (mapeamentos S3)](entra-dados/de-para.md)
+
+### Importação de Bases
+- [Visão geral](importacao/visao-geral.md)
+- [Importação por planilha](importacao/importacao-planilha.md)
+- [Importação do Pool / DataLake](importacao/importacao-pool.md)
+- [`ingest-base-clientes`](importacao/ingest-base-clientes.md)
+- [`bulk_upsert_contatos` — regras críticas](importacao/bulk-upsert-contatos.md)
 
 ### Recepção
-- [Visão geral](recepcao/visao-geral.md) *(pendente)*
+- [Visão geral](recepcao/visao-geral.md)
 - [Fluxo de check-in](recepcao/fluxo-checkin.md)
-- [Busca por sufixo de telefone](recepcao/busca-sufixo-telefone.md) *(pendente)*
-- [Vendedor de atendimento](recepcao/vendedor-atendimento.md) *(pendente)*
+- [Busca por sufixo de telefone](recepcao/busca-sufixo-telefone.md)
+- [Vendedor de atendimento](recepcao/vendedor-atendimento.md)
 
 ### Administração
-- [Visão geral](administracao/visao-geral.md) *(pendente)*
+- [Visão geral](administracao/visao-geral.md)
 - [Controle de Acessos](administracao/controle-acessos.md)
 - [Controle de Acessos — auxiliar detalhado](administracao/controle-acessos-auxiliar-detalhado.md)
-- [Feature Flags](administracao/feature-flags.md) *(pendente)*
-- [MFA e Vault](administracao/mfa-vault.md) *(pendente)*
-- [Quarentena manual](administracao/quarentena-manual.md) *(pendente)*
-- [Logs de disparos (tela)](administracao/logs-disparos.md) *(pendente)*
-- [Monitor nacional de disparos](administracao/monitor-disparos-nacional.md) *(pendente)*
+- [Feature Flags](administracao/feature-flags.md)
+- [MFA e Vault](administracao/mfa-vault.md)
+- [Quarentena manual](administracao/quarentena-manual.md)
+- [Logs de disparos (tela)](administracao/logs-disparos.md)
+- [Monitor nacional de disparos](administracao/monitor-disparos-nacional.md)
 - [Empresas e Cadeiras — sync terceiros](administracao/empresas-e-cadeiras.md)
 
 ### Resultados & Relatórios
-- [Visão geral](resultados-e-relatorios/visao-geral.md) *(pendente)*
-- [Relatório de Convidados](resultados-e-relatorios/relatorio-convidados.md) *(pendente)*
-- [Dashboards](resultados-e-relatorios/dashboards.md) *(pendente)*
+- [Visão geral](resultados-e-relatorios/visao-geral.md)
+- [Relatório de Convidados](resultados-e-relatorios/relatorio-convidados.md)
+- [Dashboards](resultados-e-relatorios/dashboards.md)
 
 ### APIs públicas
 - [`create-lead-pri`](apis/create-lead-pri.md)
-- [`create-lead`](apis/create-lead.md) *(pendente)*
-- [`create-lead-ligacao`](apis/create-lead-ligacao.md) *(pendente)*
-- [`search-lead`](apis/search-lead.md) *(pendente)*
-- [Webhooks recebidos](apis/webhooks-recebidos.md) *(pendente)*
+- [`create-lead`](apis/create-lead.md)
+- [`create-lead-ligacao`](apis/create-lead-ligacao.md)
+- [`search-lead`](apis/search-lead.md)
+- [Webhooks recebidos](apis/webhooks-recebidos.md)
 
 ### Operações
 - [Login de Terceiros](operacoes/login-terceiros.md)
-- [Manual do Usuário (esqueleto)](operacoes/manual-do-usuario/README.md) *(pendente)*
+- [Manual do Usuário (esqueleto)](operacoes/manual-do-usuario/README.md)
 
 ### Histórico / roadmap
 - [Plano RBAC fine-grained — inventariado](historico/rbac-inventariado.md)
