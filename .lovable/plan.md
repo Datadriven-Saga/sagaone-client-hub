@@ -1,68 +1,93 @@
-# Continuação da documentação técnica — plano revisado
+# Plano — Manual do Usuário (Fase 3 expandida)
 
-Correção: **Entra Dados** ≠ importação. É o hub em `/entra-dados` + `/de-para` (mapeamentos armazenados no bucket S3 `dados-custom-entradados` via Edge Function `de-para-s3`). A parte de importação (planilha, pool, `bulk_upsert_contatos`, `ingest-base-clientes`) fica em uma nova seção **Importação de Bases** — separada por ser fluxo diferente.
+Só documentação. Nenhuma alteração de código/DB.
 
-## Reestrutura do índice
+## Estrutura final (`docs/operacoes/manual-do-usuario/`)
 
-- Renomear seção `Entra Dados` → **Entra Dados (hub /entra-dados e /de-para)**.
-- Criar nova seção **Importação de Bases** no `docs/README.md` reunindo importação/planilha/pool/ingest/bulk_upsert.
-- Mover `docs/entra-dados/importacao-pool.md` → `docs/importacao/importacao-pool.md`.
-- Mover `status-ingest-base-clientes*.md` (raiz do repo) → `docs/importacao/ingest-base-clientes.md` consolidando as duas versões.
+Reescrevo os esqueletos existentes e crio o que falta. Tom: direto, chão-de-loja, markdown puro. Cada capítulo termina com bloco `> 🎥 Vídeo sugerido: ...` (placeholder — não há vídeo ainda, só a marcação).
 
-## Fase 2c — Entra Dados (novo escopo, correto)
+```text
+README.md                     (índice + matriz perfil × capítulo — atualizar)
+01-primeiros-passos.md        (SSO, empresa ativa, timeout — expandir)
+02-recepcao.md                (check-in QR/FAB, 4 dígitos, vendedor opcional)
+03-prospeccao-kanban.md       (Kanban, status, temperatura, filtros, anotações)
+04-disparo-whatsapp.md        (evento base, planilha vs pool, template, cadência, agendamento, template pausado, job órfão)
+05-pos-vendas.md              (agente compartilhado por marca+UF, gatilhos, entregas multi-template, template pausado)
+06-relatorios.md              (dashboards WPP/Ligação, relatório convidados, exportação)
+07-administracao.md           (feature flags, MFA, quarentena, monitor nacional, usuários/SSO)
+08-perfis-e-responsabilidades.md  (NOVO — matriz "quem faz o quê")
+09-glossario-rapido.md        (NOVO — termos do chão-de-loja: SDR, cadência, gatilho, template pausado)
+```
 
-Criar em `docs/entra-dados/`:
+Também crio na raiz do manual:
 
-- `visao-geral.md` — o que é o hub `/entra-dados`, tipos (Base, Tabela, De-Para), KPIs, estado atual (grid mockado + navegação para /de-para; "Nova base" ainda não implementado).
-- `de-para.md` — como funciona `/de-para`:
-  - Modelo `{ name, pairs: [{ origem, destino }] }` gravado em `de-para/<nome>.json` no bucket S3 `dados-custom-entradados`.
-  - Ações da Edge Function `de-para-s3` (`list`, `get`, `save`) — payloads, autenticação, permissões.
-  - Consumo: quem lê esses arquivos (n8n / pipelines externas — marcar TODO se não confirmado).
-  - Regras de nomeação e limites.
-  - Troubleshooting (erro ao listar/salvar, credenciais AWS).
-- Atualizar `docs/README.md` desta seção.
+- `CHECKLIST-VIDEOS.md` — lista priorizada de vídeos a gravar (ver seção abaixo).
 
-## Fase 2c-bis — Importação de Bases (a parte "também importante")
+## Conteúdo-chave por capítulo (com as decisões que você deu)
 
-Criar em `docs/importacao/`:
+**Cap. 5 — Pós-Vendas**
+- Templates Paty são **compartilhados por marca+UF quando o agente é o mesmo** (igual à Pri). Configurar em uma loja replica para as outras da mesma marca/UF.
+- Entregas: **gatilhos do Saga Conecta já chegam automaticamente** — a Paty só dispara se o gatilho estiver com template vinculado e ativo.
+- Responsável pela configuração: **CRM** (a definir formalmente — marcar como `TBD` no doc).
+- Template pausado: comportamento operacional **ainda não definido** — registrar como "pendente de definição" com link para a doc técnica.
 
-- `visao-geral.md` — pontos de entrada (Planilha, Pool/DataLake, `ingest-base-clientes`, `create-lead-pri`) e fluxo comum → `bulk_upsert_contatos` → `import_logs`/`bases_importadas`/quarentena.
-- `importacao-planilha.md` — `UploadPlanilha`, bucket `import-files`, `process-import`, self-chaining, colunas aceitas.
-- `importacao-pool.md` — mover do lugar atual.
-- `ingest-base-clientes.md` — consolidar status v1+v2 (cobertura 1 ano, jobs, RPCs).
-- `bulk-upsert-contatos.md` — regras críticas conforme project-knowledge: nunca alterar de primeira, testes obrigatórios, overload, `SECURITY DEFINER`, integração `upsert_quarentena`, índice parcial `contato_quarentena`.
+**Cap. 3 — Prospecção**
+- Documentar diferença de acesso **SDR vs Vendedor** e o fato de que hoje **vendedor enxerga eventos não atribuídos** (ponto marcado como *"comportamento atual — em revisão, futuro: vendedor só vê Kanban"*).
+- Regra dos 30 leads do SDR: "vai liberando à medida que trata".
 
-## Fase 2d — Recepção, Administração e Resultados
+**Cap. 4 — Disparo WhatsApp**
+- Qualquer gestor dispara direto (sem aprovação) — documentar como está e marcar como decisão de negócio.
+- Template pausado / job órfão: usuário **aguarda auto-recovery**; só escalar se ficar >15 min pendente.
 
-Recepção:
-- `recepcao/visao-geral.md`, `recepcao/busca-sufixo-telefone.md`, `recepcao/vendedor-atendimento.md`.
+**Cap. 2 — Recepção**
+- Vendedor de atendimento é **opcional** — usar só quando quiser adiantar; padrão é deixar em branco porque o lead já cai no MobiGestor no vendedor correto.
 
-Administração:
-- `administracao/visao-geral.md`, `feature-flags.md`, `mfa-vault.md`, `quarentena-manual.md`, `logs-disparos.md`, `monitor-disparos-nacional.md`.
+**Cap. 7 — Administração**
+- Feature flags e MFA/Vault: **Admin e TI**.
+- Quarentena manual e planilha CRM: **CRM**.
+- Cria evento base: **gestores de leads e CRM**.
+- SSO: só cita fluxo `@gruposaga.com.br` — sem passo a passo de criação (Master faz via Azure, fora do escopo do usuário final).
 
-Resultados:
-- `resultados-e-relatorios/visao-geral.md`, `relatorio-convidados.md`, `dashboards.md`.
+**Cap. 8 — Perfis (novo)**
+Matriz consolidada:
 
-## Fase 2e — Arquitetura & APIs
+| Configuração | Responsável |
+|---|---|
+| Feature flags | Admin, TI |
+| MFA / Vault | Admin, TI |
+| Quarentena manual | CRM |
+| Importação planilha | CRM |
+| Import pool | CRM |
+| Criação de evento base | Gestor de leads, CRM |
+| Templates Paty / Meta | *TBD (provável CRM)* |
+| Gatilho→template por loja (Peças/Entregas) | *TBD (provável CRM)* |
+| Cadência WPP | Gestor de leads |
+| Disparo WPP | Qualquer gestor (sem aprovação) |
+| Vendedor de atendimento | Recepcionista (opcional) |
 
-Arquitetura:
-- `visao-geral.md`, `multi-tenant.md`, `autenticacao-e-sessao.md`, `permissoes-e-rbac.md`, `webhooks-e-integracoes.md`, `performance.md`.
+## Checklist de vídeos (`CHECKLIST-VIDEOS.md`)
 
-APIs públicas:
-- `apis/create-lead.md`, `apis/create-lead-ligacao.md`, `apis/search-lead.md`, `apis/webhooks-recebidos.md` (`template-paused-webhook`, `ia-ligacao-webhook`, `atendimento-status-webhook`, `confirm-presence`).
+Priorização por impacto × frequência de dúvida:
 
-## Fase 3 — Manual do Usuário
+1. **P0 — Recepção check-in** (QR + FAB + busca 4 dígitos) — maior volume operacional.
+2. **P0 — Criação de evento base + upload de planilha** — onde CRM mais erra.
+3. **P0 — Kanban do SDR** (mover lead, temperatura, filtros) — uso diário.
+4. **P1 — Disparo WPP: escolher template + cadência + agendamento** — inclui o que fazer se template pausar.
+5. **P1 — Pós-Vendas: vincular gatilho a template Paty** (Peças e Entregas multi-template).
+6. **P1 — Relatório de convidados + dashboards** — dúvida recorrente de gestor.
+7. **P2 — Import pool vs planilha** (quando usar cada um).
+8. **P2 — Administração: feature flags e quarentena manual.**
+9. **P2 — MFA/Vault** (uso e recuperação).
+10. **P3 — Monitor Nacional de Disparos** (só Master).
 
-`docs/operacoes/manual-do-usuario/`:
-- `README.md` + capítulos por perfil (Recepcionista, SDR, Vendedor, Gestor, Admin) consumindo a seção **Fluxo funcional** de cada doc técnico.
+## Pontos que fico marcando como TBD no manual (para você fechar depois)
 
-## Manutenção contínua
+- Responsável formal pela configuração de Pós-Vendas (Paty/gatilhos).
+- Ação do usuário quando template é pausado (hoje: aguardar; futuro: definir SLA).
+- Ajuste de acesso do vendedor (só Kanban) — hoje documentado como está + nota "em revisão".
 
-- Cada arquivo criado → remover `*(pendente)*` do `docs/README.md`.
-- Remover `status-ingest-base-clientes*.md` da raiz após migrar.
-- Consolidar `documents/notificacoes.md` duplicado.
-- Sem alteração de código de aplicação nesta trilha; apenas docs + movimentação de arquivos existentes.
+## Execução
 
-## Pergunta antes de executar
+Faço em **um único lote** (reescrever 7 esqueletos + criar 3 novos arquivos + checklist de vídeos), sem tocar em código. Ao final, atualizo `docs/README.md` marcando esta fase como concluída.
 
-Executo **tudo em sequência** (2c + 2c-bis → 2d → 2e → 3) ou entrego **fase a fase** para você revisar entre elas?
+Confirma que executo assim, ou quer ajustar algo antes?
