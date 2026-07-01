@@ -712,6 +712,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     return () => { cancelled = true; };
   }, [activeCompany?.id]);
 
+  // Recarregar temperaturas quando um modal notificar mudança
+  const [temperaturaRefreshTick, setTemperaturaRefreshTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTemperaturaRefreshTick(v => v + 1);
+    window.addEventListener('lead-temperatura-updated', handler);
+    return () => window.removeEventListener('lead-temperatura-updated', handler);
+  }, []);
+
   // Carregar temperatura_id dos contatos em exibição (Kanban + Lista)
   useEffect(() => {
     const ids = new Set<string>();
@@ -719,18 +727,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     Object.values(kanbanData || {}).forEach((col: any) => {
       (col?.items || []).forEach((it: any) => { if (it?.id) ids.add(it.id); });
     });
-    if (ids.size === 0) {
-      if (temperaturaMap.size > 0) setTemperaturaMap(new Map());
-      return;
-    }
-    const missing = Array.from(ids).filter(id => !temperaturaMap.has(id));
-    if (missing.length === 0) return;
+    if (ids.size === 0) return;
+    const idArray = Array.from(ids);
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
         .from('contatos')
         .select('id, temperatura_id')
-        .in('id', missing);
+        .in('id', idArray);
       if (cancelled || error || !data) return;
       setTemperaturaMap(prev => {
         const next = new Map(prev);
@@ -741,7 +745,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       });
     })();
     return () => { cancelled = true; };
-  }, [contatos, kanbanData]);
+  }, [contatos, kanbanData, temperaturaRefreshTick]);
 
   // Sincronizar eventos de Ligação com o webhook externo
   const [sincronizandoLigacao, setSincronizandoLigacao] = useState(false);
