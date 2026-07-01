@@ -205,6 +205,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     totalContatos: 0,
   });
   const [defaultFilterLoaded, setDefaultFilterLoaded] = useState(false);
+  const [temperaturasEmpresa, setTemperaturasEmpresa] = useState<{ id: string; nome: string; cor: string }[]>([]);
+  const [temperaturaMap, setTemperaturaMap] = useState<Map<string, string>>(new Map());
   
   // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
