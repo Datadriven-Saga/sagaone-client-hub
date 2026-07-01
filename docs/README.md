@@ -78,7 +78,7 @@ Este diretório é a fonte oficial de documentação técnica e funcional do sis
 
 ### Operações
 - [Login de Terceiros](operacoes/login-terceiros.md)
-- [Manual do Usuário (esqueleto)](operacoes/manual-do-usuario/README.md)
+- [Manual do Usuário](operacoes/manual-do-usuario/README.md) — 9 capítulos por perfil + [checklist de vídeos](operacoes/manual-do-usuario/CHECKLIST-VIDEOS.md).
 
 ### Histórico / roadmap
 - [Plano RBAC fine-grained — inventariado](historico/rbac-inventariado.md)
