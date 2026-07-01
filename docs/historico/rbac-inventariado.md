@@ -1,6 +1,6 @@
 # Inventariado — RBAC Fine-Grained (varreduras item 8)
 
-> **Escopo:** este documento fecha o item 8 do plano (`docs/plano-rbac-fine-grained.md`) e da `docs/previsao-breaking-changes.md`. É o resultado bruto, **comentado**, das varreduras `rg` que precedem F0. Serve como input direto para:
+> **Escopo:** este documento fecha o item 8 do plano (`.lovable/plan.md`, RBAC fine-grained) e de [`docs/historico/breaking-changes.md`](./breaking-changes.md). É o resultado bruto, **comentado**, das varreduras `rg` que precedem F0. Serve como input direto para:
 >
 > 1. construção do mapa `LEGACY_TO_NEW` no adapter (F0);
 > 2. decisão sobre **drop** vs **migração** de cada flag;
