@@ -1382,7 +1382,28 @@ export function ContatoModal({
                       {temperaturas.map((temp) => (
                         <button
                           key={temp.id}
-                          onClick={() => !isLeadBloqueado && setTemperaturaAtual(temp.id)}
+                          onClick={async () => {
+                            if (isLeadBloqueado || !contato?.id) return;
+                            const novoId = temperaturaAtual === temp.id ? null : temp.id;
+                            const previous = temperaturaAtual;
+                            setTemperaturaAtual(novoId || '');
+                            const { error } = await supabase
+                              .from('contatos')
+                              .update({ temperatura_id: novoId })
+                              .eq('id', contato.id);
+                            if (error) {
+                              setTemperaturaAtual(previous);
+                              toast({
+                                title: 'Erro ao salvar temperatura',
+                                description: error.message,
+                                variant: 'destructive',
+                              });
+                            } else {
+                              window.dispatchEvent(new CustomEvent('lead-temperatura-updated', {
+                                detail: { contatoId: contato.id, temperaturaId: novoId },
+                              }));
+                            }
+                          }}
                           disabled={isLeadBloqueado}
                           className={`w-full p-3 border rounded-lg text-left transition-colors ${
                             temperaturaAtual === temp.id
