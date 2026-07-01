@@ -1757,7 +1757,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       }
       return true;
     });
-  }, [contatos, globalFilters, profiles, contatosProspeccoes]);
+  }, [contatos, globalFilters, profiles, contatosProspeccoes, temperaturaMap]);
 
   // Função de filtragem global para prospecções/eventos
   // Filtrar eventos: Ligação só aparece se confirmado no sistema externo
