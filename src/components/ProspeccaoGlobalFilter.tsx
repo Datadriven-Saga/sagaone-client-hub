@@ -438,6 +438,49 @@ export function ProspeccaoGlobalFilter({
                     onCheckedChange={(checked) => updateFilter('showAllEvents', checked ? 'true' : 'false')}
                   />
                 </div>
+
+                {/* Temperatura */}
+                {temperaturas.length > 0 && (
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-muted-foreground">Temperatura</label>
+                      {(filters.temperaturaIds?.length || 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearTemperaturas}
+                          className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 border rounded-md p-2">
+                      {temperaturas.map(t => {
+                        const isSelected = (filters.temperaturaIds || []).includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => toggleTemperatura(t.id)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/5 text-foreground"
+                                : "border-border text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full border border-black/10"
+                              style={{ backgroundColor: t.cor }}
+                            />
+                            {t.nome}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </PopoverContent>
