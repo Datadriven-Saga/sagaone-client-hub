@@ -1702,14 +1702,19 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           .filter(Boolean) as typeof profiles;
         const respEmailLower = contato.responsavel_email?.toLowerCase();
         const matchResponsavel = selectedProfiles.some(profile =>
-          contato.responsavel_email === profile.id ||
-          respEmailLower === profile.email?.toLowerCase() ||
-          contato.responsavel_email === profile.celular
+          respEmailLower && respEmailLower === profile.email?.toLowerCase()
         );
         if (!matchResponsavel) return false;
       }
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
+      }
+      // Filtro por Temperatura
+      if ((globalFilters.temperaturaIds?.length || 0) > 0) {
+        const tid = temperaturaMap.get(contato.id);
+        if (!tid || !globalFilters.temperaturaIds.includes(tid)) {
+          return false;
+        }
       }
       // Filtro unificado inteligente: Dados do Lead (nome, telefone, email, id, lead_id)
       // Detecção automática do tipo de busca baseado no conteúdo digitado
