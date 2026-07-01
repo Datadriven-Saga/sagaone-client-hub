@@ -170,7 +170,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     responsavelIds: [],
     status: "todos",
     dadosLead: "",
-showAllEvents: true
+    showAllEvents: true,
+    temperaturaIds: []
   });
   const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
   const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
