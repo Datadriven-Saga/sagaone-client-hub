@@ -1,55 +1,51 @@
-## Plano — Liberar Segmentar Base (Pool / DataLake) para uso
+## Objetivo
 
-Decisões confirmadas:
+Deixar rastro visível toda vez que a Pri IA vincula (ou revincula) um lead a um evento via `create-lead-pri`, usando a mesma superfície de log que a operação já enxerga (`logs_movimentacao_contatos`), sem disparar o webhook do MobiGestor.
 
-1. **Escopo:** validar + paridade total com planilha (quarentena, opt-out global, opt-out externo, `import_logs`, auditoria item-a-item).
-2. **ReadOnly + eventos:** bloquear quando o evento já terminou (`data_fim < now()`). Eventos em progresso e futuros continuam permitidos.
-3. **Governança:** leads em quarentena / opt-out são bloqueados silenciosamente e contados no toast (mesmo padrão da planilha).
-4. **Auditoria:** resumo em `pool_segmentacoes` (já existe) + 1 entrada em `logs_prospeccoes` por importação.
+## Por que é seguro escrever em `logs_movimentacao_contatos`
 
-### Mudanças por área
+O dispatcher (`_shared/movimentacao-lead-webhook.ts`) já tem 2 guardas que garantem skip para chamadas da Pri:
 
-**Banco (migration)**
+- **Guarda 1 (linha 101-106):** `usuario_id === PRI_IA_USER_ID` → retorna `skipped: true, reason: "pri_ia"` sem tocar no Mobi.
+- **Guarda 2 (linha 125-128):** canal precisa ser `Mensal` ou `Grande Evento`. Eventos da Pri normalmente caem fora, mas mesmo se caírem dentro a guarda 1 protege.
 
-- `get_pool_clientes_for_empresa`
-  - Ler `dias_max` da permissão efetiva do `auth.uid()` (`canImportPoolFull` ou `canImportPoolReadOnly`) e clampar `p_dias_atras` server-side.
-  - Aplicar mascaramento `LEFT(digits,4) || '****'` no telefone quando o usuário só tem `canImportPoolReadOnly`.
-  - Retornar 401/erro se o usuário não tem nenhuma das duas permissões (defesa em profundidade — o front já bloqueia).
+Ou seja: basta escrever o log com `usuario_id = PRI_IA_USER_ID` e o webhook Mobi nunca é chamado. Isso já foi a decisão de arquitetura documentada (memória `movimentacao-lead-single-source`).
 
-- `importar_pool_para_evento`
-  - Revalidar `dias_max` contra `criado_em_origem` de cada item em `p_itens`.
-  - Quando `eventos_permitidos='futuros'` no `valor` do ReadOnly: recusar se `prospeccoes.data_fim < now()` (evento encerrado). Permite em progresso e futuros.
-  - Validar `global_opt_outs` (telefone).
-  - Validar `contato_quarentena` por marca/UF/canal (mesma lógica usada pelo `bulk_upsert_contatos`).
-  - Validar opt-out externo via cache `external_optout_snapshots` (mesmo helper do `process-import`, fail-closed).
-  - Retornar contadores estruturados: `imported`, `blocked_quarentena`, `blocked_optout_global`, `blocked_optout_externo`, `blocked_janela`, `blocked_evento_encerrado`.
-  - Inserir 1 linha em `logs_prospeccoes` com `acao='importacao_pool'`, `detalhes` (JSON com `segmentacao_id`, contadores, filtros).
-  - Inserir 1 linha em `import_logs` com origem `pool` (para auditoria unificada com a planilha).
+## Mudanças
 
-**Frontend**
+### 1. Edge function `create-lead-pri`
 
-- `PermissionRegistry.ts` / `useUserAccessType.ts`: remover o macro `canImportPool` legado, manter só `canImportPoolFull` e `canImportPoolReadOnly` (corrige a inconsistência de CRM "ter acesso macro" sem entrar na tela).
-- `ImportarDoDataLake.tsx`:
-  - Toast de resumo com os 6 contadores (Importados / Quarentena / Opt-out global / Opt-out externo / Fora da janela / Evento encerrado), reaproveitando o componente do resumo da planilha.
-  - Mensagem clara quando o ReadOnly tenta um evento encerrado.
+- Ler `PRI_IA_USER_ID` do env (já usado pelo dispatcher; mesmo segredo).
+- Antes do `bulk_upsert_contatos`, fazer um `SELECT` em `eventos_prospeccao` por `(contato_id, prospeccao_id)` para calcular corretamente `vinculo_ja_existia` (hoje esse valor é sempre `true` porque a checagem é feita depois do upsert).
+- Inserir 1 registro em `logs_movimentacao_contatos`:
+  - `contato_id`, `prospeccao_id`, `empresa_id`
+  - `status_anterior` e `status_novo` = status atual do contato (sem transição, para consistência)
+  - `usuario_id` = `PRI_IA_USER_ID` (dispara a trigger mas o dispatcher faz skip)
+  - `observacoes` = `Pri IA (${origem}) — vínculo ${vinculo_ja_existia ? "reforçado" : "criado"}${id_evento_pri ? ` | pri_evento_id:${id_evento_pri}` : ""}`
+- Se `PRI_IA_USER_ID` não estiver setado, **não** escrever nada em `logs_movimentacao_contatos` (evita risco de webhook Mobi vazar) e logar warning.
+- Enriquecer resposta com `vinculo_ja_existia: boolean` (novo campo).
+- Enriquecer `logs_prospeccoes.detalhes` com `vinculo_ja_existia` (segue existindo como auditoria interna).
 
-**Docs**
+### 2. Documentação `docs/api-create-lead-pri.md`
 
-- `docs/fluxo-importacao-pool.md`: fluxo, RPCs, permissões, regras de quarentena/opt-out, auditoria, checklist de liberação.
+- Adicionar seção "Rastro / Auditoria":
+  - `logs_movimentacao_contatos`: 1 registro por chamada, com `usuario_id = Pri IA`. Aparece no timeline unificado do lead. Trigger dispara o dispatcher mas ele retorna `skipped: pri_ia` — Mobi nunca é chamado.
+  - `logs_prospeccoes`: auditoria interna (`lead_criado_pri` / `lead_vinculado_pri`, com `vinculo_ja_existia`).
+- Atualizar tabela de resposta com novo campo `vinculo_ja_existia`.
+- Nota operacional: exige `PRI_IA_USER_ID` no env da function (mesmo segredo usado pelo dispatcher).
 
-### Checklist de pré-liberação
+### 3. Fora de escopo
 
-- Admin Master → slider ilimitado, importa qualquer evento.
-- CRM (`dias_max=90`) → slider trava em 90 mesmo chamando o RPC direto.
-- SDR (`dias_max=30`, `eventos_permitidos='futuros'`) → bloqueado para eventos já encerrados, telefone mascarado, sem edição inline.
-- Sem permissão → opção "Segmentar Base" desabilitada e RPC rejeita.
-- Lead em quarentena / opt-out global / opt-out externo aparece como bloqueado no toast e não vincula.
-- `logs_prospeccoes` ganha 1 entrada `importacao_pool` por importação.
-- `import_logs` ganha 1 entrada com origem `pool`.
+- Nenhuma mudança no dispatcher, na trigger PG, ou em `bulk_upsert_contatos`.
+- Nenhuma mudança em atribuição/status.
+- `contato_timeline` não é tocado (já é alimentado por outras fontes e o rastro fica em `logs_movimentacao_contatos`).
 
-### Áreas críticas / fora de escopo
+## Validação
 
-- **Não alterar** `bulk_upsert_contatos`.
-- Não mexer em RLS de `eventos_prospeccao` nem em visibilidade de leads.
-- Não tocar no fluxo de planilha.
-- Não adicionar busca textual server-side agora (segue local, conforme decisão anterior).
+- Confirmar que `PRI_IA_USER_ID` está setado como secret da function (`create-lead-pri` além do dispatcher).
+- Rechamar o payload do teste (`Luiz`, evento `345699aa...`):
+  - Conferir em `logs_movimentacao_contatos` o novo registro com `usuario_id = Pri IA`.
+  - Conferir nos logs da function dispatcher a linha `⏭️ skip pri_ia`.
+  - Conferir que **não** houve chamada HTTP para `WEBHOOK_MOVIMENTACAO_LEAD_URL`.
+  - Conferir em `logs_prospeccoes` o registro `lead_vinculado_pri` com `vinculo_ja_existia`.
+- Chamar 2ª vez com o mesmo payload: novo log em `logs_movimentacao_contatos`, sem duplicar vínculo em `eventos_prospeccao`, sem chamar Mobi.
