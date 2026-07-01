@@ -29,12 +29,12 @@ Este diretório é a fonte oficial de documentação técnica e funcional do sis
 - [Auditoria](prospeccao/auditoria.md)
 
 ### Pós-Vendas
-- [Visão geral](pos-vendas/visao-geral.md) *(pendente)*
-- [Peças — gatilhos, lojas e templates](pos-vendas/pecas.md) *(pendente)*
-- [Entregas — gatilhos, lojas, multi-template](pos-vendas/entregas.md) *(pendente)*
+- [Visão geral](pos-vendas/visao-geral.md)
+- [Peças — gatilhos, lojas e templates](pos-vendas/pecas.md)
+- [Entregas — gatilhos, lojas, multi-template](pos-vendas/entregas.md)
 - [Paty Templates e variáveis](pos-vendas/paty-templates.md)
-- [Cadência](pos-vendas/cadencia.md) *(pendente)*
-- [Agendamentos](pos-vendas/agendamentos.md) *(pendente)*
+- [Cadência](pos-vendas/cadencia.md)
+- [Agendamentos](pos-vendas/agendamentos.md)
 
 ### Entra Dados
 - [Visão geral](entra-dados/visao-geral.md) *(pendente)*
