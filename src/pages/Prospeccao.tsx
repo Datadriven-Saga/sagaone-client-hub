@@ -2599,6 +2599,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             className="min-w-0 flex-1"
             prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
             responsaveis={responsaveisFiltrados}
+            temperaturas={temperaturasEmpresa}
             filters={globalFilters}
             onFiltersChange={setGlobalFilters}
           />
