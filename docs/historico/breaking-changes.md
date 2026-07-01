@@ -1,6 +1,6 @@
 # Previsão de Breaking Changes — Migração RBAC `escopo:recurso:ação`
 
-> Documento complementar de `.lovable/plan.md` (Plano RBAC Fine-Grained) e `docs/controle-acessos-auxiliar-detalhado.md`. **Escopo:** catalogar, em formato estruturado, **toda mudança de comportamento previsível** que ocorrerá ao migrar de `PermissionRegistry.ts` + `departamento_permissoes` para `auth_permissions` + `profile_permissions` (taxonomia `escopo:recurso:ação`), e mapear, para cada uma, **qual mecanismo do adapter** absorve a quebra, **qual sinal de monitoramento** prova que está sendo absorvida, e **qual critério de saída** autoriza remover a regra do adapter.
+> Documento complementar de `.lovable/plan.md` (Plano RBAC Fine-Grained) e [`docs/administracao/controle-acessos-auxiliar-detalhado.md`](../administracao/controle-acessos-auxiliar-detalhado.md). **Escopo:** catalogar, em formato estruturado, **toda mudança de comportamento previsível** que ocorrerá ao migrar de `PermissionRegistry.ts` + `departamento_permissoes` para `auth_permissions` + `profile_permissions` (taxonomia `escopo:recurso:ação`), e mapear, para cada uma, **qual mecanismo do adapter** absorve a quebra, **qual sinal de monitoramento** prova que está sendo absorvida, e **qual critério de saída** autoriza remover a regra do adapter.
 >
 > **Fora de escopo:** propor migration, escrever código, decidir cronograma final. Este documento é entrada para a revisão antes de F0.
 
