@@ -103,6 +103,37 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
     fetchTemperaturas();
   }, [isOpen, activeCompany?.id]);
 
+  // Buscar temperatura atual do contato
+  useEffect(() => {
+    const fetchCurrentTemperatura = async () => {
+      if (!isOpen || !item?.id) return;
+      const { data } = await supabase
+        .from('contatos')
+        .select('temperatura_id')
+        .eq('id', item.id)
+        .maybeSingle();
+      setTemperatura((data as any)?.temperatura_id || '');
+    };
+    fetchCurrentTemperatura();
+  }, [isOpen, item?.id]);
+
+  const handleTemperaturaChange = async (novoId: string) => {
+    if (!item?.id) return;
+    const previous = temperatura;
+    setTemperatura(novoId);
+    const { error } = await supabase
+      .from('contatos')
+      .update({ temperatura_id: novoId || null })
+      .eq('id', item.id);
+    if (error) {
+      setTemperatura(previous);
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('lead-temperatura-updated', {
+      detail: { contatoId: item.id, temperaturaId: novoId || null },
+    }));
+  };
+
   // Mock data - substituir por dados reais
   const dadosCliente = {
     nome: item?.title || '',
@@ -468,7 +499,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                   <CardTitle>Temperatura do Lead</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Select value={temperatura} onValueChange={setTemperatura}>
+                  <Select value={temperatura} onValueChange={handleTemperaturaChange}>
                     <SelectTrigger style={{ backgroundColor: '#FFFFFF' }}>
                       <SelectValue placeholder="Selecionar temperatura..." />
                     </SelectTrigger>

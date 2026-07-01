@@ -140,6 +140,20 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
         {/* Header: Name + ID */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5">
+            {item.temperatura && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/10"
+                    style={{ backgroundColor: item.temperatura.cor }}
+                    aria-label={`Temperatura: ${item.temperatura.nome}`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Temperatura: {item.temperatura.nome}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
               {item.title}
             </h4>

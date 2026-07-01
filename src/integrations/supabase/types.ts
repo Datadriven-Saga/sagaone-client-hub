@@ -1557,6 +1557,7 @@ export type Database = {
           responsavel_email: string | null
           status: Database["public"]["Enums"]["status_lead"] | null
           telefone: string | null
+          temperatura_id: string | null
           tentativas_chamada: number
           updated_at: string | null
           valor_potencial: number | null
@@ -1586,6 +1587,7 @@ export type Database = {
           responsavel_email?: string | null
           status?: Database["public"]["Enums"]["status_lead"] | null
           telefone?: string | null
+          temperatura_id?: string | null
           tentativas_chamada?: number
           updated_at?: string | null
           valor_potencial?: number | null
@@ -1615,6 +1617,7 @@ export type Database = {
           responsavel_email?: string | null
           status?: Database["public"]["Enums"]["status_lead"] | null
           telefone?: string | null
+          temperatura_id?: string | null
           tentativas_chamada?: number
           updated_at?: string | null
           valor_potencial?: number | null
@@ -1627,6 +1630,13 @@ export type Database = {
             columns: ["base_id"]
             isOneToOne: false
             referencedRelation: "bases_importadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contatos_temperatura_id_fkey"
+            columns: ["temperatura_id"]
+            isOneToOne: false
+            referencedRelation: "temperaturas_lead"
             referencedColumns: ["id"]
           },
           {

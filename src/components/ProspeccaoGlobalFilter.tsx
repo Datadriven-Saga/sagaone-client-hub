@@ -18,6 +18,7 @@ export interface ProspeccaoGlobalFilters {
   status: string;
   dadosLead: string;
   showAllEvents: boolean;
+  temperaturaIds: string[];
 }
 
 interface Prospeccao {
@@ -31,9 +32,16 @@ interface Responsavel {
   tipo_acesso: string | null;
 }
 
+interface TemperaturaOption {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
 interface ProspeccaoGlobalFilterProps {
   prospeccoes: Prospeccao[];
   responsaveis: Responsavel[];
+  temperaturas?: TemperaturaOption[];
   filters: ProspeccaoGlobalFilters;
   onFiltersChange: (filters: ProspeccaoGlobalFilters) => void;
   className?: string;
@@ -45,18 +53,17 @@ const statusOptions = [
   { value: "Atribuído", label: "Atribuídos" },
   { value: "Em Espera", label: "Em Espera" },
   { value: "Convidado", label: "Convidados" },
-  { value: "Agendado", label: "Agendados" },
   { value: "Confirmado", label: "Confirmados" },
   { value: "Check-in", label: "Check-ins" },
   { value: "Venda", label: "Vendas" },
   { value: "Descartado", label: "Descartados" },
-  { value: "Desperdício", label: "Desperdício" },
   { value: "Opt Out", label: "Opt Out" },
 ];
 
 export function ProspeccaoGlobalFilter({
   prospeccoes,
   responsaveis,
+  temperaturas = [],
   filters,
   onFiltersChange,
   className,
@@ -84,6 +91,8 @@ export function ProspeccaoGlobalFilter({
       onFiltersChange({ ...filters, prospeccaoIds: [] });
     } else if (key === 'responsavelIds') {
       onFiltersChange({ ...filters, responsavelIds: [] });
+    } else if (key === 'temperaturaIds') {
+      onFiltersChange({ ...filters, temperaturaIds: [] });
     } else {
       const defaultValue = key === 'status' ? 'todos' : '';
       onFiltersChange({ ...filters, [key]: defaultValue });
@@ -98,7 +107,8 @@ export function ProspeccaoGlobalFilter({
       responsavelIds: [],
       status: "todos",
       dadosLead: "",
-      showAllEvents: filters.showAllEvents
+      showAllEvents: filters.showAllEvents,
+      temperaturaIds: []
     });
   };
 
@@ -112,7 +122,7 @@ export function ProspeccaoGlobalFilter({
   };
 
   const selectAllProspeccoes = () => {
-    onFiltersChange({ ...filters, prospeccaoIds: prospeccoes.map(p => p.id) });
+    onFiltersChange({ ...filters, prospeccaoIds: filteredEventList.map(p => p.id) });
   };
 
   const clearProspeccoes = () => {
@@ -130,6 +140,19 @@ export function ProspeccaoGlobalFilter({
 
   const clearResponsaveis = () => {
     onFiltersChange({ ...filters, responsavelIds: [] });
+  };
+
+  const toggleTemperatura = (id: string) => {
+    const current = filters.temperaturaIds || [];
+    if (current.includes(id)) {
+      onFiltersChange({ ...filters, temperaturaIds: current.filter(x => x !== id) });
+    } else {
+      onFiltersChange({ ...filters, temperaturaIds: [...current, id] });
+    }
+  };
+
+  const clearTemperaturas = () => {
+    onFiltersChange({ ...filters, temperaturaIds: [] });
   };
 
   const filteredEventList = prospeccoes.filter(p =>
@@ -167,6 +190,12 @@ export function ProspeccaoGlobalFilter({
     }
     if (filters.dadosLead) {
       active.push({ key: 'dadosLead', label: 'Busca', value: filters.dadosLead });
+    }
+    if ((filters.temperaturaIds?.length || 0) > 0) {
+      const value = filters.temperaturaIds.length === 1
+        ? (temperaturas.find(t => t.id === filters.temperaturaIds[0])?.nome || '1 temperatura')
+        : `${filters.temperaturaIds.length} temperaturas`;
+      active.push({ key: 'temperaturaIds', label: 'Temperatura', value });
     }
     
     return active;
@@ -409,6 +438,49 @@ export function ProspeccaoGlobalFilter({
                     onCheckedChange={(checked) => updateFilter('showAllEvents', checked ? 'true' : 'false')}
                   />
                 </div>
+
+                {/* Temperatura */}
+                {temperaturas.length > 0 && (
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-muted-foreground">Temperatura</label>
+                      {(filters.temperaturaIds?.length || 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearTemperaturas}
+                          className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                        >
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 border rounded-md p-2">
+                      {temperaturas.map(t => {
+                        const isSelected = (filters.temperaturaIds || []).includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => toggleTemperatura(t.id)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/5 text-foreground"
+                                : "border-border text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full border border-black/10"
+                              style={{ backgroundColor: t.cor }}
+                            />
+                            {t.nome}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </PopoverContent>

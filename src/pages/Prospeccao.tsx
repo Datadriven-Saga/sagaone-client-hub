@@ -170,7 +170,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     responsavelIds: [],
     status: "todos",
     dadosLead: "",
-showAllEvents: true
+    showAllEvents: true,
+    temperaturaIds: []
   });
   const [disparandoIA, setDisparandoIA] = useState<string | null>(null);
   const [contagemPendentes, setContagemPendentes] = useState<Record<string, { total: number; pendentes: number; disparados: number }>>({});
@@ -204,6 +205,8 @@ showAllEvents: true
     totalContatos: 0,
   });
   const [defaultFilterLoaded, setDefaultFilterLoaded] = useState(false);
+  const [temperaturasEmpresa, setTemperaturasEmpresa] = useState<{ id: string; nome: string; cor: string }[]>([]);
+  const [temperaturaMap, setTemperaturaMap] = useState<Map<string, string>>(new Map());
   
   // === Custom Hooks e Context Hooks ===
   const { toast } = useToast();
@@ -687,6 +690,62 @@ showAllEvents: true
       fetchProspeccoes(globalFilters.showAllEvents);
     }
   }, [globalFilters.showAllEvents, activeCompany?.id, fetchProspeccoes]);
+
+  // Carregar catálogo de temperaturas da empresa
+  useEffect(() => {
+    if (!activeCompany?.id) {
+      setTemperaturasEmpresa([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('temperaturas_lead')
+        .select('id, nome, cor')
+        .eq('empresa_id', activeCompany.id)
+        .eq('ativo', true)
+        .order('ordem');
+      if (!cancelled && !error && data) {
+        setTemperaturasEmpresa(data);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeCompany?.id]);
+
+  // Recarregar temperaturas quando um modal notificar mudança
+  const [temperaturaRefreshTick, setTemperaturaRefreshTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTemperaturaRefreshTick(v => v + 1);
+    window.addEventListener('lead-temperatura-updated', handler);
+    return () => window.removeEventListener('lead-temperatura-updated', handler);
+  }, []);
+
+  // Carregar temperatura_id dos contatos em exibição (Kanban + Lista)
+  useEffect(() => {
+    const ids = new Set<string>();
+    (contatos || []).forEach(c => { if (c?.id) ids.add(c.id); });
+    Object.values(kanbanData || {}).forEach((col: any) => {
+      (col?.items || []).forEach((it: any) => { if (it?.id) ids.add(it.id); });
+    });
+    if (ids.size === 0) return;
+    const idArray = Array.from(ids);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('contatos')
+        .select('id, temperatura_id')
+        .in('id', idArray);
+      if (cancelled || error || !data) return;
+      setTemperaturaMap(prev => {
+        const next = new Map(prev);
+        data.forEach((row: any) => {
+          next.set(row.id, row.temperatura_id || '');
+        });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [contatos, kanbanData, temperaturaRefreshTick]);
 
   // Sincronizar eventos de Ligação com o webhook externo
   const [sincronizandoLigacao, setSincronizandoLigacao] = useState(false);
@@ -1647,14 +1706,19 @@ showAllEvents: true
           .filter(Boolean) as typeof profiles;
         const respEmailLower = contato.responsavel_email?.toLowerCase();
         const matchResponsavel = selectedProfiles.some(profile =>
-          contato.responsavel_email === profile.id ||
-          respEmailLower === profile.email?.toLowerCase() ||
-          contato.responsavel_email === profile.celular
+          respEmailLower && respEmailLower === profile.email?.toLowerCase()
         );
         if (!matchResponsavel) return false;
       }
       if (globalFilters.status !== "todos" && contato.status !== globalFilters.status) {
         return false;
+      }
+      // Filtro por Temperatura
+      if ((globalFilters.temperaturaIds?.length || 0) > 0) {
+        const tid = temperaturaMap.get(contato.id);
+        if (!tid || !globalFilters.temperaturaIds.includes(tid)) {
+          return false;
+        }
       }
       // Filtro unificado inteligente: Dados do Lead (nome, telefone, email, id, lead_id)
       // Detecção automática do tipo de busca baseado no conteúdo digitado
@@ -1697,7 +1761,7 @@ showAllEvents: true
       }
       return true;
     });
-  }, [contatos, globalFilters, profiles, contatosProspeccoes]);
+  }, [contatos, globalFilters, profiles, contatosProspeccoes, temperaturaMap]);
 
   // Função de filtragem global para prospecções/eventos
   // Filtrar eventos: Ligação só aparece se confirmado no sistema externo
@@ -1821,24 +1885,32 @@ showAllEvents: true
   // Converter contatos para itens do Kanban
   const contatosToKanbanItems = (contatosLista: typeof contatos): KanbanItem[] => {
     if (!contatosLista || !Array.isArray(contatosLista)) return [];
-    
+
+    const tempFilter = globalFilters.temperaturaIds || [];
+
     return contatosLista
       .filter(contato => contato && contato.nome)
+      .filter(contato => {
+        if (tempFilter.length === 0) return true;
+        const tid = temperaturaMap.get(contato.id);
+        return !!tid && tempFilter.includes(tid);
+      })
       .map(contato => {
         const prospeccaoNome = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].titulo : 'Sem prospecção';
         const prospeccaoCanal = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].canal : 'Whatsapp';
         
-        // Mapear responsavel_email (que contém o ID do usuário) para o nome completo
+        // Mapear responsavel_email (lowercase) → profile.nome_completo
         let assigneeName: string | undefined = undefined;
         if (contato.responsavel_email) {
-          // responsavel_email pode conter tanto ID quanto email - tentar ambos (case-insensitive)
           const respEmailLower = contato.responsavel_email.toLowerCase();
-          const responsavelProfile = profiles.find(p =>
-            p.id === contato.responsavel_email || p.email?.toLowerCase() === respEmailLower
-          );
+          const responsavelProfile = profiles.find(p => p.email?.toLowerCase() === respEmailLower);
           assigneeName = responsavelProfile?.nome_completo || contato.responsavel_email;
         }
-        
+
+        // Temperatura resolvida via map + catálogo
+        const tid = temperaturaMap.get(contato.id);
+        const temperaturaMatch = tid ? temperaturasEmpresa.find(t => t.id === tid) : undefined;
+
         return {
           id: contato.id || '',
           lead_id: contato.lead_id,
@@ -1851,7 +1923,12 @@ showAllEvents: true
           prospeccaoNome,
           prospeccaoCanal,
           segmentacao: 'Undefined',
-          tentativas_chamada: contato.tentativas_chamada ?? 0
+          tentativas_chamada: contato.tentativas_chamada ?? 0,
+          temperatura: temperaturaMatch ? {
+            id: temperaturaMatch.id,
+            nome: temperaturaMatch.nome,
+            cor: temperaturaMatch.cor,
+          } : undefined,
         };
       });
   };
@@ -2598,6 +2675,7 @@ showAllEvents: true
             className="min-w-0 flex-1"
             prospeccoes={prospeccoes.map(p => ({ id: p.id, titulo: p.titulo }))}
             responsaveis={responsaveisFiltrados}
+            temperaturas={temperaturasEmpresa}
             filters={globalFilters}
             onFiltersChange={setGlobalFilters}
           />
