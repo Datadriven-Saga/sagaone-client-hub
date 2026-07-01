@@ -1881,24 +1881,32 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Converter contatos para itens do Kanban
   const contatosToKanbanItems = (contatosLista: typeof contatos): KanbanItem[] => {
     if (!contatosLista || !Array.isArray(contatosLista)) return [];
-    
+
+    const tempFilter = globalFilters.temperaturaIds || [];
+
     return contatosLista
       .filter(contato => contato && contato.nome)
+      .filter(contato => {
+        if (tempFilter.length === 0) return true;
+        const tid = temperaturaMap.get(contato.id);
+        return !!tid && tempFilter.includes(tid);
+      })
       .map(contato => {
         const prospeccaoNome = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].titulo : 'Sem prospecção';
         const prospeccaoCanal = (prospeccoes && prospeccoes.length > 0) ? prospeccoes[0].canal : 'Whatsapp';
         
-        // Mapear responsavel_email (que contém o ID do usuário) para o nome completo
+        // Mapear responsavel_email (lowercase) → profile.nome_completo
         let assigneeName: string | undefined = undefined;
         if (contato.responsavel_email) {
-          // responsavel_email pode conter tanto ID quanto email - tentar ambos (case-insensitive)
           const respEmailLower = contato.responsavel_email.toLowerCase();
-          const responsavelProfile = profiles.find(p =>
-            p.id === contato.responsavel_email || p.email?.toLowerCase() === respEmailLower
-          );
+          const responsavelProfile = profiles.find(p => p.email?.toLowerCase() === respEmailLower);
           assigneeName = responsavelProfile?.nome_completo || contato.responsavel_email;
         }
-        
+
+        // Temperatura resolvida via map + catálogo
+        const tid = temperaturaMap.get(contato.id);
+        const temperaturaMatch = tid ? temperaturasEmpresa.find(t => t.id === tid) : undefined;
+
         return {
           id: contato.id || '',
           lead_id: contato.lead_id,
@@ -1911,7 +1919,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           prospeccaoNome,
           prospeccaoCanal,
           segmentacao: 'Undefined',
-          tentativas_chamada: contato.tentativas_chamada ?? 0
+          tentativas_chamada: contato.tentativas_chamada ?? 0,
+          temperatura: temperaturaMatch ? {
+            id: temperaturaMatch.id,
+            nome: temperaturaMatch.nome,
+            cor: temperaturaMatch.cor,
+          } : undefined,
         };
       });
   };
