@@ -691,6 +691,58 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   }, [globalFilters.showAllEvents, activeCompany?.id, fetchProspeccoes]);
 
+  // Carregar catálogo de temperaturas da empresa
+  useEffect(() => {
+    if (!activeCompany?.id) {
+      setTemperaturasEmpresa([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('temperaturas_lead')
+        .select('id, nome, cor')
+        .eq('empresa_id', activeCompany.id)
+        .eq('ativo', true)
+        .order('ordem');
+      if (!cancelled && !error && data) {
+        setTemperaturasEmpresa(data);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeCompany?.id]);
+
+  // Carregar temperatura_id dos contatos em exibição (Kanban + Lista)
+  useEffect(() => {
+    const ids = new Set<string>();
+    (contatos || []).forEach(c => { if (c?.id) ids.add(c.id); });
+    Object.values(kanbanData || {}).forEach((col: any) => {
+      (col?.items || []).forEach((it: any) => { if (it?.id) ids.add(it.id); });
+    });
+    if (ids.size === 0) {
+      if (temperaturaMap.size > 0) setTemperaturaMap(new Map());
+      return;
+    }
+    const missing = Array.from(ids).filter(id => !temperaturaMap.has(id));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('contatos')
+        .select('id, temperatura_id')
+        .in('id', missing);
+      if (cancelled || error || !data) return;
+      setTemperaturaMap(prev => {
+        const next = new Map(prev);
+        data.forEach((row: any) => {
+          next.set(row.id, row.temperatura_id || '');
+        });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [contatos, kanbanData]);
+
   // Sincronizar eventos de Ligação com o webhook externo
   const [sincronizandoLigacao, setSincronizandoLigacao] = useState(false);
   
