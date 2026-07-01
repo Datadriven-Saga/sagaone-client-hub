@@ -284,6 +284,18 @@ export function ContatoModal({
             })));
           }
 
+          // Buscar temperatura atual do contato
+          if (contato?.id) {
+            const { data: currentTemp } = await supabase
+              .from('contatos')
+              .select('temperatura_id')
+              .eq('id', contato.id)
+              .maybeSingle();
+            setTemperaturaAtual((currentTemp as any)?.temperatura_id || '');
+          } else {
+            setTemperaturaAtual('');
+          }
+
           // Se há um contato, buscar dados dele
           if (contato) {
             // Buscar anotações do contato (todas as prospecções) para persistência
