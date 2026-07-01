@@ -499,7 +499,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                   <CardTitle>Temperatura do Lead</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Select value={temperatura} onValueChange={setTemperatura}>
+                  <Select value={temperatura} onValueChange={handleTemperaturaChange}>
                     <SelectTrigger style={{ backgroundColor: '#FFFFFF' }}>
                       <SelectValue placeholder="Selecionar temperatura..." />
                     </SelectTrigger>
