@@ -38,6 +38,7 @@ Headers:
   "success": true,
   "duplicado": false,
   "vinculo_criado": true,
+  "vinculo_ja_existia": false,
   "lead_id": 12345,
   "contato_id": "uuid",
   "status": "Atribuído",
@@ -51,7 +52,7 @@ Headers:
 ```
 
 ### 200 — lead já existia (deduplicação)
-Mesmo formato, com `duplicado: true`. O vínculo `contato ↔ evento` em `eventos_prospeccao` é garantido (criado se faltava). O campo `origem_pri_existente` é preenchido quando o contato já tinha uma origem Pri diferente da informada — a origem original é preservada.
+Mesmo formato, com `duplicado: true`. O vínculo `contato ↔ evento` em `eventos_prospeccao` é garantido (criado se faltava). `vinculo_ja_existia` indica se o vínculo já estava presente **antes** desta chamada (`true` = idempotente, nada novo; `false` = vínculo criado agora). O campo `origem_pri_existente` é preenchido quando o contato já tinha uma origem Pri diferente da informada — a origem original é preservada.
 
 ### 400 / 401 / 404
 Validações de payload, token e existência do evento.
@@ -64,6 +65,28 @@ Validações de payload, token e existência do evento.
 4. **Telefone**: normalizado pela mesma regra do sistema — remove DDI 55 e 9º dígito de celular.
 5. **`origem_pri` (novo campo)**: persistido em `contatos.origem_pri`. Coluna separada de `contatos.origem` (que é usada pelo CRM com outro vocabulário). Quando renomearmos no CRM, é só mapear depois.
 6. **Sem `trigger-webhook`**: o evento é WhatsApp IA da Pri e **não cai no sync do Mobi/Kanban**. O endpoint é silencioso para integrações externas — só registra auditoria interna.
+
+## Rastro / Auditoria
+
+O endpoint deixa rastro em **duas** tabelas, sem chamar o webhook do MobiGestor:
+
+| Tabela                        | Quando                           | Uso                                                                                        |
+|-------------------------------|----------------------------------|--------------------------------------------------------------------------------------------|
+| `logs_prospeccoes`            | Toda chamada                     | Auditoria interna. `acao='lead_criado_pri'` ou `'lead_vinculado_pri'`. `detalhes` inclui `origem_pri`, `id_evento_pri`, `duplicado`, `vinculo_ja_existia`, `telefone`. |
+| `logs_movimentacao_contatos`  | Toda chamada (se `PRI_IA_USER_ID` estiver setado) | Timeline unificada do lead (aparece na UI). `usuario_id = Pri IA`, `status_anterior = status_novo` (sem transição), `observacoes` descreve `origem`, vínculo criado ou reforçado, e `pri_evento_id` quando fornecido. |
+
+### Por que `logs_movimentacao_contatos` não dispara o webhook Mobi
+
+A tabela tem uma trigger PG (`trg_dispatch_movimentacao_lead_webhook`) que chama o dispatcher em `_shared/movimentacao-lead-webhook.ts`. Esse dispatcher tem duas guardas que fazem `skip` sem chamar o Mobi:
+
+1. `usuario_id === PRI_IA_USER_ID` → `reason: "pri_ia"`.
+2. `canal ∉ {Mensal, Grande Evento}` → `reason: "canal_nao_elegivel"`.
+
+Como esta function escreve sempre com `usuario_id = PRI_IA_USER_ID`, a guarda 1 sempre protege.
+
+### Fallback quando `PRI_IA_USER_ID` está ausente
+
+Se o segredo não estiver setado, a escrita em `logs_movimentacao_contatos` é **pulada** (para evitar risco de vazar chamada ao Mobi). Um `console.warn` é emitido. `logs_prospeccoes` continua sendo gravado normalmente.
 
 ## Comparação com endpoints irmãos
 
@@ -97,3 +120,4 @@ curl -X POST \
 - Tabela alterada: `contatos` ganhou coluna `origem_pri text NULL` + índice parcial `(empresa_id, origem_pri)`.
 - Mapeamento futuro de vocabulário: `origem_pri` (Pri) → `origem` (CRM). Manter retrocompatibilidade ao renomear.
 - Edge function está em `verify_jwt = false`; autenticação é exclusivamente via `SAGA_ONE_ADMIN_TOKEN`.
+- Segredos necessários no ambiente da function: `SAGA_ONE_ADMIN_TOKEN` (obrigatório) e `PRI_IA_USER_ID` (recomendado — habilita rastro em `logs_movimentacao_contatos` e é o mesmo segredo usado pelo dispatcher de webhook).
