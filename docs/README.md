@@ -16,17 +16,17 @@ Este diretório é a fonte oficial de documentação técnica e funcional do sis
 - [Notificações](arquitetura/notificacoes.md)
 
 ### Prospecção
-- [Visão geral](prospeccao/visao-geral.md) *(pendente)*
-- [Kanban e status](prospeccao/kanban-e-status.md) *(pendente)*
-- [Atribuição SDR / Vendedor](prospeccao/atribuicao-sdr.md) *(pendente)*
-- [Quarentena](prospeccao/quarentena.md) *(pendente)*
+- [Visão geral](prospeccao/visao-geral.md)
+- [Kanban e status](prospeccao/kanban-e-status.md)
+- [Atribuição SDR / Vendedor](prospeccao/atribuicao-sdr.md)
+- [Quarentena](prospeccao/quarentena.md)
 - [Disparo WhatsApp](prospeccao/dispatch-whatsapp.md)
 - [Template pausado](prospeccao/template-pausado.md)
 - [Recuperação de jobs órfãos](prospeccao/recuperacao-jobs-orfaos.md)
 - [Correção do dispatcher programado](prospeccao/correcao-dispatcher.md)
-- [IA de Ligação](prospeccao/ia-ligacao.md) *(pendente)*
-- [Logs de disparos](prospeccao/logs-disparos.md) *(pendente)*
-- [Auditoria](prospeccao/auditoria.md) *(pendente)*
+- [IA de Ligação](prospeccao/ia-ligacao.md)
+- [Logs de disparos](prospeccao/logs-disparos.md)
+- [Auditoria](prospeccao/auditoria.md)
 
 ### Pós-Vendas
 - [Visão geral](pos-vendas/visao-geral.md) *(pendente)*
