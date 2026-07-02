@@ -1184,6 +1184,16 @@ export const UploadPlanilha = ({
                   </div>
                 )}
 
+                {(importLog.skipped_responsavel_invalido || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <XCircle className="h-3.5 w-3.5 text-destructive" />
+                      Não importados: responsável não existe no sistema
+                    </span>
+                    <span className="font-medium text-destructive">{importLog.skipped_responsavel_invalido!.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
                 {importLog.errors > 0 && (
                   <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                     <span className="flex items-center gap-1.5">
