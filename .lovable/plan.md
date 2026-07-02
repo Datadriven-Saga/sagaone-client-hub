@@ -1,72 +1,95 @@
-## Objetivo
+# Correção `responsavel_email` inválido
 
-Fazer o modal de "Importação Parcial" fechar a conta: `total = mostrados`. Hoje 341 linhas somem porque o `process-import` descarta silenciosamente duplicatas dentro do próprio arquivo, telefones vazios e conflitos que o usuário mandou pular — nada disso aparece em nenhum bucket.
+## Passo 1 — Diagnóstico (backfill review)
 
-## Escopo
-
-Apenas exposição de contadores. Não muda a lógica de descarte (o comportamento de deduplicar por `telefone` normalizado continua igual). Não mexe em `bulk_upsert_contatos`.
-
-## Mudanças
-
-### 1. `import_logs` — 4 colunas novas (migration)
+Rodar SELECT (via `supabase--read_query`) listando todos os `contatos.responsavel_email` que **não** batem com nenhum `profiles.email` (case-insensitive):
 
 ```sql
-ALTER TABLE public.import_logs
-  ADD COLUMN skipped_duplicate_in_file int NOT NULL DEFAULT 0,
-  ADD COLUMN skipped_empty_phone       int NOT NULL DEFAULT 0,
-  ADD COLUMN skipped_by_user_conflict  int NOT NULL DEFAULT 0,
-  ADD COLUMN blocked_optout_externo    int NOT NULL DEFAULT 0,
-  ADD COLUMN blocked_optout_global     int NOT NULL DEFAULT 0;
+SELECT
+  c.empresa_id,
+  e.nome AS empresa,
+  c.responsavel_email,
+  COUNT(*) AS qtd_contatos,
+  MIN(c.created_at) AS primeiro,
+  MAX(c.updated_at) AS ultimo
+FROM contatos c
+LEFT JOIN empresas e ON e.id = c.empresa_id
+WHERE c.responsavel_email IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM profiles p
+    WHERE lower(p.email) = lower(c.responsavel_email)
+  )
+GROUP BY 1,2,3
+ORDER BY qtd_contatos DESC;
 ```
 
-Motivo de separar `blocked_optout_externo` de `blocked_optout_global`: hoje o externo é contado só em memória (`totalOptOutBlocked`) e o global é ignorado por completo. Persistir ambos permite auditar histórico.
+Entregar a lista ao usuário. Ele decide, por linha:
+- **Corrigir** para o email certo (se for typo óbvio como `…brs` → `…br`);
+- **Zerar** (`NULL`) — o lead volta para "Novo" e entra na auto-atribuição.
 
-Sem alterações de RLS/GRANT (colunas em tabela já existente).
+A ação de correção/zeragem é feita depois via `supabase--insert` (UPDATE), **caso a caso**, com aprovação. Nada é alterado sem confirmação.
 
-### 2. `supabase/functions/process-import/index.ts`
+## Passo 2 — Alteração cirúrgica em `bulk_upsert_contatos`
 
-- Criar contadores locais: `skippedEmptyPhone`, `skippedDuplicateInFile`, `skippedByUserConflict`, `blockedOptoutGlobal`.
-- Incrementar nos três `continue` silenciosos do loop principal (linhas ~690, ~706, ~713).
-- Somar `result.global_blocked` retornado por `bulk_upsert_contatos` em `blockedOptoutGlobal`.
-- Persistir todos os novos campos em cada `update` de `import_logs` (heartbeat, flush final, self-chain).
-- Retomar valores de `log.*` no início da execução para self-chain preservar o acumulado.
-- Ajustar mensagem final para incluir os novos buckets quando > 0.
+Escopo mínimo: **só** validar `responsavel_email` vindo da planilha/pool. Nenhuma mudança na lógica de upsert de contato, quarentena, dedup ou logs.
 
-### 3. Modal `Importação Parcial` (UI)
+### Mudança
 
-Arquivo do modal que renderiza o resumo hoje (Total, Novos, Contatos, Vinculados, Bloqueados, números no processamento, Detalhes dos erros). Preciso localizar — provavelmente em `src/components/import/*` ou perto do fluxo de `UploadPlanilha`. Vou identificar no build mode.
+Na migração `20260611141714…` (função atual), no ponto onde hoje faz:
 
-Adicionar linhas (só quando > 0):
+```sql
+v_responsavel := NULLIF(BTRIM(v_contato.value->>'responsavel_email'), '');
+```
 
-- **Duplicatas na planilha** (amarelo) — `skipped_duplicate_in_file`
-- **Linhas sem telefone** (amarelo) — `skipped_empty_phone`
-- **Conflitos ignorados por você** (cinza) — `skipped_by_user_conflict`
-- **Bloqueados por opt-out global** (vermelho) — `blocked_optout_global`
-- Renomear "números no processamento" para o que realmente é (checar o que popula esse valor — pode ser `errors`).
+Adicionar validação server-side logo abaixo:
 
-Adicionar tooltip curto em cada linha nova explicando o que aconteceu (ex.: "Mesmo telefone apareceu mais de uma vez no arquivo. Só a primeira ocorrência foi processada.").
+```sql
+IF v_responsavel IS NOT NULL THEN
+  SELECT lower(p.email) INTO v_responsavel_valid
+  FROM public.profiles p
+  WHERE lower(p.email) = lower(v_responsavel)
+  LIMIT 1;
 
-Adicionar no rodapé do modal uma linha de conferência: `Total conferido: X/Y ✓` quando fecha, `Divergência: N linhas` quando não fecha (protege contra futuras regressões).
+  IF v_responsavel_valid IS NULL THEN
+    v_skipped_responsavel_invalido := v_skipped_responsavel_invalido + 1;
+    v_responsavel := NULL;  -- entra como "Novo", auto-atribuição pega depois
+  ELSE
+    v_responsavel := v_responsavel_valid;  -- normalizado
+  END IF;
+END IF;
+```
 
-### 4. Tipos
+Preservar: comportamento de INSERT/UPDATE, `p_force_status_novo`, todo o restante da função.
 
-Regenerar `src/integrations/supabase/types.ts` acontece automaticamente após a migration.
+### Contador exposto
 
-## Fora do escopo
+- Adicionar coluna `skipped_responsavel_invalido INT DEFAULT 0` em `import_logs`.
+- `process-import` acumula o retorno da RPC no `import_logs.update()` (mesmo padrão dos outros `skipped_*` já implementados).
+- `UploadPlanilha.tsx` exibe linha "Responsável não encontrado — atribuído como Novo" no modal de resultado.
 
-- Alterar `bulk_upsert_contatos` (só consome `global_blocked` que já existe).
-- Mudar a UX do diálogo de conflitos.
-- Backfill dos `import_logs` antigos — colunas novas ficam em 0 para importações anteriores.
+### Testes obrigatórios (regra do projeto para `bulk_upsert_contatos`)
 
-## Testes / verificação
+Antes de aprovar:
+- importação por planilha (com email válido, inválido e vazio);
+- importação via pool;
+- contatos novos e existentes;
+- telefones duplicados na planilha;
+- telefone inválido;
+- quarentena ativa;
+- whitelist;
+- logs de quarentena;
+- `import_logs` (contadores preservados);
+- deduplicação;
+- rollback (feature flag `bulk_upsert_validate_responsavel` per_empresa — default OFF; ligar em uma empresa piloto primeiro).
 
-1. Reimportar uma planilha com duplicatas conhecidas e conferir que `duplicatas + vinculados + quarentena + opt-out ext + inválidos = total`.
-2. Planilha só com telefones vazios → cai tudo em `skipped_empty_phone`, `linked = 0`.
-3. Planilha com número em `global_opt_outs` → aparece em `blocked_optout_global`.
-4. Importação grande que dispara self-chain → contadores acumulam entre execuções (não zeram no chain).
+## Fora de escopo
 
-## Detalhes técnicos
+- Trigger `BEFORE INSERT/UPDATE` de defesa em `contatos` (fica para depois se os outros entry points aparecerem no diagnóstico).
+- Validação em `sync-contatos-ligacao`, `create-lead-pri`, `create-lead`, `search-lead` — o diagnóstico do Passo 1 vai mostrar se algum caso não veio de planilha. Se aparecer, tratamos em plano separado.
+- Refactor para `responsavel_id uuid`.
 
-- Ordem no loop de descarte importa: `empty_phone` → `invalid_phone (errors)` → `duplicate_in_file` → `skipSet` → batch. Manter essa ordem.
-- `processedRows` continua sendo incrementado em todos os casos — é a contagem de "linhas lidas do arquivo", garantindo que a soma bata com `total_rows`.
-- Mostrar os novos campos no modal só quando > 0 para não poluir importações limpas.
+## Ordem de execução
+
+1. Rodar o SELECT diagnóstico e apresentar resultado.
+2. Aguardar decisão de correção linha a linha.
+3. Só então implementar migração + alteração em `process-import` + UI.
