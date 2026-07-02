@@ -126,6 +126,14 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
     reload().catch(() => {});
   }, [reload]);
 
+  const remover = useCallback(async (id: number) => {
+    const { error } = await supabase.functions.invoke("external-webhook-proxy", {
+      body: { endpoint: "remove-paty-entrega-template", id },
+    });
+    if (error) throw new Error(error.message);
+    reload().catch(() => {});
+  }, [reload]);
+
   // Manipulações puramente locais (rascunhos visuais)
   const addDraftSequencia = useCallback((slug: string) => {
     setRowsBySlug(prev => {
@@ -164,5 +172,5 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
     });
   }, [agenteTelefone]);
 
-  return { rowsBySlug, loading, reload, upsert, desativar, addDraftSequencia, removeLocalRow };
+  return { rowsBySlug, loading, reload, upsert, desativar, remover, addDraftSequencia, removeLocalRow };
 }
