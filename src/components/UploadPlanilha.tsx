@@ -1247,6 +1247,27 @@ export const UploadPlanilha = ({
                 </Card>
               )}
 
+              {/* Aviso: linhas rejeitadas por responsável inexistente */}
+              {(importLog.skipped_responsavel_invalido || 0) > 0 && (
+                <Card className="p-3 border-destructive/40 bg-destructive/5">
+                  <div className="flex gap-2 items-start">
+                    <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <p className="font-medium text-destructive">
+                        {importLog.skipped_responsavel_invalido!.toLocaleString('pt-BR')} lead(s) não foram importados
+                      </p>
+                      <p className="text-muted-foreground">
+                        A coluna de responsável tinha um valor que não corresponde a nenhum usuário do sistema.
+                        Corrija a planilha e reimporte com um <strong>e-mail válido</strong> ou <strong>deixe a coluna em branco</strong> para que os leads entrem na distribuição automática.
+                      </p>
+                      <p className="text-muted-foreground">
+                        Veja o detalhe de cada linha na lista de erros abaixo.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Warnings: responsáveis rejeitados (detalhe por e-mail) */}
               {importLog.warning_details && importLog.warning_details.length > 0 && (() => {
                 const grouped = new Map<string, { count: number; reason: string }>();
