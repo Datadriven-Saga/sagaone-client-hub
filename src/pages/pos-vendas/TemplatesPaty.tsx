@@ -1654,7 +1654,7 @@ export default function TemplatesPaty() {
              transformed?.formato ||
              "texto");
 
-      const { error: insErr } = await supabase.from("whatsapp_templates").insert({
+      const payload = {
         empresa_id: activeCompany.id,
         agente_id: selectedAgenteId,
         pri_telefone: priTelefone,
@@ -1670,10 +1670,48 @@ export default function TemplatesPaty() {
         template_id_pri: String(templateIdPri),
         ativo: true,
         variable_mapping: {},
-      });
-      if (insErr) throw insErr;
+      };
 
-      toast.success(`Template "${nome}" sincronizado!`);
+      // Verifica se já existe template com mesmo nome nessa empresa
+      // (índice único idx_whatsapp_templates_nome_empresa). Se existir,
+      // atualiza ao invés de tentar inserir (evita erro 23505).
+      const { data: existing, error: selErr } = await supabase
+        .from("whatsapp_templates")
+        .select("id, template_id_pri, id_meta")
+        .eq("empresa_id", activeCompany.id)
+        .eq("nome", nome)
+        .maybeSingle();
+      if (selErr) throw selErr;
+
+      let wasUpdate = false;
+      if (existing?.id) {
+        wasUpdate = true;
+        const { error: updErr } = await supabase
+          .from("whatsapp_templates")
+          .update(payload)
+          .eq("id", existing.id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase
+          .from("whatsapp_templates")
+          .insert(payload);
+        if (insErr) {
+          if ((insErr as any).code === "23505") {
+            toast.error(
+              `Já existe um template chamado "${nome}" nesta empresa. Renomeie o template na Meta ou remova o duplicado local antes de sincronizar.`,
+              { duration: 10000 }
+            );
+            return;
+          }
+          throw insErr;
+        }
+      }
+
+      toast.success(
+        wasUpdate
+          ? `Template "${nome}" atualizado com dados da Meta!`
+          : `Template "${nome}" sincronizado!`
+      );
       setMetaOnlyTemplates(prev => prev.filter(m => m.id !== meta.id));
       refetchTemplates();
     } catch (err: any) {
