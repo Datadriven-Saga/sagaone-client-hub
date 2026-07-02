@@ -68,6 +68,11 @@ interface ImportLog {
   already_linked: number;
   errors: number;
   quarantined: number;
+  skipped_duplicate_in_file?: number;
+  skipped_empty_phone?: number;
+  skipped_by_user_conflict?: number;
+  blocked_optout_externo?: number;
+  blocked_optout_global?: number;
   error_details: string[];
   responsavel_applied?: number;
   responsavel_skipped?: number;
