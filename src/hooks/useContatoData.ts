@@ -1208,15 +1208,50 @@ export const useContatoData = () => {
   };
 
   // Atribuir responsável - SIMPLES  
-  const atribuirResponsavel = async (contatoId: string, userId: string) => {
+  // Aceita email OU UUID de profile; sempre resolve para email antes de gravar.
+  // Evita bug histórico onde UUID de auth.users era gravado em responsavel_email.
+  const atribuirResponsavel = async (contatoId: string, identifier: string) => {
     try {
+      if (!identifier) {
+        console.error('atribuirResponsavel: identificador vazio');
+        return;
+      }
+
+      let email: string | null = null;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
+      if (identifier.includes('@')) {
+        email = identifier.toLowerCase();
+      } else if (isUuid) {
+        const { data, error: rpcError } = await supabase.rpc('get_email_by_profile_id', { p_id: identifier });
+        if (rpcError) throw rpcError;
+        email = (data as string | null) ?? null;
+        if (!email) {
+          console.error('atribuirResponsavel: UUID não corresponde a nenhum usuário', identifier);
+          toast({
+            variant: 'destructive',
+            title: 'Não foi possível atribuir responsável',
+            description: 'Usuário não encontrado.',
+          });
+          return;
+        }
+      } else {
+        console.error('atribuirResponsavel: identificador inválido (não é email nem UUID)', identifier);
+        toast({
+          variant: 'destructive',
+          title: 'Não foi possível atribuir responsável',
+          description: 'Identificador inválido.',
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('contatos')
-        .update({ responsavel_email: userId })
+        .update({ responsavel_email: email })
         .eq('id', contatoId);
 
       if (error) throw error;
-      setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, responsavel_email: userId } : c));
+      setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, responsavel_email: email! } : c));
     } catch (error) {
       console.error('Erro ao atribuir responsável:', error);
     }

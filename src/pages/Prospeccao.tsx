@@ -1455,9 +1455,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         
         // Se não tem responsável, atribuir automaticamente o usuário atual
         let responsavelId = contatoCompleto.responsavel_email;
-        if (!temResponsavel && user?.id) {
-          await atribuirResponsavel(itemId, user.id);
-          responsavelId = user.id;
+        if (!temResponsavel && user?.email) {
+          // Passa email (não user.id) para não gravar UUID em responsavel_email.
+          await atribuirResponsavel(itemId, user.email);
+          responsavelId = user.email;
         }
         
         // Verificar se já existe uma venda para este contato (com departamento e produto preenchidos)

@@ -6956,6 +6956,7 @@ export type Database = {
           overdue_total: number
         }[]
       }
+      get_email_by_profile_id: { Args: { p_id: string }; Returns: string }
       get_kanban_columns: {
         Args: {
           p_date_end?: string
