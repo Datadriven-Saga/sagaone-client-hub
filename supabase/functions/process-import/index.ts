@@ -578,7 +578,7 @@ Deno.serve(async (req: Request) => {
       }
       return { allowed, blocked };
     };
-    let totalOptOutBlocked = 0;
+    let totalOptOutBlocked = 0; // acumulador desta execução (self-chain soma com prevBlockedOptoutExterno)
 
     if (currentOffset === 0) {
       await supabaseAdmin.from('import_logs').update({
