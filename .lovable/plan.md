@@ -1,95 +1,198 @@
-# Correção `responsavel_email` inválido
+# Passo A — Correção UUIDs em `responsavel_email` + Documento de investigação para B/C
 
-## Passo 1 — Diagnóstico (backfill review)
+## Resumo executivo
 
-Rodar SELECT (via `supabase--read_query`) listando todos os `contatos.responsavel_email` que **não** batem com nenhum `profiles.email` (case-insensitive):
+- **Categoria UUID (178 contatos, 15 emails únicos, 6 empresas) — causa confirmada.**
+- **Ainda está acontecendo:** últimas criações em `2026-06-30`, últimos updates em `2026-07-01`.
+- Uma única linha de código no frontend está gravando `user.id` (UUID) no lugar do email do usuário logado.
 
-```sql
-SELECT
-  c.empresa_id,
-  e.nome AS empresa,
-  c.responsavel_email,
-  COUNT(*) AS qtd_contatos,
-  MIN(c.created_at) AS primeiro,
-  MAX(c.updated_at) AS ultimo
-FROM contatos c
-LEFT JOIN empresas e ON e.id = c.empresa_id
-WHERE c.responsavel_email IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM profiles p
-    WHERE lower(p.email) = lower(c.responsavel_email)
-  )
-GROUP BY 1,2,3
-ORDER BY qtd_contatos DESC;
+## Resposta às suas perguntas
+
+### `sync-contatos-ligacao` — o que faz
+
+Fluxo de reconciliação de contatos entre a base local e o **webhook externo da PRI Voz** (`automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos`).
+
+1. Recebe `telefone_pri`, `id_evento`, `empresa_id`, `prospeccao_id`.
+2. Faz GET no webhook externo (com header `saga_one_supabase`) e pega a lista canônica de contatos do evento **na visão da PRI Voz**.
+3. Compara com `eventos_prospeccao` local:
+   - Contato no webhook e não local → cria/reaproveita `contatos` e cria vínculo em `eventos_prospeccao`. Marca `data_disparo_ia` se a PRI já ligou/enviou WhatsApp.
+   - Contato local e não no webhook → **deleta o vínculo** (não o contato).
+4. Persiste snapshot em `prospect_pri_voz` (backup por telefone/id_evento).
+
+**Onde entra em `responsavel_email`:** só no ramo "criar novo contato" (linha 243), copia `webhookContato.responsavel_email` cru para o INSERT. É a segunda porta de entrada para valores inválidos vindos do webhook externo — precisa de validação, mas **não é a causa dos 178 UUIDs**.
+
+### `dispatch-leads-webhook` pode preencher `responsavel_email`?
+
+**Não.** `rg "responsavel" supabase/functions/dispatch-leads-webhook/index.ts` retorna zero. Essa Edge Function chama a Lambda de disparo WhatsApp com o payload dos leads; nunca escreve em `contatos.responsavel_email`. Pode ser descartado da investigação.
+
+## Causa confirmada dos 178 UUIDs
+
+Arquivo: `src/hooks/useContatoData.ts:1211-1223`
+
+```ts
+const atribuirResponsavel = async (contatoId: string, userId: string) => {
+  await supabase.from('contatos').update({ responsavel_email: userId })...
+};
 ```
 
-Entregar a lista ao usuário. Ele decide, por linha:
-- **Corrigir** para o email certo (se for typo óbvio como `…brs` → `…br`);
-- **Zerar** (`NULL`) — o lead volta para "Novo" e entra na auto-atribuição.
+A função aceita "userId" e grava direto na coluna `responsavel_email`. O nome do parâmetro sugere UUID, mas a coluna é email.
 
-A ação de correção/zeragem é feita depois via `supabase--insert` (UPDATE), **caso a caso**, com aprovação. Nada é alterado sem confirmação.
+Callers em `src/pages/Prospeccao.tsx`:
 
-## Passo 2 — Alteração cirúrgica em `bulk_upsert_contatos`
+| Linha | Argumento passado | Resultado |
+|---|---|---|
+| 1283 | `user.email` | ok |
+| **1459** | **`user.id`** | **grava UUID** |
+| 1535 | `user.email` | ok |
+| 2330 | `user.email` | ok |
+| 2435 | `userId` (do dropdown de responsável no ContatoModal) | pode ser email, celular ou UUID dependendo do que a UI seleciona |
+| 2556 | `user.email!` | ok |
 
-Escopo mínimo: **só** validar `responsavel_email` vindo da planilha/pool. Nenhuma mudança na lógica de upsert de contato, quarentena, dedup ou logs.
+**Linha 1459** é a origem clara. **Linha 2435** é secundária: o `ContatoModal` (`src/components/ContatoModal.tsx:370-381`) resolve o responsável comparando `id`, `celular` e email — se o dropdown devolver `profile.id`, cai no mesmo bug.
 
-### Mudança
+## Passo A — Correção cirúrgica (o que vou fazer agora)
 
-Na migração `20260611141714…` (função atual), no ponto onde hoje faz:
+### A1. Renomear e enrijecer `atribuirResponsavel`
 
-```sql
-v_responsavel := NULLIF(BTRIM(v_contato.value->>'responsavel_email'), '');
+`src/hooks/useContatoData.ts`:
+
+```ts
+const atribuirResponsavel = async (contatoId: string, identifier: string) => {
+  // Aceita email OU UUID de profile; sempre resolve para email do profile.
+  let email: string | null = null;
+  if (identifier.includes('@')) {
+    email = identifier.toLowerCase();
+  } else {
+    const { data } = await supabase.rpc('get_email_by_profile_id', { p_id: identifier });
+    email = data ?? null;
+  }
+  if (!email) {
+    console.error('atribuirResponsavel: identificador não resolvível', identifier);
+    toast({ variant: 'destructive', title: 'Não foi possível atribuir responsável' });
+    return;
+  }
+  await supabase.from('contatos').update({ responsavel_email: email }).eq('id', contatoId);
+  setContatos(prev => prev.map(c => c.id === contatoId ? { ...c, responsavel_email: email } : c));
+};
 ```
 
-Adicionar validação server-side logo abaixo:
+### A2. Nova RPC `get_email_by_profile_id`
 
 ```sql
-IF v_responsavel IS NOT NULL THEN
-  SELECT lower(p.email) INTO v_responsavel_valid
-  FROM public.profiles p
-  WHERE lower(p.email) = lower(v_responsavel)
-  LIMIT 1;
-
-  IF v_responsavel_valid IS NULL THEN
-    v_skipped_responsavel_invalido := v_skipped_responsavel_invalido + 1;
-    v_responsavel := NULL;  -- entra como "Novo", auto-atribuição pega depois
-  ELSE
-    v_responsavel := v_responsavel_valid;  -- normalizado
-  END IF;
-END IF;
+CREATE OR REPLACE FUNCTION public.get_email_by_profile_id(p_id uuid)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT lower(u.email) FROM auth.users u WHERE u.id = p_id LIMIT 1;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_email_by_profile_id(uuid) TO authenticated;
 ```
 
-Preservar: comportamento de INSERT/UPDATE, `p_force_status_novo`, todo o restante da função.
+### A3. Corrigir `Prospeccao.tsx:1459`
 
-### Contador exposto
+Trocar `user.id` por `user.email` (paridade com os outros callers). A resolução na RPC continua sendo defesa em profundidade.
 
-- Adicionar coluna `skipped_responsavel_invalido INT DEFAULT 0` em `import_logs`.
-- `process-import` acumula o retorno da RPC no `import_logs.update()` (mesmo padrão dos outros `skipped_*` já implementados).
-- `UploadPlanilha.tsx` exibe linha "Responsável não encontrado — atribuído como Novo" no modal de resultado.
+### A4. Backfill dos 178 UUIDs existentes
 
-### Testes obrigatórios (regra do projeto para `bulk_upsert_contatos`)
+Como todos os 15 UUIDs distintos batem com `auth.users.id`, é seguro reescrever:
 
-Antes de aprovar:
-- importação por planilha (com email válido, inválido e vazio);
-- importação via pool;
-- contatos novos e existentes;
-- telefones duplicados na planilha;
-- telefone inválido;
-- quarentena ativa;
-- whitelist;
-- logs de quarentena;
-- `import_logs` (contadores preservados);
-- deduplicação;
-- rollback (feature flag `bulk_upsert_validate_responsavel` per_empresa — default OFF; ligar em uma empresa piloto primeiro).
+```sql
+UPDATE contatos c
+SET responsavel_email = lower(u.email)
+FROM auth.users u
+WHERE c.responsavel_email ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND u.id::text = c.responsavel_email;
+```
 
-## Fora de escopo
+Executar via `supabase--insert` **com sua aprovação explícita** antes de rodar. Contadores esperados: 178 linhas afetadas, 0 restantes na categoria uuid.
 
-- Trigger `BEFORE INSERT/UPDATE` de defesa em `contatos` (fica para depois se os outros entry points aparecerem no diagnóstico).
-- Validação em `sync-contatos-ligacao`, `create-lead-pri`, `create-lead`, `search-lead` — o diagnóstico do Passo 1 vai mostrar se algum caso não veio de planilha. Se aparecer, tratamos em plano separado.
-- Refactor para `responsavel_id uuid`.
+### A5. Fora de escopo do Passo A
 
-## Ordem de execução
+- Não mexer em `bulk_upsert_contatos`.
+- Não mexer em `sync-contatos-ligacao`.
+- Não corrigir typos, IDs numéricos, `com_espaco`, `email_sem_user`, `sem_arroba` — vão para o documento B/C.
 
-1. Rodar o SELECT diagnóstico e apresentar resultado.
-2. Aguardar decisão de correção linha a linha.
-3. Só então implementar migração + alteração em `process-import` + UI.
+### A6. Teste manual necessário
+
+- Atribuir lead a mim mesmo pelo botão da coluna "Novo" (path da linha 1459). Verificar em `contatos.responsavel_email` que gravou email.
+- Atribuir via `ContatoModal` (dropdown de responsável). Idem.
+- Confirmar que o Kanban continua mostrando o nome corretamente (a lógica em `Prospeccao.tsx:3290+` que faz fallback por `id`/`celular` continua funcionando).
+
+## Passo B/C — Documento de investigação (entrega junto)
+
+Vou criar `docs/investigacao/responsavel-email-invalido.md` com:
+
+### Seção 1 — Panorama
+
+Tabela de totais por categoria (com 178 UUID zerados após Passo A) + tabela por empresa + timeline mensal:
+
+```
+uuid                mar/26   6    (última criação 25/mar)
+uuid                abr/26  47
+uuid                mai/26  61
+uuid                jun/26  64   (última criação 30/jun — AINDA ATIVO)
+apenas_numero       mar/26 593
+apenas_numero       abr/26 169
+apenas_numero       jun/26 152   (última criação 12/jun)
+typo_dominio        jun/26 137   (última criação 26/jun — AINDA ATIVO)
+com_espaco          jul/26   8   (última criação 01/jul — AINDA ATIVO)
+email_sem_user      jul/26   6   (última criação 01/jul — AINDA ATIVO)
+sem_arroba          jun/26  42
+```
+
+### Seção 2 — Hipóteses por categoria com ação de investigação
+
+**`apenas_numero` (920 contatos, IDs 7-8 dígitos):**
+- Hipótese: PK de vendedor no MySaga. Origens `WhatsApp` (330) descartam planilha para essas.
+- Investigação: cruzar IDs `1858746`, `19044776`, etc. com API/tabela do MySaga se disponível. Auditar Edge Functions ativas em jun/26 nas empresas JEEP T9, CITROEN UDI, RAM BR, SN GO T7. Grep por `vendedor_id`, `id_mysaga` sendo mapeado para `responsavel_email` em ingest / imports customizados.
+- Ainda ativo? Última criação 12/jun/26 — **provavelmente parou**, mas confirmar com últimos 30 dias.
+
+**`typo_dominio` (236 contatos, 2 emails):**
+- `diassis.junqueira@gurposaga.com.br` (TOYOTA ANA) e `marciel.reis@gruposaga.com.brs` (TOYOTA ASA NORTE).
+- Hipótese: planilha (origem = 'Outros'). Última criação 26/jun/26 — **ativo, mesma pessoa reimportando errado**.
+- Investigação: `import_logs WHERE empresa_id IN (...) AND created_at BETWEEN ...` para localizar arquivos. Alertar operador.
+
+**`sem_arroba` (215 contatos):**
+- Ex.: `leticia maria vieira`, `não`. Célula de nome caindo na coluna de email.
+- Investigação: `import_logs` das empresas TOYOTA GYN, BURITI, SN GO T7. Última criação 01/jun — **provavelmente parou**.
+
+**`com_espaco` (60 contatos):** `valdiria.dsantos@gruposaga.com.br dos santos`.
+- Planilha. Última criação 01/jul — **ativo**.
+
+**`email_sem_user` (91 contatos):**
+- `lucas.ssantana@gruposaga.com.br` (61) — verificar se foi usuário removido de `auth.users`.
+- `moroni-teste.9da56e22@one.sagadatadriven.com.br` (30) — email de teste, provavelmente conta descartada.
+- Investigação: histórico em `auth.users`, `logs_prospeccoes`.
+
+### Seção 3 — Callers suspeitos a auditar
+
+- `sync-contatos-ligacao` (webhook externo, linha 243) — precisa de whitelist.
+- `create-lead` (Edge Function pública, linha 261) — aceita qualquer string.
+- `process-import` (linha 743) — planilha, precisa da validação server-side proposta anteriormente.
+- `NovoLeadModal.tsx:398` — sempre grava `user.email`, ok.
+- `Prospeccao.tsx:2047` — vem da leitura de planilha em memória, mesmo problema do process-import.
+- `dispatch-leads-webhook` — **descartado**, não escreve.
+
+### Seção 4 — Próximas decisões (dependem do resultado B/C)
+
+Uma das três opções, a definir depois de mapear callers:
+
+- **(B)** Validação server-side em cada Edge Function que aceita `responsavel_email` (mais cirúrgico, mais linhas alteradas).
+- **(C)** Trigger `BEFORE INSERT/UPDATE OF responsavel_email ON contatos` que normaliza/zera valores inválidos (menos cirúrgico, cobre todos os callers de uma vez, inclusive futuros).
+- Combinação: (C) com log em tabela `contatos_responsavel_email_rejeitados` para observabilidade + (B) só no `bulk_upsert_contatos` porque a KB exige testes específicos ali.
+
+## O que NÃO alterar neste Passo A
+
+- `bulk_upsert_contatos` (aguarda B/C).
+- `sync-contatos-ligacao` (aguarda B/C).
+- `create-lead` / `create-lead-pri` / `search-lead` (aguarda B/C).
+- `process-import` (aguarda B/C).
+- Nenhuma trigger em `contatos` (aguarda B/C).
+
+## Ordem de execução do Passo A
+
+1. Criar RPC `get_email_by_profile_id`.
+2. Ajustar `useContatoData.ts::atribuirResponsavel`.
+3. Corrigir `Prospeccao.tsx:1459` (`user.id` → `user.email`).
+4. Publicar doc `docs/investigacao/responsavel-email-invalido.md`.
+5. Rodar backfill SQL dos 178 UUIDs — **só após sua aprovação explícita do UPDATE**.
+
+Nada além disso.
