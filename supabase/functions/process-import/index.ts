@@ -1335,6 +1335,7 @@ async function processBatch(
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
         quarantined: data?.quarantined || 0,
+        global_blocked: data?.global_blocked || 0,
         responsavel_applied: data?.responsavel_applied || 0,
         responsavel_skipped: data?.responsavel_skipped || 0,
         rejected_responsavel: data?.rejected_responsavel || 0,
