@@ -608,6 +608,7 @@ Deno.serve(async (req: Request) => {
     let responsavelApplied = log.responsavel_applied || 0;
     let responsavelSkipped = log.responsavel_skipped || 0;
     let rejectedResponsavel = log.rejected_responsavel || 0;
+    let skippedResponsavelInvalido = (log as any).skipped_responsavel_invalido || 0;
     const rejectedReasons = (log.rejected_reasons && typeof log.rejected_reasons === 'object')
       ? { profile_inexistente: log.rejected_reasons.profile_inexistente || 0, fora_da_equipe: log.rejected_reasons.fora_da_equipe || 0 }
       : { profile_inexistente: 0, fora_da_equipe: 0 };
