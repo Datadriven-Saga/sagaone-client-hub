@@ -1,76 +1,85 @@
-## Situação atual
+## Objetivo
 
-- **1.522 leads** com `responsavel_email` inválido (não existe em `auth.users`):
-  - 920 apenas números (SAGA vendedor ID)
-  - 387 com `@` mas typo (`.brs`, domínios errados)
-  - 215 texto livre ("não", nomes)
-  - 0 UUID (já limpos na Fase A)
-- Hoje `bulk_upsert_contatos` valida `responsavel_email` **apenas no INSERT** e, quando inválido, salva o lead com `responsavel_email = NULL` (conta em `responsavel_skipped`). O lead é criado normalmente.
-- `process-import` já expõe `responsavel_skipped` / `rejected_responsavel`, mas o fluxo hoje **importa mesmo assim** — não devolve a linha ao usuário para reimportar.
+Garantir, no nível do banco, que nenhum lead seja gravado em `public.contatos` com um `responsavel_email` que não exista em `auth.users`. Hoje a coluna é texto livre, sem FK — qualquer caminho novo (edge function nova, script manual, integração futura) pode voltar a poluir a base. A única forma robusta é uma barreira no próprio Postgres.
 
-## O que muda
+## Caminho recomendado
 
-### 1. Backfill: liberar leads órfãos para redistribuição
+**Trigger `BEFORE INSERT OR UPDATE OF responsavel_email` em `public.contatos`** com duas modalidades controladas por GUC/parâmetro:
 
-Um único `UPDATE` limpando `responsavel_email` (→ `NULL`) nos 1.522 leads cujo email não existe em `auth.users`. Assim eles voltam ao pool de distribuição normal.
+1. **Modo estrito (padrão)**: rejeita a linha com `RAISE EXCEPTION` e grava log da tentativa.
+2. **Modo tolerante (opt-in)**: apenas normaliza para `NULL` (mantendo o lead disponível para distribuição) e grava log.
 
-Registro em `logs_prospeccoes` com motivo `backfill_responsavel_invalido` para auditoria.
+O modo é decidido por uma flag por sessão (`SET LOCAL app.responsavel_strict = 'on'`) para não quebrar fluxos de background/legado enquanto observamos os logs.
 
-### 2. Importação de planilha: rejeitar linha com responsável inválido
+### Por que trigger e não FK
 
-Mudança **apenas no caminho de planilha** (`process-import` + `bulk_upsert_contatos`):
+- `responsavel_email` é texto (não é `auth.users.id`), então FK direta não é possível sem refatorar dezenas de queries e a UI.
+- `auth.users` é schema reservado do Supabase — não podemos colocar constraint cruzada.
+- Trigger `SECURITY DEFINER` consegue consultar `auth.users` e decidir; é o equivalente prático a uma FK "por email".
 
-- Novo parâmetro `p_strict_responsavel boolean DEFAULT false` em `bulk_upsert_contatos`.
-- Quando `true` **e** a linha tem `responsavel_email` preenchido mas inválido (não resolve em `profiles`/`auth.users`):
-  - Lead **não é criado nem atualizado**.
-  - Incrementa contador novo `skipped_responsavel_invalido`.
-  - Retorna detalhe `{ telefone, nome, responsavel_email, motivo: 'responsavel_inexistente' }` em `error_details` (mesma estrutura que os outros skips já mostrados na UI).
-- `process-import` chama com `p_strict_responsavel = true` e propaga o novo contador em `import_logs` (nova coluna `skipped_responsavel_invalido int default 0`).
-- **Regra chave**: se `responsavel_email` na planilha vier vazio → segue o fluxo normal (lead criado sem responsável, disponível para distribuição). Só bloqueia quando vem preenchido e inválido.
+### Estrutura
 
-### 3. UI de resultado da importação (`UploadPlanilha.tsx`)
+```text
+1. Tabela  public.contatos_responsavel_rejeicoes
+   - id, contato_id (nullable, pois pode ser INSERT bloqueado)
+   - responsavel_email_tentado
+   - origem (current_user, session_user, application_name)
+   - operacao (INSERT | UPDATE)
+   - modo (strict | tolerant)
+   - payload_resumo (jsonb: telefone, empresa_id, prospeccao_id)
+   - stack_context (query atual via current_query())
+   - created_at
 
-Adicionar bloco de aviso quando `skipped_responsavel_invalido > 0`:
+2. Função  public.validate_contato_responsavel_email()
+   - Se NEW.responsavel_email IS NULL -> retorna NEW.
+   - Normaliza (lower/trim).
+   - Verifica EXISTS em auth.users por email.
+   - Se não existe:
+       * insere em contatos_responsavel_rejeicoes
+       * strict -> RAISE EXCEPTION
+       * tolerant -> NEW.responsavel_email := NULL; RETURN NEW.
 
-- Mensagem: "N leads não foram importados porque o responsável informado não existe no sistema. Reimporte com um email válido ou deixe a coluna em branco para distribuição automática."
-- Botão "Baixar leads pendentes" → CSV com as linhas rejeitadas (telefone, nome, responsavel_email, motivo), tirado de `error_details`.
+3. Trigger  trg_validate_contato_responsavel
+   - BEFORE INSERT OR UPDATE OF responsavel_email ON public.contatos
+   - FOR EACH ROW EXECUTE FUNCTION validate_contato_responsavel_email().
+```
 
-### 4. Outros caminhos (pool, sync externo, criação manual)
+### Rollout seguro (evita quebrar produção)
 
-Ficam com o comportamento atual (silenciosamente `NULL` quando inválido) — a mudança estrita fica isolada à planilha, que é o único caminho onde o usuário controla a coluna e pode corrigir.
+Etapa 1 — deploy em **modo tolerante global** (default) por 3–5 dias:
+- Trigger só zera o email inválido e loga.
+- Monitoramos `contatos_responsavel_rejeicoes` para descobrir se ainda existe alguma origem viva alimentando lixo.
+
+Etapa 2 — se logs zerarem (ou só mostrarem casos esperados já tratados):
+- Vira o default para **strict**.
+- `bulk_upsert_contatos` continua com a lógica atual (resolve/normaliza antes) e passa a rodar dentro da barreira sem impacto.
+- Fluxos que legitimamente devem cair para "sem responsável" chamam `SET LOCAL app.responsavel_strict = 'off'` no início da transação.
+
+Etapa 3 — auditoria:
+- Página em `/administracao` (ou aba dentro do monitor existente) listando `contatos_responsavel_rejeicoes` das últimas 24h, com contagem por origem, para que a operação identifique rapidamente qual integração precisa ser corrigida.
 
 ## Tradeoffs
 
-| Opção | Prós | Contras |
-|---|---|---|
-| **Rejeitar linha (escolhida p/ planilha)** | Dado do usuário fica intacto; ele corrige e reimporta; nunca gera lead "meio-atribuído" silenciosamente | Requer reimportação; usuário precisa ler o aviso |
-| Aceitar com `NULL` silencioso (hoje) | Não perde lead | Usuário não descobre o erro; lead entra na distribuição sem intenção clara |
-| FK dura em `responsavel_email` | Impossível gravar inválido | Quebraria imports parciais, sync externo, migrações; alto risco |
-| Trigger global de validação | Cobre todos os caminhos | Já vimos que sync/pool preenchem sem intenção; quebraria fluxos legítimos hoje. Melhor manter o guard só na planilha + `NULL` nos outros. |
+- **Custo por INSERT**: 1 lookup indexado em `auth.users` por linha. `bulk_upsert_contatos` faz milhares por lote; medir, mas historicamente `auth.users(email)` já é indexado e o custo é marginal.
+- **Falhas silenciosas viram falhas ruidosas**: no modo strict, qualquer edge function nova mal escrita passa a estourar exceção. É desejável, mas exige que a etapa 1 seja levada a sério.
+- **Não cobre alteração externa via SQL direto do dashboard**: trigger cobre sim, exceto se alguém rodar `ALTER TABLE ... DISABLE TRIGGER`. Aceitável.
+- **Não impede email válido de usuário desativado** (`profiles.is_active = false`). Se quisermos endurecer, adicionamos verificação em `profiles` também — recomendo deixar para uma segunda iteração para não misturar responsabilidades.
 
-## Prevenção futura (já ativa hoje, mantém)
+## Alternativas descartadas
 
-- `bulk_upsert_contatos` v2 valida `responsavel_email` no INSERT (Fase B já feita).
-- `sync-contatos-ligacao` força `NULL` (Fase B).
-- Frontend usa `user.email` (não UUID) desde Fase A.
-- Novo: planilha vira o único ponto onde o valor bruto do usuário passa por validação estrita **com feedback**.
+- **CHECK constraint**: não pode consultar outra tabela.
+- **FK para `profiles(id)`**: exigiria migrar `responsavel_email` para `responsavel_id uuid` em toda a stack (UI, edge functions, relatórios, importações). Trabalho grande, alto risco; pode ser um passo futuro, mas não é o caminho imediato para "nunca mais acontecer".
+- **Validação só na aplicação**: é o que temos hoje (parcial). Já falhou.
 
-## Testes obrigatórios (regra crítica do projeto p/ `bulk_upsert_contatos`)
+## Entregáveis desta task
 
-1. Planilha com responsavel vazio → cria lead sem responsável.
-2. Planilha com email válido → cria com responsável.
-3. Planilha com email typo (`.brs`) → **rejeita**, aparece no relatório.
-4. Planilha com número puro → **rejeita**, aparece no relatório.
-5. Planilha mista (válidos + inválidos) → válidos entram, inválidos ficam pendentes.
-6. Pool → segue silencioso com `NULL` (não muda).
-7. Contato existente sendo revinculado → não afetado (validação só no INSERT).
-8. Quarentena + telefone duplicado no arquivo → contadores existentes intactos.
+1. Migração criando `contatos_responsavel_rejeicoes` (+ GRANTs + RLS restrita a Admin/TI/Master + índice em `created_at` e `responsavel_email_tentado`).
+2. Migração criando função `validate_contato_responsavel_email()` (SECURITY DEFINER, `search_path=public`) e trigger `trg_validate_contato_responsavel` em **modo tolerante**.
+3. Ajuste em `bulk_upsert_contatos` e `process-import` para, quando `p_strict_responsavel = true`, também emitir `SET LOCAL app.responsavel_strict = 'on'` — assim planilha continua rejeitando linhas ruins antes mesmo de chegar no trigger (mensagem de erro amigável já existente).
+4. Documentação em `docs/investigacao/responsavel-email-invalido.md` descrevendo o trigger, os dois modos, como consultar rejeições e o plano de virar o default para strict.
 
-## Detalhes técnicos
+## Fora de escopo agora
 
-- Migration:
-  - `ALTER TABLE import_logs ADD COLUMN skipped_responsavel_invalido int NOT NULL DEFAULT 0;`
-  - `CREATE OR REPLACE FUNCTION bulk_upsert_contatos(..., p_strict_responsavel boolean DEFAULT false)` — mantém assinatura antiga funcional via default.
-  - Backfill: `UPDATE contatos SET responsavel_email = NULL WHERE responsavel_email NOT IN (SELECT email FROM auth.users) AND responsavel_email IS NOT NULL;` + log agregado.
-- Edge function `process-import`: passar `p_strict_responsavel: true`, somar `skipped_responsavel_invalido`, propagar `error_details` com motivo.
-- `src/components/UploadPlanilha.tsx`: bloco de aviso + export CSV das linhas rejeitadas.
+- Tela de auditoria em `/administracao` (fica para depois de confirmar que o volume de logs é gerenciável).
+- Migração de `responsavel_email` → `responsavel_id`.
+- Validação de `profiles.is_active`.
