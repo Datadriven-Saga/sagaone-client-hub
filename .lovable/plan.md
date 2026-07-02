@@ -1,58 +1,69 @@
-## Ajustes no Cap. 3 — Prospecção e Kanban
+## Ajustes no Cap. 4 — Disparo WhatsApp
 
-Reescrever `docs/operacoes/manual-do-usuario/03-prospeccao-kanban.md` corrigindo as imprecisões e adicionando seções pedidas. Sem mudanças em outros arquivos.
+Reescrever/expandir três blocos do arquivo `docs/operacoes/manual-do-usuario/04-disparo-whatsapp.md`. Sem outras mudanças.
 
-### Correções
+### 1. Passo 2 — o que é o Pool / DataLake
 
-**1. Colunas reais do Kanban** (substituir a tabela atual pelo que existe em `Prospeccao.tsx` linhas 1942-1952):
+Substituir a descrição atual por:
 
-| Coluna | Status | Significado |
-|---|---|---|
-| Novos | `Novo` | Recém-importado, sem tratamento. |
-| Atribuídos | `Atribuído` | Vinculado a um SDR/vendedor, ainda sem contato. |
-| Em Espera | `Em Espera` | Contato realizado, cliente ainda não decidiu. |
-| Convidados | `Convidado` | Confirmou interesse — vai ao evento. |
-| Confirmados | `Confirmado` | Confirmação registrada (fluxo de confirmação de presença). |
-| Check-ins | `Check-in` | Presente na loja (vem da Recepção). |
-| Vendas | `Venda` | Fechou negócio. |
-| Descartados | `Descartado` | Sem interesse / não vai. |
-| Opt Out | `Opt Out` | Pediu para não receber mais contato. |
+> **Pool / DataLake:** base de clientes já existente no ecossistema Saga, hoje composta **apenas por leads finalizados sem venda no Mobi** (últimos 12 meses, ingeridos por `ingest-base-clientes`). Você filtra por marca, UF, modelo etc. e vincula ao evento.
+>
+> *Roadmap:* o Pool vai evoluir para ingerir outras fontes além do Mobi (não é só "cliente que passou pela loja e não comprou"). Enquanto isso, se precisa de outro perfil de base, use Planilha.
 
-**2. Botão "Contato Realizado" — o que cada opção faz** (do `ContatoRealizadoDialog.tsx`):
+Manter a linha comparativa "planilha é sua base de fora, pool é a de dentro" com o ajuste de escopo.
 
-| Opção | Novo status | Efeito |
-|---|---|---|
-| ✅ Cliente VAI PARTICIPAR | `Convidado` | Move para Convidados; dispara webhook de movimentação (Mobi). |
-| 📞 Registrar apenas contato | `Em Espera` | Só marca que houve contato, sem decisão. |
-| 📵 Tentativa sem sucesso | `Em Espera` | Registra tentativa (não atendeu, caixa postal), fica em espera. |
-| ❌ Cliente NÃO VAI PARTICIPAR | `Descartado` | Sai do funil ativo, libera slot dos 30 do SDR. |
-| 🔕 Cliente pediu Opt Out | `Opt Out` | Abre modal regulatório (marca+UF+canal), grava em `contato_quarentena` global daquela marca/canal. |
+### 2. Passo 3 — Template e cadência (reescrita completa)
 
-Todas gravam anotação com prefixo padronizado (`✅ CLIENTE VAI PARTICIPAR`, `📞 CONTATO REALIZADO`, etc.) na timeline do contato.
+Explicar direito as duas configurações independentes:
 
-**3. SDR vs Vendedor — corrigir**
+**A. Cadência do evento (`cadencia_completa`)** — configuração do **evento**, definida na criação, controlada pela feature flag `pri_whats_cadencia_completa` por empresa:
 
-Reescrever a seção: hoje, **por regra de negócio**, SDR e Vendedor só devem ver leads atribuídos a eles. O que existe hoje é um **gap de controle de acesso**: eles conseguem enxergar abas/telas que não deveriam (ex.: eventos não atribuídos aparecem nos filtros). Está mapeado para ajuste nas Permission Flags. Combinado operacional enquanto não é ajustado: **não mexer no que não é seu**.
+- **Desligada (padrão) — "Cadência normal":** o evento precisa apenas do **template inicial**. Também dá para configurar dois templates opcionais para retargeting: um para leads que **agendaram** e um para os que **não agendaram** (usados pela automação da Pri quando responde).
+- **Ligada — "Cadência completa":** o evento **exige 3 templates fixos** obrigatórios, com horários travados:
+  - Template inicial (o convite).
+  - Template para agendados **48h antes** do evento.
+  - Template para agendados **24h antes** do evento.
+  - Mais um follow-up **4h depois do disparo inicial** para quem não respondeu.
+  - Horários **não podem ser alterados**.
+- Só aparece o toggle em eventos do tipo **IA WhatsApp**, e só quando a flag da empresa está ativa. Uma vez criado o evento com Cadência completa, **não dá para desligar** (só recriando o evento).
+- Quem liga/desliga a flag: **Admin + TI** via `/administracao/feature-flags`.
 
-### Novas seções
+**B. Cadência do disparo (lotes de envio)** — configuração feita **na hora do disparo**, dentro do modal "Programar disparo". Não confundir com a cadência do evento acima — aqui é como o **envio inicial** é fatiado no tempo:
 
-**4. Histórico de atendimento do lead** — como funciona hoje
-- Aba/painel no modal do contato usa `ContatoTimeline` → RPC `get_contato_timeline`.
-- Agrega em ordem cronológica: mudanças de status (`logs_movimentacao_contatos`), anotações (`contato_anotacoes`), disparos de WhatsApp, atribuição de responsável, propostas, entrada/saída de quarentena, venda.
-- Cada item mostra: ícone por tipo, descrição, autor, "há X tempo" (tooltip com data/hora exata).
-- Paginação de 20 em 20 ("Carregar mais").
-- Ponto importante para o usuário: **anotação pertence ao lead**, não ao evento — se o mesmo cliente aparece em 3 eventos, a mesma timeline segue ele.
+- **Tudo de uma vez:** 1 lote único no horário escolhido.
+- **Dividir em N lotes:** define quantos lotes; o sistema calcula o tamanho de cada um.
+- **Lotes de X contatos:** define o tamanho; o sistema calcula quantos lotes.
+- **Intervalo entre lotes:** 30 min ou 1h (mínimo 30 min).
+- **Janela permitida:** 07:00–20:00 (horário de Brasília, GMT-3). Fora disso o horário não é aceito.
 
-**5. Pri no Kanban** — como aparece
-- A Pri (IA) é um usuário de sistema (`PRI_IA_USER_ID`) que pode mover leads no Kanban como qualquer atendente.
-- Quando ela move: aparece na timeline como autor "Pri IA" (avatar próprio), com ícone de mudança de status.
-- **Silenciada no webhook do Mobi** — movimentações da Pri não disparam webhook de movimentação para o Mobi (evita eco), mas ficam registradas em `logs_movimentacao_contatos` normalmente.
-- Só atua em leads onde `responsavel_email IS NULL` e status `Novo` (via `create-lead-pri`); depois de assumir, ela pode movimentar conforme a conversa evolui.
-- Na prática o usuário vê: card mudou de coluna sozinho, timeline mostra "Pri IA moveu de X para Y".
+O modal mostra "resumo" com total de lotes, primeiro/último envio e custo estimado (US$ 0,06 por disparo).
 
-**6. Manter/atualizar**
-- Preservar bloco de "Bolinha de responsável / temperatura", "Filtros", "Regras práticas" e "Se algo der errado" — apenas ajustar entradas que mencionavam SDR/vendedor incorretamente.
-- Placeholder `> 🎥 Vídeo sugerido` ao final permanece.
+### 3. Novo bloco — "Programador de disparos" (renomear/expandir o antigo Passo 4)
+
+Deixar claro que o programador **cria um `campaign_job` agendado** com todos os batches físicos calculados na hora — a base é **congelada no momento em que você programa** (snapshot de leads pendentes).
+
+- **Agora:** dispara imediatamente, sem passar pelo programador.
+- **Agendar (programador):**
+  1. Abre modal "Programar disparo".
+  2. Escolhe data e horário do **primeiro** envio (janela 07h-20h Brasília).
+  3. Escolhe divisão (tudo de uma vez / N lotes / lotes de X) + intervalo.
+  4. Confirma. O sistema cria o job com status `scheduled` e todos os `campaign_batches` já com `scheduled_at` calculado (primeiro + N × intervalo).
+- **Um evento só pode ter um disparo programado por horário** — se tentar programar outro para o mesmo slot, dá erro (`uq_campaign_jobs_scheduled_slot`).
+- **Cancelar programado:** dá para cancelar via `Prospecção → Disparos Programados` enquanto ainda não começou a processar. Ao cancelar, os batches ainda não executados são liberados.
+- **Quem processa:** dispatcher automático (`scheduled-campaign-dispatcher`) roda a cada minuto, pega os batches com `scheduled_at <= agora` e envia respeitando 5 req/500ms.
+- **Recuperação de órfãos:** se um batch trava >15 min em `processing`, o próprio dispatcher reivindica no ciclo seguinte (nada a fazer no front).
+- **Sem aprovação prévia:** gestor com acesso programa direto. Não há duplo check.
+
+Adicionar linha na tabela "Se algo der errado":
+
+| Sintoma | O que fazer |
+|---|---|
+| "Já existe um disparo programado para este horário" | Escolher outro horário ou cancelar o programado atual. |
+| Programei mas não vejo em "Disparos Programados" | Confirmar filtro/evento; o job aparece com status `scheduled` até o horário chegar. |
+
+### Manter
+- Passo 1 (evento base), Passo 5 (acompanhar), bloco "Template pausado", "Job órfão", "Regras que evitam dor de cabeça", "Ordem do processo".
+- Placeholder de vídeo P1 no final.
 
 ### Fora de escopo
-- Não alterar código de permissões nem outros capítulos do manual. O ajuste de acessos SDR/Vendedor entra em outro plano quando o usuário pedir.
+- Não mexer no código, só documentação.
