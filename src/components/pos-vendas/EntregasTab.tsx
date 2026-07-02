@@ -21,7 +21,7 @@ export function EntregasTab() {
   const agenteTelefone = agente?.telefone ?? null;
 
   const { templates } = usePatyTemplates(effectiveId, true);
-  const { rowsBySlug, upsert, desativar, addDraftSequencia, removeLocalRow } =
+  const { rowsBySlug, upsert, desativar, remover, addDraftSequencia, removeLocalRow } =
     usePatyEntregasTemplates(agenteTelefone);
 
   // localId (UUID) -> template_id_pri
@@ -70,11 +70,18 @@ export function EntregasTab() {
       return;
     }
     try {
-      // Percorre todas as linhas visíveis salvas (com template_id) e propaga o novo `ativo`.
-      const tarefas = list
-        .filter(r => r.template_id)
-        .map(r => upsert({ slug, sequencia: r.sequencia, template_id: r.template_id, ativo }));
-      await Promise.all(tarefas);
+      const salvas = list.filter(r => r.template_id && r.id && r.id > 0);
+      if (!ativo) {
+        // Desativar: chama endpoint dedicado para cada linha salva
+        await Promise.all(salvas.map(r => desativar(r.id)));
+      } else {
+        // Ativar: propaga via upsert (endpoint externo cria/atualiza com ativo=true)
+        await Promise.all(
+          list
+            .filter(r => r.template_id)
+            .map(r => upsert({ slug, sequencia: r.sequencia, template_id: r.template_id, ativo: true }))
+        );
+      }
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     }
@@ -83,7 +90,7 @@ export function EntregasTab() {
   const handleRemoveSequencia = async (slug: string, row: { id: number; sequencia: number }) => {
     try {
       if (row.id && row.id > 0) {
-        await desativar(row.id);
+        await remover(row.id);
       }
       removeLocalRow(slug, row.sequencia);
     } catch (e: any) {
