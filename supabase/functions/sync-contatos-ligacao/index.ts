@@ -230,6 +230,19 @@ serve(async (req) => {
             console.log(`🆕 Criando novo contato: ${telefone}`);
             const telefoneToStore = webhookContato.telefone || webhookContato.telefone_lead || webhookContato.celular || webhookContato.phone || telefone;
 
+            // Guard (Passo B): nunca aceitar responsavel_email vindo do webhook externo.
+            // A fonte externa (PRI Voz / n8n) não tem como saber quem é o responsável
+            // real no Saga One e no passado gravou IDs numéricos do MySaga aqui.
+            // Se algum dia precisarmos aceitar, criar endpoint próprio com whitelist.
+            if (webhookContato.responsavel_email) {
+              console.warn('[sync-contatos-ligacao] descartando responsavel_email vindo do webhook externo', {
+                telefone_pri: telefone,
+                id_evento,
+                empresa_id,
+                value: webhookContato.responsavel_email,
+              });
+            }
+
             const { data: novoContato, error: createError } = await supabase
               .from('contatos')
               .insert({
@@ -240,7 +253,7 @@ serve(async (req) => {
                 origem: 'ligacao',
                 empresa_id: empresa_id,
                 data_disparo_ia: webhookContato.data_disparo_ia || null,
-                responsavel_email: webhookContato.responsavel_email || null,
+                responsavel_email: null,
                 vendedor_nome: webhookContato.vendedor_nome || null,
                 observacoes: webhookContato.observacoes || null,
               })

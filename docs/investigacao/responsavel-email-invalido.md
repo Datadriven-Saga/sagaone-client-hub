@@ -6,6 +6,22 @@ Data do levantamento: 2026-07-02.
 
 ---
 
+## Fase B aplicada em 2026-07-02
+
+Correções já em produção após o Passo A:
+
+1. **`bulk_upsert_contatos`** — validação de `responsavel_email` no ramo INSERT: se o valor não corresponder a um usuário da empresa (via `profiles` + `auth.users`, aceitando email, UUID de profile ou celular), o lead entra sem responsável (NULL, status `Novo`) e contabiliza em `responsavel_skipped` + aviso em `warning_details` (`type: 'responsavel_not_found'`). Se corresponder, grava sempre o **email canônico** (evita variações de case, UUIDs e celulares na coluna).
+2. **`sync-contatos-ligacao`** — guard: ao criar novos contatos a partir do webhook externo, `responsavel_email` é sempre gravado como `NULL`. Quando o webhook envia algo, é logado com `console.warn` para auditoria futura.
+3. Nada mudou em quarentena, opt-out, deduplicação, `eventos_prospeccao` ou no ramo UPDATE do bulk. Contadores `responsavel_applied` / `responsavel_skipped` continuam expostos no modal de importação (`UploadPlanilha.tsx`).
+
+O que fica para uma eventual Fase C:
+
+- Validação equivalente em `create-lead`, `create-lead-pri`, `create-lead-ligacao`, `create-base-ligacao`.
+- Trigger global `BEFORE INSERT/UPDATE OF responsavel_email ON contatos` como rede de segurança.
+- Backfill de zeragem dos ~1.522 valores inválidos remanescentes (números, typos, nomes soltos).
+
+---
+
 ## 1. Panorama por categoria
 
 | Categoria | Contatos | Emails únicos | Empresas afetadas | Última criação | Ainda ativo? |
@@ -38,21 +54,57 @@ Interpretação: `apenas_numero` teve um pico em março e outro em junho; `typo_
 
 ### 2.1 `apenas_numero` (920 contatos)
 
-- **Exemplos**: `1858746`, `19044776`, `304762`, `8817`.
-- **Padrão**: IDs de 6-8 dígitos. Concentrados em 4 marcas Stellantis + SN GO T7.
+- **Exemplos de valores**: `1858746`, `19044776`, `12653156`, `19407617`, `1567780`, `18774695`, `1930997`, `304762`, `8817` — IDs de 6-8 dígitos, formato compatível com PK de vendedor no MySaga.
 - **Distribuição por origem**: WhatsApp 330, Outros ~590.
-- **Hipótese principal**: PK de vendedor no MySaga entrando pelo webhook `sync-contatos-ligacao` (WhatsApp) e via planilha (Outros).
-- **Ainda ativo?** Última criação 12/jun/26. Provavelmente parou. Confirmar com:
-  ```sql
-  select count(*), max(created_at)
-  from contatos
-  where responsavel_email ~ '^[0-9]+$'
-    and created_at > now() - interval '30 days';
+- **Empresas afetadas**: JEEP T9, CITROEN UDI, RAM BR, SN GO T7 (empresa `538acbf9-83d9-4be9-a664-0b79fff79141`) — concentração fortíssima aqui.
+
+#### Fatos confirmados (levantamento 2026-07-02)
+
+- **Não está mais entrando** desde `2026-06-12`. Última criação: `2026-06-12 20:09:30`.
+- **Não é fluxo contínuo, e sim bursts** — cada aparição concentra dezenas/centenas de linhas no **mesmo segundo**:
+
+  ```text
+  2026-06-12 20:09:30   empresa 538acbf9   152 leads   7 responsáveis distintos
+  2026-04-28 11:59:11   empresa d6c6d45b    91 leads   7 responsáveis distintos
+  2026-04-15 12:25:xx   empresa 538acbf9   ~50 leads em 6 sub-bursts
+  2026-04-11 14:54:xx   empresa 538acbf9    ~8 leads
+  2026-03-11..13        empresa 538acbf9   593 leads
   ```
-- **Ações**:
-  1. Amostrar 5 leads recentes por empresa e cruzar `created_at` com `import_logs` (±10min).
-  2. Auditar `sync-contatos-ligacao` (linha 243) e `create-lead`.
-  3. Se WhatsApp com número puro veio de webhook externo, propor whitelist em `sync-contatos-ligacao`.
+
+- Responsáveis se repetem entre bursts: os mesmos ~7 IDs numéricos → provavelmente **7 vendedores reais** cujo ID SAGA/MySaga foi mapeado para a coluna errada.
+
+#### Hipótese principal
+
+Import ad-hoc em bulk (planilha ou chamada direta a Edge Function) da empresa `538acbf9` onde a coluna `responsavel_email` da fonte foi mapeada para o **ID numérico do vendedor no MySaga** em vez do email. A empresa `d6c6d45b` teve um episódio isolado em abr/26 seguindo o mesmo padrão.
+
+#### Descartado
+
+- **`sync-contatos-ligacao`** — sem logs recentes no período dos bursts (a Edge Function praticamente não é usada). E de qualquer forma agora tem guard (Fase B).
+- **`dispatch-leads-webhook`** — nunca escreve em `responsavel_email`.
+
+#### Próxima investigação (fase C, não agora)
+
+1. Cruzar os timestamps dos bursts com `import_logs` da mesma empresa (janela ±5min):
+   ```sql
+   SELECT id, arquivo, uploader_id, total_rows, created_at
+   FROM import_logs
+   WHERE empresa_id = '538acbf9-83d9-4be9-a664-0b79fff79141'
+     AND created_at BETWEEN '2026-06-12 20:05:00' AND '2026-06-12 20:15:00';
+   ```
+   Repetir para `2026-04-28 11:55-12:05`, `2026-04-15 12:20-12:30`, `2026-03-11..13`.
+2. Se nada em `import_logs`: procurar chamadas históricas a `create-lead-ligacao`, `create-base-ligacao`, `create-lead-pri` nesses períodos (Postgres logs e Edge Function logs).
+3. Bater os 7 IDs (`18774695`, `19407617`, `12653156`, `1567780`, `1858746`, `1930997`, `304762`) com API do MySaga para confirmar que são vendedores reais e reatribuir os leads ao email correto.
+4. Se veio de planilha: nenhuma ação de código adicional — a Fase B já sanitiza novas importações. Alertar o operador.
+5. Se veio de Edge Function customizada: adicionar guard equivalente ao aplicado em `sync-contatos-ligacao`.
+
+#### Monitor rápido para confirmar que parou
+
+```sql
+SELECT count(*), max(created_at)
+FROM contatos
+WHERE responsavel_email ~ '^[0-9]+$'
+  AND created_at > now() - interval '30 days';
+```
 
 ### 2.2 `typo_dominio` (236 contatos, 2 emails)
 
@@ -117,7 +169,9 @@ Fluxo:
    - Contato local e não no webhook → deleta o vínculo (mantém contato).
 5. Persiste snapshot em `prospect_pri_voz`.
 
-**Onde entra em `responsavel_email`**: apenas no ramo "criar novo contato" (linha 243), copia `webhookContato.responsavel_email` direto sem validar. Segunda porta de entrada para valores inválidos vindos do webhook externo — **precisa de whitelist na fase B/C**, mas **não é a causa dos 178 UUIDs**.
+**Uso atual**: sem logs recentes na Edge Function. Praticamente não há tráfego (IA de ligação pouco usada).
+
+**Onde entrava em `responsavel_email`**: no ramo "criar novo contato" (linha 243), copiava `webhookContato.responsavel_email` direto sem validar. **Fase B aplicou guard**: agora grava sempre `NULL` e loga com `console.warn` quando o webhook envia algo.
 
 ---
 
