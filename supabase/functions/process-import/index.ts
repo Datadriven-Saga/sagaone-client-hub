@@ -1204,7 +1204,7 @@ async function processBatch(
     configuredBatchSize?: number;
     batchSizeReason?: string;
   },
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; rejected_responsavel: number; rejected_reasons: { profile_inexistente: number; fora_da_equipe: number }; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; skipped_responsavel_invalido: number; rejected_responsavel: number; rejected_reasons: { profile_inexistente: number; fora_da_equipe: number }; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string; responsavel_email?: string; motivo?: string; row?: number }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
   const batchStartedAt = performance.now();
@@ -1395,5 +1395,5 @@ async function processBatch(
     durationMs: Math.round(performance.now() - batchStartedAt),
     error: lastError,
   });
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, skipped_responsavel_invalido: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
