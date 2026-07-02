@@ -2891,6 +2891,7 @@ export type Database = {
           skipped_by_user_conflict: number
           skipped_duplicate_in_file: number
           skipped_empty_phone: number
+          skipped_responsavel_invalido: number
           status: string
           total_rows: number | null
           updated: number | null
@@ -2929,6 +2930,7 @@ export type Database = {
           skipped_by_user_conflict?: number
           skipped_duplicate_in_file?: number
           skipped_empty_phone?: number
+          skipped_responsavel_invalido?: number
           status?: string
           total_rows?: number | null
           updated?: number | null
@@ -2967,6 +2969,7 @@ export type Database = {
           skipped_by_user_conflict?: number
           skipped_duplicate_in_file?: number
           skipped_empty_phone?: number
+          skipped_responsavel_invalido?: number
           status?: string
           total_rows?: number | null
           updated?: number | null
@@ -6651,16 +6654,28 @@ export type Database = {
         Args: { p_empresa_id: string; p_items: Json }
         Returns: number
       }
-      bulk_upsert_contatos: {
-        Args: {
-          p_canal?: string
-          p_contatos: Json
-          p_empresa_id: string
-          p_force_status_novo?: boolean
-          p_prospeccao_id?: string
-        }
-        Returns: Json
-      }
+      bulk_upsert_contatos:
+        | {
+            Args: {
+              p_canal?: string
+              p_contatos: Json
+              p_empresa_id: string
+              p_force_status_novo?: boolean
+              p_prospeccao_id?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_canal?: string
+              p_contatos: Json
+              p_empresa_id: string
+              p_force_status_novo?: boolean
+              p_prospeccao_id?: string
+              p_strict_responsavel?: boolean
+            }
+            Returns: Json
+          }
       bulk_upsert_contatos_backup_v1: {
         Args: {
           p_canal?: string
@@ -6784,6 +6799,7 @@ export type Database = {
           skipped_by_user_conflict: number
           skipped_duplicate_in_file: number
           skipped_empty_phone: number
+          skipped_responsavel_invalido: number
           status: string
           total_rows: number | null
           updated: number | null
