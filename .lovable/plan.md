@@ -1,55 +1,72 @@
-## Ajustes no Cap. 5 — Pós-Vendas (Paty)
+## Objetivo
 
-Reescrever a abertura, a tabela de sub-áreas e a seção de Agendamentos do arquivo `docs/operacoes/manual-do-usuario/05-pos-vendas.md` para refletir que a Paty é **3 IAs em uma** e que Agendamentos é o braço de Pós-Vendas propriamente dito.
+Fazer o modal de "Importação Parcial" fechar a conta: `total = mostrados`. Hoje 341 linhas somem porque o `process-import` descarta silenciosamente duplicatas dentro do próprio arquivo, telefones vazios e conflitos que o usuário mandou pular — nada disso aparece em nenhum bucket.
 
-### 1. Abertura — "Paty são 3 IAs em uma"
+## Escopo
 
-Substituir o parágrafo inicial por uma explicação clara de que sob o rótulo "Paty" existem **três agentes** integrados, cada um com origem/destino diferentes:
+Apenas exposição de contadores. Não muda a lógica de descarte (o comportamento de deduplicar por `telefone` normalizado continua igual). Não mexe em `bulk_upsert_contatos`.
 
-| Braço da Paty | Origem dos gatilhos | Para onde vai |
-|---|---|---|
-| **Peças** | MySaga | Cliente (WhatsApp) |
-| **Entregas de veículos** | Saga Conecta | Cliente (WhatsApp) |
-| **Pós-Vendas (Agendamentos)** | DataLake | Cliente (WhatsApp) + integra com Mobi |
+## Mudanças
 
-Cada braço tem sua própria aba na tela, seus próprios gatilhos e seus próprios templates. A **regra do agente compartilhado por marca+UF vale para os três**.
+### 1. `import_logs` — 4 colunas novas (migration)
 
-### 2. Tabela "Sub-áreas" — reescrever
+```sql
+ALTER TABLE public.import_logs
+  ADD COLUMN skipped_duplicate_in_file int NOT NULL DEFAULT 0,
+  ADD COLUMN skipped_empty_phone       int NOT NULL DEFAULT 0,
+  ADD COLUMN skipped_by_user_conflict  int NOT NULL DEFAULT 0,
+  ADD COLUMN blocked_optout_externo    int NOT NULL DEFAULT 0,
+  ADD COLUMN blocked_optout_global     int NOT NULL DEFAULT 0;
+```
 
-Trocar a tabela atual (que trata Agendamentos como "visão só-leitura") por uma que descreva os três braços + Cadência:
+Motivo de separar `blocked_optout_externo` de `blocked_optout_global`: hoje o externo é contado só em memória (`totalOptOutBlocked`) e o global é ignorado por completo. Persistir ambos permite auditar histórico.
 
-| Sub-área | O que é | Fonte do gatilho |
-|---|---|---|
-| **Peças** | Gatilhos de agendamento/retirada de peças. Um template por gatilho. | MySaga |
-| **Entregas** | Gatilhos de entrega de veículo novo. Aceita **múltiplos templates em sequência** por gatilho. | Saga Conecta |
-| **Agendamentos (Pós-Vendas)** | Gatilhos de serviços de pós-venda (revisão, retorno etc.). Aciona a Paty e integra com o Mobi. | DataLake |
-| **Cadência** | Sequência de follow-ups conversacionais que a Paty usa depois do primeiro contato. | — |
+Sem alterações de RLS/GRANT (colunas em tabela já existente).
 
-### 3. Seção "Agendamentos" — nova (substituindo "Agendamentos está vazio" na tabela de erros e a linha antiga na tabela de sub-áreas)
+### 2. `supabase/functions/process-import/index.ts`
 
-Adicionar bloco explicando o estado atual **e a evolução em curso**:
+- Criar contadores locais: `skippedEmptyPhone`, `skippedDuplicateInFile`, `skippedByUserConflict`, `blockedOptoutGlobal`.
+- Incrementar nos três `continue` silenciosos do loop principal (linhas ~690, ~706, ~713).
+- Somar `result.global_blocked` retornado por `bulk_upsert_contatos` em `blockedOptoutGlobal`.
+- Persistir todos os novos campos em cada `update` de `import_logs` (heartbeat, flush final, self-chain).
+- Retomar valores de `log.*` no início da execução para self-chain preservar o acumulado.
+- Ajustar mensagem final para incluir os novos buckets quando > 0.
 
-> **Hoje:** os gatilhos de pós-vendas vêm do DataLake e **geram eventos direto no Mobi**. A Paty ainda não intermedeia a criação do agendamento.
->
-> **Evolução em curso:** estamos migrando para que esses gatilhos **passem pela Paty antes** — ela conversa com o cliente pelo WhatsApp e **cria o agendamento de serviços de pós-venda** (revisão, retorno etc.) no Mobi só quando o cliente confirmar.
->
-> **O que muda para o usuário quando estiver no ar:** as telas de Agendamentos passam a mostrar não só o que foi agendado, mas também o **status da conversa da Paty** (aguardando resposta, confirmado, recusado) antes do agendamento cair no Mobi.
+### 3. Modal `Importação Parcial` (UI)
 
-Manter, no cheat sheet de erros, uma versão atualizada da linha:
+Arquivo do modal que renderiza o resumo hoje (Total, Novos, Contatos, Vinculados, Bloqueados, números no processamento, Detalhes dos erros). Preciso localizar — provavelmente em `src/components/import/*` ou perto do fluxo de `UploadPlanilha`. Vou identificar no build mode.
 
-| Sintoma | O que fazer |
-|---|---|
-| Agendamentos vazio ou desatualizado | Verificar se o pipeline DataLake→Paty→Mobi está rodando; escalar TI/CRM com o `id_meta` do agente. |
+Adicionar linhas (só quando > 0):
 
-### 4. Manter (sem mudança)
+- **Duplicatas na planilha** (amarelo) — `skipped_duplicate_in_file`
+- **Linhas sem telefone** (amarelo) — `skipped_empty_phone`
+- **Conflitos ignorados por você** (cinza) — `skipped_by_user_conflict`
+- **Bloqueados por opt-out global** (vermelho) — `blocked_optout_global`
+- Renomear "números no processamento" para o que realmente é (checar o que popula esse valor — pode ser `errors`).
 
-- Regra número 1 ("só dispara com template ativo").
-- Bloco "Agente compartilhado por marca+UF".
-- Checklist mínimo dos 4 passos.
-- Seções "Entregas — multi-template" e "Peças" (que já estão corretas).
-- Blocos TBD (template pausado, quem configura o quê).
-- Placeholder de vídeo P1 no final.
+Adicionar tooltip curto em cada linha nova explicando o que aconteceu (ex.: "Mesmo telefone apareceu mais de uma vez no arquivo. Só a primeira ocorrência foi processada.").
 
-### Fora de escopo
+Adicionar no rodapé do modal uma linha de conferência: `Total conferido: X/Y ✓` quando fecha, `Divergência: N linhas` quando não fecha (protege contra futuras regressões).
 
-Só documentação. Nada de código, nenhuma outra página do manual.
+### 4. Tipos
+
+Regenerar `src/integrations/supabase/types.ts` acontece automaticamente após a migration.
+
+## Fora do escopo
+
+- Alterar `bulk_upsert_contatos` (só consome `global_blocked` que já existe).
+- Mudar a UX do diálogo de conflitos.
+- Backfill dos `import_logs` antigos — colunas novas ficam em 0 para importações anteriores.
+
+## Testes / verificação
+
+1. Reimportar uma planilha com duplicatas conhecidas e conferir que `duplicatas + vinculados + quarentena + opt-out ext + inválidos = total`.
+2. Planilha só com telefones vazios → cai tudo em `skipped_empty_phone`, `linked = 0`.
+3. Planilha com número em `global_opt_outs` → aparece em `blocked_optout_global`.
+4. Importação grande que dispara self-chain → contadores acumulam entre execuções (não zeram no chain).
+
+## Detalhes técnicos
+
+- Ordem no loop de descarte importa: `empty_phone` → `invalid_phone (errors)` → `duplicate_in_file` → `skipSet` → batch. Manter essa ordem.
+- `processedRows` continua sendo incrementado em todos os casos — é a contagem de "linhas lidas do arquivo", garantindo que a soma bata com `total_rows`.
+- Mostrar os novos campos no modal só quando > 0 para não poluir importações limpas.
