@@ -1,93 +1,58 @@
-# Plano — Manual do Usuário (Fase 3 expandida)
+## Ajustes no Cap. 3 — Prospecção e Kanban
 
-Só documentação. Nenhuma alteração de código/DB.
+Reescrever `docs/operacoes/manual-do-usuario/03-prospeccao-kanban.md` corrigindo as imprecisões e adicionando seções pedidas. Sem mudanças em outros arquivos.
 
-## Estrutura final (`docs/operacoes/manual-do-usuario/`)
+### Correções
 
-Reescrevo os esqueletos existentes e crio o que falta. Tom: direto, chão-de-loja, markdown puro. Cada capítulo termina com bloco `> 🎥 Vídeo sugerido: ...` (placeholder — não há vídeo ainda, só a marcação).
+**1. Colunas reais do Kanban** (substituir a tabela atual pelo que existe em `Prospeccao.tsx` linhas 1942-1952):
 
-```text
-README.md                     (índice + matriz perfil × capítulo — atualizar)
-01-primeiros-passos.md        (SSO, empresa ativa, timeout — expandir)
-02-recepcao.md                (check-in QR/FAB, 4 dígitos, vendedor opcional)
-03-prospeccao-kanban.md       (Kanban, status, temperatura, filtros, anotações)
-04-disparo-whatsapp.md        (evento base, planilha vs pool, template, cadência, agendamento, template pausado, job órfão)
-05-pos-vendas.md              (agente compartilhado por marca+UF, gatilhos, entregas multi-template, template pausado)
-06-relatorios.md              (dashboards WPP/Ligação, relatório convidados, exportação)
-07-administracao.md           (feature flags, MFA, quarentena, monitor nacional, usuários/SSO)
-08-perfis-e-responsabilidades.md  (NOVO — matriz "quem faz o quê")
-09-glossario-rapido.md        (NOVO — termos do chão-de-loja: SDR, cadência, gatilho, template pausado)
-```
+| Coluna | Status | Significado |
+|---|---|---|
+| Novos | `Novo` | Recém-importado, sem tratamento. |
+| Atribuídos | `Atribuído` | Vinculado a um SDR/vendedor, ainda sem contato. |
+| Em Espera | `Em Espera` | Contato realizado, cliente ainda não decidiu. |
+| Convidados | `Convidado` | Confirmou interesse — vai ao evento. |
+| Confirmados | `Confirmado` | Confirmação registrada (fluxo de confirmação de presença). |
+| Check-ins | `Check-in` | Presente na loja (vem da Recepção). |
+| Vendas | `Venda` | Fechou negócio. |
+| Descartados | `Descartado` | Sem interesse / não vai. |
+| Opt Out | `Opt Out` | Pediu para não receber mais contato. |
 
-Também crio na raiz do manual:
+**2. Botão "Contato Realizado" — o que cada opção faz** (do `ContatoRealizadoDialog.tsx`):
 
-- `CHECKLIST-VIDEOS.md` — lista priorizada de vídeos a gravar (ver seção abaixo).
+| Opção | Novo status | Efeito |
+|---|---|---|
+| ✅ Cliente VAI PARTICIPAR | `Convidado` | Move para Convidados; dispara webhook de movimentação (Mobi). |
+| 📞 Registrar apenas contato | `Em Espera` | Só marca que houve contato, sem decisão. |
+| 📵 Tentativa sem sucesso | `Em Espera` | Registra tentativa (não atendeu, caixa postal), fica em espera. |
+| ❌ Cliente NÃO VAI PARTICIPAR | `Descartado` | Sai do funil ativo, libera slot dos 30 do SDR. |
+| 🔕 Cliente pediu Opt Out | `Opt Out` | Abre modal regulatório (marca+UF+canal), grava em `contato_quarentena` global daquela marca/canal. |
 
-## Conteúdo-chave por capítulo (com as decisões que você deu)
+Todas gravam anotação com prefixo padronizado (`✅ CLIENTE VAI PARTICIPAR`, `📞 CONTATO REALIZADO`, etc.) na timeline do contato.
 
-**Cap. 5 — Pós-Vendas**
-- Templates Paty são **compartilhados por marca+UF quando o agente é o mesmo** (igual à Pri). Configurar em uma loja replica para as outras da mesma marca/UF.
-- Entregas: **gatilhos do Saga Conecta já chegam automaticamente** — a Paty só dispara se o gatilho estiver com template vinculado e ativo.
-- Responsável pela configuração: **CRM** (a definir formalmente — marcar como `TBD` no doc).
-- Template pausado: comportamento operacional **ainda não definido** — registrar como "pendente de definição" com link para a doc técnica.
+**3. SDR vs Vendedor — corrigir**
 
-**Cap. 3 — Prospecção**
-- Documentar diferença de acesso **SDR vs Vendedor** e o fato de que hoje **vendedor enxerga eventos não atribuídos** (ponto marcado como *"comportamento atual — em revisão, futuro: vendedor só vê Kanban"*).
-- Regra dos 30 leads do SDR: "vai liberando à medida que trata".
+Reescrever a seção: hoje, **por regra de negócio**, SDR e Vendedor só devem ver leads atribuídos a eles. O que existe hoje é um **gap de controle de acesso**: eles conseguem enxergar abas/telas que não deveriam (ex.: eventos não atribuídos aparecem nos filtros). Está mapeado para ajuste nas Permission Flags. Combinado operacional enquanto não é ajustado: **não mexer no que não é seu**.
 
-**Cap. 4 — Disparo WhatsApp**
-- Qualquer gestor dispara direto (sem aprovação) — documentar como está e marcar como decisão de negócio.
-- Template pausado / job órfão: usuário **aguarda auto-recovery**; só escalar se ficar >15 min pendente.
+### Novas seções
 
-**Cap. 2 — Recepção**
-- Vendedor de atendimento é **opcional** — usar só quando quiser adiantar; padrão é deixar em branco porque o lead já cai no MobiGestor no vendedor correto.
+**4. Histórico de atendimento do lead** — como funciona hoje
+- Aba/painel no modal do contato usa `ContatoTimeline` → RPC `get_contato_timeline`.
+- Agrega em ordem cronológica: mudanças de status (`logs_movimentacao_contatos`), anotações (`contato_anotacoes`), disparos de WhatsApp, atribuição de responsável, propostas, entrada/saída de quarentena, venda.
+- Cada item mostra: ícone por tipo, descrição, autor, "há X tempo" (tooltip com data/hora exata).
+- Paginação de 20 em 20 ("Carregar mais").
+- Ponto importante para o usuário: **anotação pertence ao lead**, não ao evento — se o mesmo cliente aparece em 3 eventos, a mesma timeline segue ele.
 
-**Cap. 7 — Administração**
-- Feature flags e MFA/Vault: **Admin e TI**.
-- Quarentena manual e planilha CRM: **CRM**.
-- Cria evento base: **gestores de leads e CRM**.
-- SSO: só cita fluxo `@gruposaga.com.br` — sem passo a passo de criação (Master faz via Azure, fora do escopo do usuário final).
+**5. Pri no Kanban** — como aparece
+- A Pri (IA) é um usuário de sistema (`PRI_IA_USER_ID`) que pode mover leads no Kanban como qualquer atendente.
+- Quando ela move: aparece na timeline como autor "Pri IA" (avatar próprio), com ícone de mudança de status.
+- **Silenciada no webhook do Mobi** — movimentações da Pri não disparam webhook de movimentação para o Mobi (evita eco), mas ficam registradas em `logs_movimentacao_contatos` normalmente.
+- Só atua em leads onde `responsavel_email IS NULL` e status `Novo` (via `create-lead-pri`); depois de assumir, ela pode movimentar conforme a conversa evolui.
+- Na prática o usuário vê: card mudou de coluna sozinho, timeline mostra "Pri IA moveu de X para Y".
 
-**Cap. 8 — Perfis (novo)**
-Matriz consolidada:
+**6. Manter/atualizar**
+- Preservar bloco de "Bolinha de responsável / temperatura", "Filtros", "Regras práticas" e "Se algo der errado" — apenas ajustar entradas que mencionavam SDR/vendedor incorretamente.
+- Placeholder `> 🎥 Vídeo sugerido` ao final permanece.
 
-| Configuração | Responsável |
-|---|---|
-| Feature flags | Admin, TI |
-| MFA / Vault | Admin, TI |
-| Quarentena manual | CRM |
-| Importação planilha | CRM |
-| Import pool | CRM |
-| Criação de evento base | Gestor de leads, CRM |
-| Templates Paty / Meta | *TBD (provável CRM)* |
-| Gatilho→template por loja (Peças/Entregas) | *TBD (provável CRM)* |
-| Cadência WPP | Gestor de leads |
-| Disparo WPP | Qualquer gestor (sem aprovação) |
-| Vendedor de atendimento | Recepcionista (opcional) |
-
-## Checklist de vídeos (`CHECKLIST-VIDEOS.md`)
-
-Priorização por impacto × frequência de dúvida:
-
-1. **P0 — Recepção check-in** (QR + FAB + busca 4 dígitos) — maior volume operacional.
-2. **P0 — Criação de evento base + upload de planilha** — onde CRM mais erra.
-3. **P0 — Kanban do SDR** (mover lead, temperatura, filtros) — uso diário.
-4. **P1 — Disparo WPP: escolher template + cadência + agendamento** — inclui o que fazer se template pausar.
-5. **P1 — Pós-Vendas: vincular gatilho a template Paty** (Peças e Entregas multi-template).
-6. **P1 — Relatório de convidados + dashboards** — dúvida recorrente de gestor.
-7. **P2 — Import pool vs planilha** (quando usar cada um).
-8. **P2 — Administração: feature flags e quarentena manual.**
-9. **P2 — MFA/Vault** (uso e recuperação).
-10. **P3 — Monitor Nacional de Disparos** (só Master).
-
-## Pontos que fico marcando como TBD no manual (para você fechar depois)
-
-- Responsável formal pela configuração de Pós-Vendas (Paty/gatilhos).
-- Ação do usuário quando template é pausado (hoje: aguardar; futuro: definir SLA).
-- Ajuste de acesso do vendedor (só Kanban) — hoje documentado como está + nota "em revisão".
-
-## Execução
-
-Faço em **um único lote** (reescrever 7 esqueletos + criar 3 novos arquivos + checklist de vídeos), sem tocar em código. Ao final, atualizo `docs/README.md` marcando esta fase como concluída.
-
-Confirma que executo assim, ou quer ajustar algo antes?
+### Fora de escopo
+- Não alterar código de permissões nem outros capítulos do manual. O ajuste de acessos SDR/Vendedor entra em outro plano quando o usuário pedir.
