@@ -948,9 +948,12 @@ Deno.serve(async (req: Request) => {
     const rejectedMsg = rejectedResponsavel > 0
       ? ` ${rejectedResponsavel} não importados por responsável inválido (${rejectedMsgParts.join(', ')}).`
       : '';
+    const invalidRespMsg = skippedResponsavelInvalido > 0
+      ? ` ${skippedResponsavelInvalido} não importados porque o responsável informado não existe no sistema (reimporte com email válido ou em branco para distribuição).`
+      : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}${rejectedMsg}`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}${rejectedMsg}`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}${rejectedMsg}${invalidRespMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}${rejectedMsg}${invalidRespMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',
