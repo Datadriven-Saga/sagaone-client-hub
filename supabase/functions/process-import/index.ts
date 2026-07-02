@@ -665,6 +665,7 @@ Deno.serve(async (req: Request) => {
           blockedOptoutGlobal += result.global_blocked || 0;
           responsavelApplied += result.responsavel_applied;
           responsavelSkipped += result.responsavel_skipped;
+          skippedResponsavelInvalido += result.skipped_responsavel_invalido || 0;
           rejectedResponsavel += result.rejected_responsavel;
           rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
           rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
@@ -687,6 +688,7 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          skipped_responsavel_invalido: skippedResponsavelInvalido,
           rejected_responsavel: rejectedResponsavel,
           rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
@@ -792,6 +794,7 @@ Deno.serve(async (req: Request) => {
         blockedOptoutGlobal += result.global_blocked || 0;
         responsavelApplied += result.responsavel_applied;
         responsavelSkipped += result.responsavel_skipped;
+        skippedResponsavelInvalido += result.skipped_responsavel_invalido || 0;
         rejectedResponsavel += result.rejected_responsavel;
         rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
         rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
@@ -823,6 +826,7 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          skipped_responsavel_invalido: skippedResponsavelInvalido,
           rejected_responsavel: rejectedResponsavel,
           rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
@@ -886,6 +890,7 @@ Deno.serve(async (req: Request) => {
       blockedOptoutGlobal += result.global_blocked || 0;
       responsavelApplied += result.responsavel_applied;
       responsavelSkipped += result.responsavel_skipped;
+        skippedResponsavelInvalido += result.skipped_responsavel_invalido || 0;
       rejectedResponsavel += result.rejected_responsavel;
       rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
       rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
@@ -960,6 +965,7 @@ Deno.serve(async (req: Request) => {
       error_details: errorDetails,
       responsavel_applied: responsavelApplied,
       responsavel_skipped: responsavelSkipped,
+          skipped_responsavel_invalido: skippedResponsavelInvalido,
       rejected_responsavel: rejectedResponsavel,
       rejected_reasons: rejectedReasons,
       warning_details: warningDetails,
