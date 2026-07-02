@@ -598,6 +598,13 @@ Deno.serve(async (req: Request) => {
     let quarantined = log.quarantined || 0;
     const errorDetails: string[] = Array.isArray(log.error_details) ? [...log.error_details] : [];
     let processedRows = log.processed_rows || 0;
+    let skippedDuplicateInFile = (log as any).skipped_duplicate_in_file || 0;
+    let skippedEmptyPhone = (log as any).skipped_empty_phone || 0;
+    let skippedByUserConflict = (log as any).skipped_by_user_conflict || 0;
+    let blockedOptoutGlobal = (log as any).blocked_optout_global || 0;
+    // totalOptOutBlocked (opt-out externo) já existe abaixo e é persistido via blocked_optout_externo.
+    // Se estivermos retomando via self-chain, preserva o acumulado anterior.
+    const prevBlockedOptoutExterno = (log as any).blocked_optout_externo || 0;
     let responsavelApplied = log.responsavel_applied || 0;
     let responsavelSkipped = log.responsavel_skipped || 0;
     let rejectedResponsavel = log.rejected_responsavel || 0;
@@ -689,6 +696,7 @@ Deno.serve(async (req: Request) => {
       // Skip rows with empty/blank phone silently (not an error)
       if (!telefoneRaw.trim()) {
         processedRows++;
+        skippedEmptyPhone++;
         continue;
       }
 
@@ -705,6 +713,7 @@ Deno.serve(async (req: Request) => {
 
       if (seenPhones.has(phone)) {
         processedRows++;
+        skippedDuplicateInFile++;
         continue;
       }
       seenPhones.add(phone);
@@ -712,6 +721,7 @@ Deno.serve(async (req: Request) => {
       // Skip phones the user explicitly chose to skip in the conflict preview
       if (skipSet.has(phone)) {
         processedRows++;
+        skippedByUserConflict++;
         continue;
       }
 
