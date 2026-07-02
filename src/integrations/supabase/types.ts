@@ -2864,6 +2864,8 @@ export type Database = {
         Row: {
           already_linked: number | null
           base_id: string | null
+          blocked_optout_externo: number
+          blocked_optout_global: number
           chain_count: number
           created_at: string
           current_offset: number | null
@@ -2886,6 +2888,9 @@ export type Database = {
           rejected_responsavel: number
           responsavel_applied: number
           responsavel_skipped: number
+          skipped_by_user_conflict: number
+          skipped_duplicate_in_file: number
+          skipped_empty_phone: number
           status: string
           total_rows: number | null
           updated: number | null
@@ -2897,6 +2902,8 @@ export type Database = {
         Insert: {
           already_linked?: number | null
           base_id?: string | null
+          blocked_optout_externo?: number
+          blocked_optout_global?: number
           chain_count?: number
           created_at?: string
           current_offset?: number | null
@@ -2919,6 +2926,9 @@ export type Database = {
           rejected_responsavel?: number
           responsavel_applied?: number
           responsavel_skipped?: number
+          skipped_by_user_conflict?: number
+          skipped_duplicate_in_file?: number
+          skipped_empty_phone?: number
           status?: string
           total_rows?: number | null
           updated?: number | null
@@ -2930,6 +2940,8 @@ export type Database = {
         Update: {
           already_linked?: number | null
           base_id?: string | null
+          blocked_optout_externo?: number
+          blocked_optout_global?: number
           chain_count?: number
           created_at?: string
           current_offset?: number | null
@@ -2952,6 +2964,9 @@ export type Database = {
           rejected_responsavel?: number
           responsavel_applied?: number
           responsavel_skipped?: number
+          skipped_by_user_conflict?: number
+          skipped_duplicate_in_file?: number
+          skipped_empty_phone?: number
           status?: string
           total_rows?: number | null
           updated?: number | null
@@ -6742,6 +6757,8 @@ export type Database = {
         Returns: {
           already_linked: number | null
           base_id: string | null
+          blocked_optout_externo: number
+          blocked_optout_global: number
           chain_count: number
           created_at: string
           current_offset: number | null
@@ -6764,6 +6781,9 @@ export type Database = {
           rejected_responsavel: number
           responsavel_applied: number
           responsavel_skipped: number
+          skipped_by_user_conflict: number
+          skipped_duplicate_in_file: number
+          skipped_empty_phone: number
           status: string
           total_rows: number | null
           updated: number | null

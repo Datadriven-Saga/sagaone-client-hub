@@ -68,6 +68,11 @@ interface ImportLog {
   already_linked: number;
   errors: number;
   quarantined: number;
+  skipped_duplicate_in_file?: number;
+  skipped_empty_phone?: number;
+  skipped_by_user_conflict?: number;
+  blocked_optout_externo?: number;
+  blocked_optout_global?: number;
   error_details: string[];
   responsavel_applied?: number;
   responsavel_skipped?: number;
@@ -1125,6 +1130,56 @@ export const UploadPlanilha = ({
                       Bloqueados por quarentena (mesma marca, 30 dias)
                     </span>
                     <span className="font-medium text-amber-600">{importLog.quarantined.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
+                {(importLog.skipped_duplicate_in_file || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      Linhas duplicadas na planilha (mesmo telefone)
+                    </span>
+                    <span className="font-medium text-muted-foreground">{importLog.skipped_duplicate_in_file!.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
+                {(importLog.skipped_empty_phone || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      Linhas sem telefone
+                    </span>
+                    <span className="font-medium text-muted-foreground">{importLog.skipped_empty_phone!.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
+                {(importLog.skipped_by_user_conflict || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      Ignorados pelo usuário (conflito de evento ativo)
+                    </span>
+                    <span className="font-medium text-muted-foreground">{importLog.skipped_by_user_conflict!.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
+                {(importLog.blocked_optout_externo || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      Bloqueados por opt-out externo
+                    </span>
+                    <span className="font-medium text-amber-600">{importLog.blocked_optout_externo!.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
+                {(importLog.blocked_optout_global || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      Bloqueados por opt-out global (blacklist)
+                    </span>
+                    <span className="font-medium text-amber-600">{importLog.blocked_optout_global!.toLocaleString('pt-BR')}</span>
                   </div>
                 )}
 

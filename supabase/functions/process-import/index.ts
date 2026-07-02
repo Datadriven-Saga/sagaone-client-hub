@@ -578,7 +578,7 @@ Deno.serve(async (req: Request) => {
       }
       return { allowed, blocked };
     };
-    let totalOptOutBlocked = 0;
+    let totalOptOutBlocked = 0; // acumulador desta execução (self-chain soma com prevBlockedOptoutExterno)
 
     if (currentOffset === 0) {
       await supabaseAdmin.from('import_logs').update({
@@ -598,6 +598,13 @@ Deno.serve(async (req: Request) => {
     let quarantined = log.quarantined || 0;
     const errorDetails: string[] = Array.isArray(log.error_details) ? [...log.error_details] : [];
     let processedRows = log.processed_rows || 0;
+    let skippedDuplicateInFile = (log as any).skipped_duplicate_in_file || 0;
+    let skippedEmptyPhone = (log as any).skipped_empty_phone || 0;
+    let skippedByUserConflict = (log as any).skipped_by_user_conflict || 0;
+    let blockedOptoutGlobal = (log as any).blocked_optout_global || 0;
+    // totalOptOutBlocked (opt-out externo) já existe abaixo e é persistido via blocked_optout_externo.
+    // Se estivermos retomando via self-chain, preserva o acumulado anterior.
+    const prevBlockedOptoutExterno = (log as any).blocked_optout_externo || 0;
     let responsavelApplied = log.responsavel_applied || 0;
     let responsavelSkipped = log.responsavel_skipped || 0;
     let rejectedResponsavel = log.rejected_responsavel || 0;
@@ -654,6 +661,7 @@ Deno.serve(async (req: Request) => {
           alreadyLinked += result.already_linked;
           errors += result.errors;
           quarantined += result.quarantined;
+          blockedOptoutGlobal += result.global_blocked || 0;
           responsavelApplied += result.responsavel_applied;
           responsavelSkipped += result.responsavel_skipped;
           rejectedResponsavel += result.rejected_responsavel;
@@ -670,6 +678,11 @@ Deno.serve(async (req: Request) => {
           processed_rows: processedRows,
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
+          skipped_duplicate_in_file: skippedDuplicateInFile,
+          skipped_empty_phone: skippedEmptyPhone,
+          skipped_by_user_conflict: skippedByUserConflict,
+          blocked_optout_externo: prevBlockedOptoutExterno + totalOptOutBlocked,
+          blocked_optout_global: blockedOptoutGlobal,
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
@@ -689,6 +702,7 @@ Deno.serve(async (req: Request) => {
       // Skip rows with empty/blank phone silently (not an error)
       if (!telefoneRaw.trim()) {
         processedRows++;
+        skippedEmptyPhone++;
         continue;
       }
 
@@ -705,6 +719,7 @@ Deno.serve(async (req: Request) => {
 
       if (seenPhones.has(phone)) {
         processedRows++;
+        skippedDuplicateInFile++;
         continue;
       }
       seenPhones.add(phone);
@@ -712,6 +727,7 @@ Deno.serve(async (req: Request) => {
       // Skip phones the user explicitly chose to skip in the conflict preview
       if (skipSet.has(phone)) {
         processedRows++;
+        skippedByUserConflict++;
         continue;
       }
 
@@ -772,6 +788,7 @@ Deno.serve(async (req: Request) => {
         alreadyLinked += result.already_linked;
         errors += result.errors;
         quarantined += result.quarantined;
+        blockedOptoutGlobal += result.global_blocked || 0;
         responsavelApplied += result.responsavel_applied;
         responsavelSkipped += result.responsavel_skipped;
         rejectedResponsavel += result.rejected_responsavel;
@@ -797,6 +814,11 @@ Deno.serve(async (req: Request) => {
           processed_rows: processedRows,
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
+          skipped_duplicate_in_file: skippedDuplicateInFile,
+          skipped_empty_phone: skippedEmptyPhone,
+          skipped_by_user_conflict: skippedByUserConflict,
+          blocked_optout_externo: prevBlockedOptoutExterno + totalOptOutBlocked,
+          blocked_optout_global: blockedOptoutGlobal,
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
@@ -860,6 +882,7 @@ Deno.serve(async (req: Request) => {
       alreadyLinked += result.already_linked;
       errors += result.errors;
       quarantined += result.quarantined;
+      blockedOptoutGlobal += result.global_blocked || 0;
       responsavelApplied += result.responsavel_applied;
       responsavelSkipped += result.responsavel_skipped;
       rejectedResponsavel += result.rejected_responsavel;
@@ -928,6 +951,11 @@ Deno.serve(async (req: Request) => {
       processed_rows: processedRows,
       inserted, updated, linked, already_linked: alreadyLinked,
       errors, quarantined,
+      skipped_duplicate_in_file: skippedDuplicateInFile,
+      skipped_empty_phone: skippedEmptyPhone,
+      skipped_by_user_conflict: skippedByUserConflict,
+      blocked_optout_externo: prevBlockedOptoutExterno + totalOptOutBlocked,
+      blocked_optout_global: blockedOptoutGlobal,
       error_details: errorDetails,
       responsavel_applied: responsavelApplied,
       responsavel_skipped: responsavelSkipped,
@@ -1325,6 +1353,7 @@ async function processBatch(
         already_linked: data?.already_linked || 0,
         errors: data?.errors || 0,
         quarantined: data?.quarantined || 0,
+        global_blocked: data?.global_blocked || 0,
         responsavel_applied: data?.responsavel_applied || 0,
         responsavel_skipped: data?.responsavel_skipped || 0,
         rejected_responsavel: data?.rejected_responsavel || 0,
