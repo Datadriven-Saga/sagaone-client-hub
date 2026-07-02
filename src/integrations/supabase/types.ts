@@ -1655,6 +1655,45 @@ export type Database = {
           },
         ]
       }
+      contatos_responsavel_rejeicoes: {
+        Row: {
+          contato_id: string | null
+          created_at: string
+          id: string
+          modo: string
+          operacao: string
+          origem_app_name: string | null
+          origem_db_user: string | null
+          payload_resumo: Json | null
+          responsavel_email_tentado: string
+          stack_context: string | null
+        }
+        Insert: {
+          contato_id?: string | null
+          created_at?: string
+          id?: string
+          modo: string
+          operacao: string
+          origem_app_name?: string | null
+          origem_db_user?: string | null
+          payload_resumo?: Json | null
+          responsavel_email_tentado: string
+          stack_context?: string | null
+        }
+        Update: {
+          contato_id?: string | null
+          created_at?: string
+          id?: string
+          modo?: string
+          operacao?: string
+          origem_app_name?: string | null
+          origem_db_user?: string | null
+          payload_resumo?: Json | null
+          responsavel_email_tentado?: string
+          stack_context?: string | null
+        }
+        Relationships: []
+      }
       controle_agentes: {
         Row: {
           ativo: boolean
