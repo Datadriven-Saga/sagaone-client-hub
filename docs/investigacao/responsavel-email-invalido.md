@@ -22,6 +22,76 @@ O que fica para uma eventual Fase C:
 
 ---
 
+## Fase D — Barreira no banco (2026-07-02, tarde)
+
+Depois do backfill (0 leads inválidos restantes) e da rejeição estrita na importação de planilha, o último passo é impedir que **qualquer** caminho futuro (edge function nova, script manual, integração) volte a poluir a coluna. Não dá para usar FK porque `responsavel_email` é texto livre e `auth.users` é schema reservado; então usamos uma trigger `SECURITY DEFINER`.
+
+### O que foi criado
+
+1. **`public.contatos_responsavel_rejeicoes`** — tabela de auditoria. Cada tentativa de gravar um `responsavel_email` que não existe em `auth.users` gera uma linha com: email tentado, operação (INSERT/UPDATE), modo (strict/tolerant), `current_user` do banco, `application_name`, resumo do lead (telefone, empresa, nome) e trecho do `current_query()`. Leitura restrita a Admin/TI/Master via RLS; `service_role` tem acesso total.
+2. **`public.validate_contato_responsavel_email()`** — função da trigger. Se `responsavel_email` é NULL ou string vazia, deixa passar. Se em UPDATE não mudou, deixa passar. Caso contrário, procura o email (case-insensitive) em `auth.users`.
+   - Se existir: normaliza para lowercase/trim e grava.
+   - Se não existir: registra em `contatos_responsavel_rejeicoes` e decide pelo modo.
+3. **`trg_validate_contato_responsavel`** — `BEFORE INSERT OR UPDATE OF responsavel_email ON public.contatos`.
+
+### Dois modos
+
+O modo é lido do GUC de sessão `app.responsavel_strict`:
+
+| Valor da sessão | Comportamento quando email é inválido |
+|---|---|
+| não setado (padrão) / `off` / `tolerant` | zera para `NULL` (lead vai para distribuição), loga a tentativa e segue |
+| `on` / `strict` | levanta `RAISE EXCEPTION` (SQLSTATE `23514`), aborta a linha e loga a tentativa |
+
+Para ativar o modo estrito numa transação específica:
+
+```sql
+SET LOCAL app.responsavel_strict = 'on';
+```
+
+O default é **tolerante** de propósito, para não quebrar produção. A importação de planilha continua rejeitando em nível de RPC (`bulk_upsert_contatos` com `p_strict_responsavel = true`) antes mesmo de chegar na trigger, então a UX de erro amigável já mostrada em `UploadPlanilha.tsx` continua igual.
+
+### Rollout
+
+- **Etapa 1 (agora)**: modo tolerante global. A trigger só normaliza e loga. Monitorar `contatos_responsavel_rejeicoes` das últimas 24–72h para descobrir se alguma integração viva ainda alimenta lixo.
+- **Etapa 2**: quando os logs zerarem, virar o default para strict (basta mudar o fallback dentro da função de `'tolerant'` para `'strict'`). Fluxos legítimos que queiram cair para NULL passam a chamar `SET LOCAL app.responsavel_strict = 'off'`.
+- **Etapa 3 (opcional)**: expor um painel em `/administracao` com as rejeições recentes agrupadas por `origem_app_name` para diagnóstico rápido.
+
+### Como consultar as rejeições
+
+```sql
+SELECT
+  date_trunc('hour', created_at) AS hora,
+  origem_app_name,
+  modo,
+  count(*) AS tentativas,
+  count(DISTINCT responsavel_email_tentado) AS emails_distintos
+FROM public.contatos_responsavel_rejeicoes
+WHERE created_at > now() - interval '24 hours'
+GROUP BY 1, 2, 3
+ORDER BY 1 DESC, tentativas DESC;
+```
+
+Detalhe por email tentado:
+
+```sql
+SELECT responsavel_email_tentado, operacao, modo,
+       payload_resumo->>'empresa_id' AS empresa_id,
+       payload_resumo->>'telefone'  AS telefone,
+       stack_context, created_at
+FROM public.contatos_responsavel_rejeicoes
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+### Tradeoffs assumidos
+
+- Custo por INSERT: 1 lookup indexado em `auth.users(email)` por linha nova. Marginal mesmo em `bulk_upsert_contatos`.
+- A trigger **não valida** se o usuário está ativo (`profiles.is_active`). Se isso virar problema, é uma segunda iteração — hoje o objetivo é apenas "existe no sistema".
+- `DISABLE TRIGGER` continua sendo possível via SQL direto no dashboard. Aceitável: é um caminho consciente de administrador.
+
+---
+
 ## 1. Panorama por categoria
 
 | Categoria | Contatos | Emails únicos | Empresas afetadas | Última criação | Ainda ativo? |
