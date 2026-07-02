@@ -788,6 +788,7 @@ Deno.serve(async (req: Request) => {
         alreadyLinked += result.already_linked;
         errors += result.errors;
         quarantined += result.quarantined;
+        blockedOptoutGlobal += result.global_blocked || 0;
         responsavelApplied += result.responsavel_applied;
         responsavelSkipped += result.responsavel_skipped;
         rejectedResponsavel += result.rejected_responsavel;
@@ -813,6 +814,11 @@ Deno.serve(async (req: Request) => {
           processed_rows: processedRows,
           inserted, updated, linked, already_linked: alreadyLinked,
           errors, quarantined,
+          skipped_duplicate_in_file: skippedDuplicateInFile,
+          skipped_empty_phone: skippedEmptyPhone,
+          skipped_by_user_conflict: skippedByUserConflict,
+          blocked_optout_externo: prevBlockedOptoutExterno + totalOptOutBlocked,
+          blocked_optout_global: blockedOptoutGlobal,
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
