@@ -655,7 +655,7 @@ Deno.serve(async (req: Request) => {
             offset: i,
             configuredBatchSize,
             batchSizeReason,
-          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
+          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [], skipped_responsavel_invalido: 0 };
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -782,7 +782,7 @@ Deno.serve(async (req: Request) => {
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
+        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [], skipped_responsavel_invalido: 0 };
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -876,7 +876,7 @@ Deno.serve(async (req: Request) => {
         offset: totalDataRows - batch.length,
         configuredBatchSize,
         batchSizeReason,
-      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
+      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [], skipped_responsavel_invalido: 0 };
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
