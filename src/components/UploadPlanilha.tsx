@@ -77,6 +77,7 @@ interface ImportLog {
   responsavel_applied?: number;
   responsavel_skipped?: number;
   rejected_responsavel?: number;
+  skipped_responsavel_invalido?: number;
   rejected_reasons?: { profile_inexistente?: number; fora_da_equipe?: number };
   warning_details?: Array<{ type?: string; reason?: string; value?: string; telefone?: string; nome?: string }>;
   message: string | null;
@@ -1183,6 +1184,16 @@ export const UploadPlanilha = ({
                   </div>
                 )}
 
+                {(importLog.skipped_responsavel_invalido || 0) > 0 && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                    <span className="flex items-center gap-1.5">
+                      <XCircle className="h-3.5 w-3.5 text-destructive" />
+                      Não importados: responsável não existe no sistema
+                    </span>
+                    <span className="font-medium text-destructive">{importLog.skipped_responsavel_invalido!.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+
                 {importLog.errors > 0 && (
                   <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                     <span className="flex items-center gap-1.5">
@@ -1233,6 +1244,27 @@ export const UploadPlanilha = ({
                       )}
                     </>
                   )}
+                </Card>
+              )}
+
+              {/* Aviso: linhas rejeitadas por responsável inexistente */}
+              {(importLog.skipped_responsavel_invalido || 0) > 0 && (
+                <Card className="p-3 border-destructive/40 bg-destructive/5">
+                  <div className="flex gap-2 items-start">
+                    <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <p className="font-medium text-destructive">
+                        {importLog.skipped_responsavel_invalido!.toLocaleString('pt-BR')} lead(s) não foram importados
+                      </p>
+                      <p className="text-muted-foreground">
+                        A coluna de responsável tinha um valor que não corresponde a nenhum usuário do sistema.
+                        Corrija a planilha e reimporte com um <strong>e-mail válido</strong> ou <strong>deixe a coluna em branco</strong> para que os leads entrem na distribuição automática.
+                      </p>
+                      <p className="text-muted-foreground">
+                        Veja o detalhe de cada linha na lista de erros abaixo.
+                      </p>
+                    </div>
+                  </div>
                 </Card>
               )}
 

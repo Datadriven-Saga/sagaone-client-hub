@@ -608,6 +608,7 @@ Deno.serve(async (req: Request) => {
     let responsavelApplied = log.responsavel_applied || 0;
     let responsavelSkipped = log.responsavel_skipped || 0;
     let rejectedResponsavel = log.rejected_responsavel || 0;
+    let skippedResponsavelInvalido = (log as any).skipped_responsavel_invalido || 0;
     const rejectedReasons = (log.rejected_reasons && typeof log.rejected_reasons === 'object')
       ? { profile_inexistente: log.rejected_reasons.profile_inexistente || 0, fora_da_equipe: log.rejected_reasons.fora_da_equipe || 0 }
       : { profile_inexistente: 0, fora_da_equipe: 0 };
@@ -654,7 +655,7 @@ Deno.serve(async (req: Request) => {
             offset: i,
             configuredBatchSize,
             batchSizeReason,
-          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
+          }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [], skipped_responsavel_invalido: 0 };
           inserted += result.inserted;
           updated += result.updated;
           linked += result.linked;
@@ -664,6 +665,7 @@ Deno.serve(async (req: Request) => {
           blockedOptoutGlobal += result.global_blocked || 0;
           responsavelApplied += result.responsavel_applied;
           responsavelSkipped += result.responsavel_skipped;
+          skippedResponsavelInvalido += result.skipped_responsavel_invalido || 0;
           rejectedResponsavel += result.rejected_responsavel;
           rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
           rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
@@ -686,6 +688,7 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          skipped_responsavel_invalido: skippedResponsavelInvalido,
           rejected_responsavel: rejectedResponsavel,
           rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
@@ -781,7 +784,7 @@ Deno.serve(async (req: Request) => {
           offset: batchOffsetStart,
           configuredBatchSize,
           batchSizeReason,
-        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
+        }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [], skipped_responsavel_invalido: 0 };
         inserted += result.inserted;
         updated += result.updated;
         linked += result.linked;
@@ -791,6 +794,7 @@ Deno.serve(async (req: Request) => {
         blockedOptoutGlobal += result.global_blocked || 0;
         responsavelApplied += result.responsavel_applied;
         responsavelSkipped += result.responsavel_skipped;
+        skippedResponsavelInvalido += result.skipped_responsavel_invalido || 0;
         rejectedResponsavel += result.rejected_responsavel;
         rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
         rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
@@ -822,6 +826,7 @@ Deno.serve(async (req: Request) => {
           error_details: errorDetails,
           responsavel_applied: responsavelApplied,
           responsavel_skipped: responsavelSkipped,
+          skipped_responsavel_invalido: skippedResponsavelInvalido,
           rejected_responsavel: rejectedResponsavel,
           rejected_reasons: rejectedReasons,
           warning_details: warningDetails,
@@ -875,7 +880,7 @@ Deno.serve(async (req: Request) => {
         offset: totalDataRows - batch.length,
         configuredBatchSize,
         batchSizeReason,
-      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [] };
+      }) : { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: 0, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [], skipped_responsavel_invalido: 0 };
       inserted += result.inserted;
       updated += result.updated;
       linked += result.linked;
@@ -885,6 +890,7 @@ Deno.serve(async (req: Request) => {
       blockedOptoutGlobal += result.global_blocked || 0;
       responsavelApplied += result.responsavel_applied;
       responsavelSkipped += result.responsavel_skipped;
+        skippedResponsavelInvalido += result.skipped_responsavel_invalido || 0;
       rejectedResponsavel += result.rejected_responsavel;
       rejectedReasons.profile_inexistente += result.rejected_reasons.profile_inexistente;
       rejectedReasons.fora_da_equipe += result.rejected_reasons.fora_da_equipe;
@@ -942,9 +948,12 @@ Deno.serve(async (req: Request) => {
     const rejectedMsg = rejectedResponsavel > 0
       ? ` ${rejectedResponsavel} não importados por responsável inválido (${rejectedMsgParts.join(', ')}).`
       : '';
+    const invalidRespMsg = skippedResponsavelInvalido > 0
+      ? ` ${skippedResponsavelInvalido} não importados porque o responsável informado não existe no sistema (reimporte com email válido ou em branco para distribuição).`
+      : '';
     const finalMessage = errors > 0
-      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}${rejectedMsg}`
-      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}${rejectedMsg}`;
+      ? `Importação concluída com ${errors} erros. ${inserted} novos, ${updated} atualizados, ${linked} vinculados.${quarantineMsg}${optOutMsg}${rejectedMsg}${invalidRespMsg}`
+      : `Importação concluída! ${inserted} novos, ${updated} atualizados, ${linked} vinculados ao evento.${quarantineMsg}${optOutMsg}${rejectedMsg}${invalidRespMsg}`;
 
     await supabaseAdmin.from('import_logs').update({
       status: 'done',
@@ -959,6 +968,7 @@ Deno.serve(async (req: Request) => {
       error_details: errorDetails,
       responsavel_applied: responsavelApplied,
       responsavel_skipped: responsavelSkipped,
+          skipped_responsavel_invalido: skippedResponsavelInvalido,
       rejected_responsavel: rejectedResponsavel,
       rejected_reasons: rejectedReasons,
       warning_details: warningDetails,
@@ -1203,7 +1213,7 @@ async function processBatch(
     configuredBatchSize?: number;
     batchSizeReason?: string;
   },
-): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; rejected_responsavel: number; rejected_reasons: { profile_inexistente: number; fora_da_equipe: number }; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string }> }> {
+): Promise<{ inserted: number; updated: number; linked: number; already_linked: number; errors: number; quarantined: number; responsavel_applied: number; responsavel_skipped: number; skipped_responsavel_invalido: number; rejected_responsavel: number; rejected_reasons: { profile_inexistente: number; fora_da_equipe: number }; warning_details: any[]; error_details: Array<{ telefone: string; nome: string; erro: string; responsavel_email?: string; motivo?: string; row?: number }> }> {
   const MAX_RETRIES = 3;
   let lastError = '';
   const batchStartedAt = performance.now();
@@ -1335,6 +1345,7 @@ async function processBatch(
         p_prospeccao_id: prospeccaoId,
         p_canal: canal,
         p_force_status_novo: forceStatusNovo,
+        p_strict_responsavel: true,
       });
 
       console.log('[process-import][batch:bulk_upsert_contatos]', {
@@ -1356,6 +1367,7 @@ async function processBatch(
         global_blocked: data?.global_blocked || 0,
         responsavel_applied: data?.responsavel_applied || 0,
         responsavel_skipped: data?.responsavel_skipped || 0,
+        skipped_responsavel_invalido: data?.skipped_responsavel_invalido || 0,
         rejected_responsavel: data?.rejected_responsavel || 0,
         rejected_reasons: {
           profile_inexistente: data?.rejected_reasons?.profile_inexistente || 0,
@@ -1392,5 +1404,5 @@ async function processBatch(
     durationMs: Math.round(performance.now() - batchStartedAt),
     error: lastError,
   });
-  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
+  return { inserted: 0, updated: 0, linked: 0, already_linked: 0, errors: batch.length, quarantined: 0, responsavel_applied: 0, responsavel_skipped: 0, skipped_responsavel_invalido: 0, rejected_responsavel: 0, rejected_reasons: { profile_inexistente: 0, fora_da_equipe: 0 }, warning_details: [], error_details: [{ telefone: '', nome: '', erro: `Lote inteiro falhou: ${lastError}` }] };
 }
