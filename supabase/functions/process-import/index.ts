@@ -1336,6 +1336,7 @@ async function processBatch(
         p_prospeccao_id: prospeccaoId,
         p_canal: canal,
         p_force_status_novo: forceStatusNovo,
+        p_strict_responsavel: true,
       });
 
       console.log('[process-import][batch:bulk_upsert_contatos]', {
@@ -1357,6 +1358,7 @@ async function processBatch(
         global_blocked: data?.global_blocked || 0,
         responsavel_applied: data?.responsavel_applied || 0,
         responsavel_skipped: data?.responsavel_skipped || 0,
+        skipped_responsavel_invalido: data?.skipped_responsavel_invalido || 0,
         rejected_responsavel: data?.rejected_responsavel || 0,
         rejected_reasons: {
           profile_inexistente: data?.rejected_reasons?.profile_inexistente || 0,
