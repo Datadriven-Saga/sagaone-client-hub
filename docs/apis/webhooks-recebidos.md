@@ -31,11 +31,9 @@ Vapi / SagaOne notifica evento de chamada (iniciada, atendida, concluída).
 
 ### `atendimento-status-webhook`
 
-MobiGestor notifica mudança de status do lead no CRM externo.
-
-- **Ação:** atualiza `contatos.status` e grava em `logs_movimentacao_contatos` com `usuario_id = PRI_IA_USER_ID` (não re-dispara webhook out).
-- **Regra:** somente para leads cujo `empresa_id` casa com o `crm_id` do payload.
-- **Contrato reverso:** o disparo de saída correspondente está em [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md).
+> ⚠️ **Não é webhook recebido.** Está listado aqui por proximidade histórica de nome. Na verdade é uma edge de **saída**, chamada pelo FE (`src/hooks/useContatoData.ts`) quando um lead em campanha WhatsApp muda de status: envia payload com `telefone_pri`/`dealer_id` do agente ativo (`agentes_ia`) para o mesmo endpoint n8n `recebe-status-sagaone`, notificando o fluxo do agente Pri.
+>
+> Não recebe callback do MobiGestor. O gate `PRI_IA_USER_ID` do trigger de movimentação existe porque a Pri IA já atualiza o Mobi em paralelo — ver [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md).
 
 ### `confirm-presence` / `confirm-presence-info`
 
