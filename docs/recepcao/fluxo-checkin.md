@@ -50,6 +50,7 @@ Single-event: `verificarCheckinExistente` → cria/atualiza contato → log → 
 ## 6. Efeitos colaterais
 
 - `logs_movimentacao_contatos` aciona o trigger `trg_dispatch_movimentacao_lead_webhook` (server-side via `pg_net`) → edge function `trigger-webhook` (header `saga_one_supabase`) → Lambda MobiGestor.
+- Contrato completo do webhook (payload, gates, resposta, runbook): [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md).
 - **Fonte única de disparo:** apenas o trigger PG chama `trigger-webhook` com `gatilho=movimentacao_lead_kanban`. FE (`useRecepcaoData`, `Prospeccao.tsx`) e edges que inserem em `logs_movimentacao_contatos` (`confirm-presence`, `prospeccao-status`) NÃO devem invocar a edge — isso causou disparo duplicado (visto em 26-jun: dois `Succeeded` no mesmo segundo).
 - Quando `usuario_id IS NULL` (caminho público), o trigger faz fallback de `email_vendedor` a partir de `contatos.responsavel_email` antes de chamar a edge.
 - O webhook só é disparado para empresas com a feature flag `webhook_movimentacao_lead` ativa, e apenas para eventos **Mensal** ou **Grande Evento** (validação dentro da edge function).
