@@ -23,7 +23,6 @@ Memory: `webhook-token-strategy`.
 |---|---|---|
 | `template-paused-webhook` | Meta / SagaOne | [../prospeccao/template-pausado.md](../prospeccao/template-pausado.md) |
 | `ia-ligacao-webhook` | Vapi / SagaOne | [../prospeccao/ia-ligacao.md](../prospeccao/ia-ligacao.md) |
-| `atendimento-status-webhook` | MobiGestor | Atualiza status do lead |
 | `confirm-presence` / `confirm-presence-info` | Convites externos | Confirma presença em evento |
 | `dispatch-leads-webhook` | Lambda de disparo | Callback pós-envio |
 
@@ -35,6 +34,7 @@ Memory: `webhook-token-strategy`.
 | `external-webhook-proxy` (Edge) | n8n Paty | Peças / Entregas / Cadência (memory `external-api-proxy-and-csp-compliance`) |
 | `process-campaign-job` → Lambda AWS | Meta WPP | Disparo em lote (memory `persistent-campaign-dispatch-system`) |
 | `notify-evento-criado` | E-mail | Notificação de novo evento |
+| `atendimento-status-webhook` (Edge) | n8n agente Pri | Notifica mudança de status de lead em campanha WPP (FE → agente Pri, não é callback do Mobi) |
 
 ## Regras invariantes
 

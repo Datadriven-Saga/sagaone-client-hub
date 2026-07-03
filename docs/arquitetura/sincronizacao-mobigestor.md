@@ -8,7 +8,7 @@
 
 Toda mudança de status relevante de um lead (Confirmado, Check-in, Descartado) sai do SagaOne para um **fluxo intermediário no n8n** (`recebe-status-sagaone`) que orquestra a qualificação/desqualificação do lead na **central de leads** e, quando cabível, cria o lead na loja do MobiGestor. **Não é uma chamada direta ao CRM**: o n8n é quem decide criar, qualificar, atualizar ou desqualificar.
 
-O canal reverso (`atendimento-status-webhook`) recebe mudanças originadas no MobiGestor e as escreve em `logs_movimentacao_contatos` com `usuario_id = PRI_IA_USER_ID` — gate que evita eco infinito.
+Não há canal síncrono MobiGestor → SagaOne. A **Pri IA (bot de disparo WhatsApp)** movimenta os leads **em paralelo nos dois sistemas** (SagaOne e Mobi) por conta própria. Quando ela escreve aqui, o log sai com `usuario_id = PRI_IA_USER_ID` e o **gate #2 skipa** o envio ao Mobi — evita duplicar o que a IA já fez lá.
 
 ## Endpoint de saída
 
@@ -42,7 +42,7 @@ n8n /webhook/recebe-status-sagaone
 ## Gates de disparo (ordem no helper)
 
 1. Campos obrigatórios presentes: `contato_id`, `empresa_id`, `prospeccao_id`, `status_novo`.
-2. **Skip Pri IA** — `usuario_id == PRI_IA_USER_ID` → não dispara (evita loop com o canal reverso).
+2. **Skip Pri IA** — `usuario_id == PRI_IA_USER_ID` → não dispara. A Pri IA (bot WPP) já atualiza o Mobi em paralelo quando movimenta o lead no SagaOne; reenviar aqui duplicaria a chamada.
 3. **Feature flag** `webhook_movimentacao_lead` **per_empresa** ligada.
 4. **Canal da prospecção** ∈ {`Mensal`, `Grande Evento`}.
 5. **`status_novo`** ∈ {`Confirmado`, `Check-in`, `Descartado`}.
@@ -100,13 +100,17 @@ O SagaOne apenas dispara; o n8n é quem decide:
 
 O helper faz `JSON.parse` tolerante; se a resposta não for JSON válido, apenas ignora a captura de `codigo_proposta`.
 
-## Loop reverso (entrada)
+## Movimentações da Pri IA em paralelo
 
-`atendimento-status-webhook` (documentado em [`../apis/webhooks-recebidos.md`](../apis/webhooks-recebidos.md)):
+A Pri IA (bot de disparo WhatsApp) conversa com o lead e reage aos eventos da conversa movimentando o Kanban dos **dois** sistemas simultaneamente:
 
-- Valida `dealer_id ↔ empresas.crm_id`.
-- Atualiza `contatos.status`.
-- Escreve em `logs_movimentacao_contatos` com `usuario_id = PRI_IA_USER_ID` → **gate #2 do disparo de saída bloqueia**, evitando eco infinito.
+- Cliente respondeu → move para *Atribuído* (no SagaOne **e** no Mobi).
+- Cliente agendou → move para *Convidado* (no SagaOne **e** no Mobi).
+- E assim por diante.
+
+Como o bot já cuida do Mobi diretamente, o SagaOne **não** deve reenviar essa mesma movimentação — faria chamada duplicada. Por isso o log da IA sai com `usuario_id = PRI_IA_USER_ID` e o **gate #2** do trigger PG bloqueia o dispatch.
+
+> `atendimento-status-webhook` **não é** parte deste fluxo. É uma edge de saída (não recebida), usada em outro contexto — está descrita em [`../apis/webhooks-recebidos.md`](../apis/webhooks-recebidos.md).
 
 ## Idempotência & retry
 
@@ -149,15 +153,11 @@ O helper faz `JSON.parse` tolerante; se a resposta não for JSON válido, apenas
                         ▼
           UPDATE contatos.codigo_proposta (quando veio proposalId)
 
-... (assíncrono, a qualquer momento) ...
+... (em paralelo, quando a IA movimenta) ...
 
-MobiGestor  →  atendimento-status-webhook
-                 │  (usuario_id = PRI_IA_USER_ID)
-                 ▼
-          logs_movimentacao_contatos
-                 │
-                 ▼
-          gate #2 bloqueia → sem loop
+Pri IA (bot WPP)
+     ├── SagaOne: INSERT log (usuario_id = PRI_IA_USER_ID) → gate #2 skipa
+     └── Mobi:    atualiza direto (mesma ação, sem passar pelo SagaOne)
 ```
 
 ## Runbook / erros comuns
@@ -171,19 +171,18 @@ MobiGestor  →  atendimento-status-webhook
 | 403 no destino | `SAGA_ONE` errado ou header com nome errado | Confirmar segredo + header `saga_one_supabase` (não `Authorization`) |
 | Webhook Mobi disparado 2x | FE + trigger em paralelo | Grepar por `trigger-webhook` + `movimentacao_lead_kanban` no FE/edges — só o trigger PG deve chamar |
 | `codigo_proposta` não persistiu | Resposta não-JSON ou sem `proposalId` | Conferir log do n8n; atualização legítima não retorna proposalId |
-| Loop de eventos entre SagaOne e Mobi | Escrita reversa sem `usuario_id = PRI_IA_USER_ID` | Confirmar que `atendimento-status-webhook` está setando o usuário Pri IA |
+| Duplicação em movimentação feita pela Pri IA | Log gravado sem `usuario_id = PRI_IA_USER_ID` | Confirmar que a integração da IA está setando o usuário Pri IA no `logs_movimentacao_contatos` — gate #2 depende disso |
 
 ## Segredos & envs
 
 - `WEBHOOK_MOVIMENTACAO_LEAD_URL` — URL do fluxo n8n.
 - `SAGA_ONE` — token de saída (header `saga_one_supabase`).
-- `PRI_IA_USER_ID` — UUID do usuário técnico Pri IA (gate anti-loop).
+- `PRI_IA_USER_ID` — UUID do usuário técnico Pri IA (gate anti-duplicação para movimentações do bot WPP).
 
 ## Código & tabelas
 
 - Helper: [`supabase/functions/_shared/movimentacao-lead-webhook.ts`](../../supabase/functions/_shared/movimentacao-lead-webhook.ts)
 - Edge: [`supabase/functions/trigger-webhook/index.ts`](../../supabase/functions/trigger-webhook/index.ts)
-- Edge reversa: [`supabase/functions/atendimento-status-webhook/index.ts`](../../supabase/functions/atendimento-status-webhook/index.ts)
 - Trigger PG: `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos`
 - Tabelas: `logs_movimentacao_contatos`, `contatos` (`codigo_proposta`), `prospeccoes` (`canal`, `titulo`), `empresas` (`crm_id`)
 - Flag: `webhook_movimentacao_lead` (per_empresa) em `system_feature_flags`
