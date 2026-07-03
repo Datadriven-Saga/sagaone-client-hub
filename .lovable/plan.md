@@ -1,120 +1,216 @@
-## Objetivo
+# Guia: Configurar SSO do zero (padrão SagaOne)
 
-Trocar a unicidade de templates de WhatsApp de **"por empresa"** para **"por agente"**, permitindo que dois agentes da mesma empresa (ex.: Pri e Paty) tenham templates com o mesmo `nome`.
-
----
-
-## Regra nova
-
-- Um mesmo `nome` (case-insensitive) pode existir várias vezes na empresa, **desde que em agentes diferentes**.
-- Dentro do mesmo `agente_id`, o `nome` continua único.
-- Templates sem `agente_id` (legado) ficam sem constraint — comportamento aceito, com backfill parcial antes.
+Este plano é um **documento explicativo** — não altera código. Ele descreve exatamente como reproduzir o setup de SSO que roda hoje no SagaOne em um projeto novo (React + Vite + Supabase/Lovable Cloud).
 
 ---
 
-## Migration SQL (uma migration só)
+## 1. Visão geral da arquitetura
 
-**Passo 1 — Backfill de `agente_id` via `pri_telefone`:**
+O SSO do SagaOne combina 5 peças:
 
-```sql
-UPDATE public.whatsapp_templates wt
-SET agente_id = a.id
-FROM public.agentes_ia a
-WHERE wt.agente_id IS NULL
-  AND wt.pri_telefone IS NOT NULL
-  AND a.telefone = wt.pri_telefone;
+```text
+Azure AD (IdP)
+   │  OAuth2 / OIDC
+   ▼
+Supabase Auth (provider = azure)
+   │  onAuthStateChange → SIGNED_IN
+   ▼
+AuthContext (React)
+   ├─► RPC can_user_login(user_id, method)   ── allowlist de domínios + is_active
+   ├─► RPC auto_provision_user_from_sso      ── cria/atualiza profile + tipo_acesso
+   └─► redirect deep-link salvo em localStorage
 ```
 
-Cobre ~10 telefones dos 157 órfãos. Resto permanece NULL.
+Regras que herdamos do SagaOne:
+- Domínio corporativo (`@gruposaga.com.br`) é o único liberado por padrão; qualquer outro precisa passar pela `allowed_login_domains`.
+- Sessão máx. 8 h + idle 1 h → logout automático.
+- `TOKEN_REFRESHED` faz no-op para não desmontar rotas protegidas.
+- Deep linking: rota destino é salva antes do redirect Azure e restaurada após login.
+- Iframe da preview Lovable bloqueia o SSO Microsoft — sempre testar fora do iframe.
 
-**Passo 2 — Resolver a duplicata existente** (`operacao_de_guerra_pm_maio`, mesmo agente, 2 linhas — manter mais recente):
+---
+
+## 2. Setup no Azure AD (portal.azure.com)
+
+1. **Azure AD → App registrations → New registration**
+   - Name: `<Meu Projeto> SSO`
+   - Supported account types: *Single tenant* (ou multi, se precisar).
+   - Redirect URI (Web): `https://<PROJECT_REF>.supabase.co/auth/v1/callback`
+2. Anote **Application (client) ID** e **Directory (tenant) ID**.
+3. **Certificates & secrets → New client secret** → anote o **Value** (aparece só uma vez).
+4. **API permissions → Microsoft Graph** → `openid`, `profile`, `email`, `User.Read` → **Grant admin consent**.
+5. (Opcional) **Token configuration** → adicionar optional claim `email` no ID token; e **App roles** se quiser usar roles do Azure para mapear tipo de acesso interno (padrão `sso-automated-provisioning-logic` do SagaOne).
+
+---
+
+## 3. Setup no Supabase
+
+1. **Authentication → Providers → Azure** → ativar e preencher:
+   - Application (client) ID
+   - Secret Value
+   - Azure Tenant URL: `https://login.microsoftonline.com/<TENANT_ID>/v2.0`
+2. **Authentication → URL Configuration**:
+   - Site URL: URL de produção (ex.: `https://app.exemplo.com.br`).
+   - Additional Redirect URLs: adicionar preview Lovable, custom domain e `http://localhost:8080` para dev.
+3. **Auth → Settings**: habilitar "Leaked password protection" (defesa mínima mesmo para SSO).
+
+---
+
+## 4. Banco: allowlist + guard rails
+
+Migration única (rodar 1 vez):
 
 ```sql
-DELETE FROM public.whatsapp_templates
-WHERE id IN (
-  SELECT id FROM (
-    SELECT id, ROW_NUMBER() OVER (
-      PARTITION BY agente_id, LOWER(nome) ORDER BY created_at DESC
-    ) rn
-    FROM public.whatsapp_templates
-    WHERE agente_id IS NOT NULL
-  ) s WHERE rn > 1
+-- 4.1 Allowlist de domínios
+CREATE TABLE public.allowed_login_domains (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  dominio text NOT NULL UNIQUE,
+  tipo text NOT NULL DEFAULT 'sso',        -- 'sso' | 'password' | 'ambos'
+  ativo boolean NOT NULL DEFAULT true,
+  descricao text,
+  criado_por uuid REFERENCES auth.users(id),
+  created_at timestamptz DEFAULT now()
 );
+GRANT SELECT ON public.allowed_login_domains TO anon, authenticated;
+GRANT ALL   ON public.allowed_login_domains TO service_role;
+ALTER TABLE public.allowed_login_domains ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read allowlist" ON public.allowed_login_domains
+  FOR SELECT TO anon, authenticated USING (true);
+
+-- Seed protegido do domínio corporativo
+INSERT INTO public.allowed_login_domains (dominio, tipo, descricao)
+VALUES ('<meudominio.com.br>', 'sso', 'Domínio corporativo') ON CONFLICT DO NOTHING;
+
+-- Trigger anti-remoção do domínio raiz (evita travar todo mundo)
+CREATE OR REPLACE FUNCTION public.protect_root_domain() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.dominio = '<meudominio.com.br>' THEN
+    RAISE EXCEPTION 'Domínio raiz não pode ser alterado/removido';
+  END IF;
+  RETURN OLD;
+END $$;
+CREATE TRIGGER trg_protect_root_domain
+  BEFORE UPDATE OR DELETE ON public.allowed_login_domains
+  FOR EACH ROW EXECUTE FUNCTION public.protect_root_domain();
+
+-- 4.2 Profiles com flags de externo/ativo
+CREATE TABLE public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email text,
+  nome text,
+  tipo_acesso text NOT NULL DEFAULT 'Colaborador',
+  is_active boolean NOT NULL DEFAULT true,
+  is_external boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+GRANT SELECT, UPDATE ON public.profiles TO authenticated;
+GRANT ALL ON public.profiles TO service_role;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "self read"   ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "self update" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+
+-- 4.3 RPC de validação (allowlist + is_active)
+CREATE OR REPLACE FUNCTION public.can_user_login(_user_id uuid, _method text)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_email text; v_dom text; v_ok boolean;
+BEGIN
+  SELECT email INTO v_email FROM auth.users WHERE id = _user_id;
+  IF v_email IS NULL THEN RETURN false; END IF;
+  v_dom := lower(split_part(v_email, '@', 2));
+
+  SELECT true INTO v_ok FROM public.allowed_login_domains
+   WHERE ativo = true AND lower(dominio) = v_dom
+     AND (_method IS NULL OR tipo = 'ambos' OR tipo = _method)
+   LIMIT 1;
+  IF v_ok IS NOT TRUE THEN RETURN false; END IF;
+
+  RETURN COALESCE(
+    (SELECT is_active FROM public.profiles WHERE id = _user_id),
+    true
+  );
+END $$;
+GRANT EXECUTE ON FUNCTION public.can_user_login(uuid, text) TO authenticated, anon;
+
+-- 4.4 Auto-provision no primeiro login SSO
+CREATE OR REPLACE FUNCTION public.auto_provision_user_from_sso(p_user_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_email text; v_nome text;
+BEGIN
+  SELECT email, COALESCE(raw_user_meta_data->>'name', raw_user_meta_data->>'full_name')
+    INTO v_email, v_nome FROM auth.users WHERE id = p_user_id;
+
+  INSERT INTO public.profiles (id, email, nome, is_external)
+  VALUES (p_user_id, v_email, v_nome, false)
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
+  -- (aqui você mapeia roles Azure -> tipo_acesso, se aplicável)
+END $$;
+GRANT EXECUTE ON FUNCTION public.auto_provision_user_from_sso(uuid) TO authenticated;
 ```
 
-**Passo 3 — Trocar o índice:**
-
-```sql
-DROP INDEX IF EXISTS public.idx_whatsapp_templates_nome_empresa;
-
-CREATE UNIQUE INDEX idx_whatsapp_templates_nome_agente
-ON public.whatsapp_templates (agente_id, LOWER(nome))
-WHERE agente_id IS NOT NULL;
-```
-
-`WHERE agente_id IS NOT NULL` deixa órfãos livres explicitamente (Postgres já não deduplica NULL, mas o filtro documenta a intenção e reduz tamanho do índice).
+Observação: o padrão SagaOne guarda o guard `WHERE is_external = false` dentro do `auto_provision_user_from_sso` para não sobrescrever terceiros. Reproduza se seu produto tiver login de terceiro.
 
 ---
 
-## Ajustes de código
+## 5. Frontend (React + Vite)
 
-**`src/pages/pos-vendas/TemplatesPaty.tsx`** — `handleSincronizarTemplate` (~L1678):
+### 5.1 Cliente Supabase (`src/integrations/supabase/client.ts`)
+Padrão Lovable já existente. Nada especial — só garantir `persistSession: true` e `autoRefreshToken: true`.
 
-Trocar o pré-check UPDATE-vs-INSERT para filtrar por agente e usar match case-insensitive:
+### 5.2 `AuthContext.tsx` — pontos-chave (replicar do SagaOne)
+- **Deep link:** antes de redirecionar para `/login`, salvar `location.pathname` em `localStorage['auth_redirect_path']` (ver `ProtectedRoute.tsx`).
+- **`signInWithAzure`:**
+  ```ts
+  supabase.auth.signInWithOAuth({
+    provider: 'azure',
+    options: { redirectTo: `${window.location.origin}/`, scopes: 'email profile openid' }
+  });
+  ```
+- **`onAuthStateChange`:**
+  - `SIGNED_OUT` → limpar estado.
+  - `SIGNED_IN` → `setTimeout(0)` (evita deadlock), chamar `can_user_login`, se ok chamar `auto_provision_user_from_sso`, restaurar deep link.
+  - `TOKEN_REFRESHED` → **no-op** se `access_token` e `user.id` iguais (evita desmontar árvore).
+- **Sessão 8h / idle 1h:** timers em `sessionTimerRef` / `inactivityTimerRef`, chaves `session_start_time` e `last_activity_time` em `sessionStorage`.
+- **Fail-open interno / fail-closed externo:** se `can_user_login` falhar por erro de rede, permite passar apenas se email termina no domínio interno.
 
-```ts
-.from("whatsapp_templates")
-.select("id, template_id_pri, id_meta")
-.eq("agente_id", selectedAgenteId)
-.ilike("nome", nome)          // bate com o LOWER() do índice
-.maybeSingle();
-```
+### 5.3 Tela de Login
+- CTA único "Entrar com Microsoft" chamando `signInWithAzure()`.
+- Efeito que, ao detectar `user`, lê `localStorage['auth_redirect_path']` e navega para lá (com fallback `/`).
 
-**Auditar callers** para garantir que ninguém procura template por `(empresa_id, nome)` assumindo unicidade global da empresa. A ser lido e corrigido apenas se houver assunção incorreta:
-
-- `src/pages/prospeccao/Templates.tsx` (insert + fluxo de criação)
-- `src/pages/pos-vendas/TemplatesPaty.tsx` (handleSave, além do handleSincronizarTemplate)
-- `src/components/CriarTemplateInline.tsx` (insert)
-- `src/components/CriarProspeccaoModal.tsx` (seleção de template)
-- `src/hooks/pos-vendas/usePosVendasData.ts` (listagem)
-- `supabase/functions/template-paused-webhook/index.ts` (duplica templates pausados)
-- `supabase/functions/process-campaign-job/index.ts` e `dispatch-leads-webhook/index.ts` (resolvem template para disparo)
-
-Se a busca for por `id`, `id_meta` ou `template_id_pri`, **nenhuma mudança necessária**. Só quem procura por `nome` dentro de `empresa_id` sem `agente_id` precisa passar a filtrar por agente também.
-
----
-
-## Impacto
-
-**Confirmado:**
-- 0 colisões cross-agente hoje → nenhuma linha bloqueia a criação do índice novo.
-- 1 duplicata intra-agente resolvida pelo passo 2.
-- Padrão de insert desde fev/2026 já popula `agente_id` → constraint nova cobre 100% dos novos templates.
-- Coerente com a Meta (unicidade por WABA/agente).
-
-**Riscos:**
-- Callers que resolvem template por `(empresa_id, nome)` sem `agente_id` podem passar a bater em várias linhas — daí a auditoria acima.
-- Órfãos legados (~149 após backfill) ficam sem proteção. Aceito.
-
-**Rollback:**
-- `DROP INDEX idx_whatsapp_templates_nome_agente;`
-- Recriar `idx_whatsapp_templates_nome_empresa` (só se não houver duplicatas cross-agente criadas nesse meio-tempo).
+### 5.4 Guards de rota
+- `ProtectedRoute`: exige `user`; salva rota atual em `localStorage` antes de mandar para `/login`.
+- `PermissionProtectedRoute`: além de `user`, valida flag do `useUserAccessType` (só necessário se você replicar RBAC).
 
 ---
 
-## O que NÃO alterar
+## 6. Ordem de execução recomendada
 
-- Coluna `agente_id` continua nullable (não fazer `NOT NULL` agora — quebraria os 149 órfãos restantes).
-- Não mexer em `pri_telefone`, webhooks n8n, nem no fluxo `criar-template-pri-from-meta`.
-- Não mexer em RLS de `whatsapp_templates`.
+1. Registrar app no Azure AD e capturar client id / secret / tenant id.
+2. Ativar provider Azure no Supabase + preencher redirect URLs.
+3. Rodar migration da seção 4 (allowlist + profiles + RPCs + seed do domínio).
+4. Implementar `AuthContext` + `ProtectedRoute` + tela de Login (seção 5).
+5. QA mínimo:
+   - Login com email do domínio raiz → entra.
+   - Login com email fora da allowlist → bloqueado com toast.
+   - Usuário com `profiles.is_active = false` → bloqueado.
+   - Deep link: acessar `/relatorios` deslogado → após SSO cai em `/relatorios`.
+   - `TOKEN_REFRESHED` ao voltar para a aba → não recarrega tela.
+   - Sessão idle 1h → logout automático.
+   - **Testar fora do iframe da preview Lovable** (SSO Microsoft não abre dentro dele).
 
 ---
 
-## Testes obrigatórios pós-deploy
+## 7. Riscos / pegadinhas (herdadas do SagaOne)
 
-1. Criar template `boas_vindas` no agente Pri → OK.
-2. Criar `boas_vindas` no agente Paty da **mesma empresa** → **agora deve passar** (antes falhava).
-3. Criar `boas_vindas` de novo no agente Pri → deve falhar com 23505 (comportamento esperado).
-4. Sincronizar template da Meta via `handleSincronizarTemplate`: cenário INSERT novo, cenário UPDATE de existente, cenário Meta devolve `nome` em case diferente do local (deve fazer UPDATE, não INSERT).
-5. Webhook `template-paused-webhook` continua duplicando template pausado sem colidir.
-6. Disparo de campanha (`process-campaign-job`) continua achando o template correto.
+| Risco | Mitigação |
+|---|---|
+| Redirect URI errada no Azure | Precisa ser exatamente `https://<ref>.supabase.co/auth/v1/callback` |
+| Preview Lovable em iframe bloqueia MS SSO | Testar em janela nova / domínio publicado |
+| Apagar seed do domínio raiz e travar login | Trigger `protect_root_domain` |
+| `TOKEN_REFRESHED` desmontando rotas | No-op quando `access_token` não muda |
+| Terceiros caindo no auto-provision de interno | Guard `WHERE is_external = false` |
+| Sessão de usuário desativado continua válida | `can_user_login` roda a cada refresh e `auth.admin.signOut` ao desativar |
+
+---
+
+Se quiser, no próximo passo eu implemento esse mesmo setup em um projeto vazio (migrations + AuthContext + Login) — só me confirmar.
