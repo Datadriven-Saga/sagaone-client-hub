@@ -1672,14 +1672,16 @@ export default function TemplatesPaty() {
         variable_mapping: {},
       };
 
-      // Verifica se já existe template com mesmo nome nessa empresa
-      // (índice único idx_whatsapp_templates_nome_empresa). Se existir,
-      // atualiza ao invés de tentar inserir (evita erro 23505).
+      // Verifica se já existe template com mesmo nome no MESMO AGENTE
+      // (índice único idx_whatsapp_templates_nome_agente em (agente_id, LOWER(nome))).
+      // Se existir, atualiza ao invés de tentar inserir (evita erro 23505).
+      // Usamos .ilike para casar com o LOWER() do índice.
       const { data: existing, error: selErr } = await supabase
         .from("whatsapp_templates")
         .select("id, template_id_pri, id_meta")
         .eq("empresa_id", activeCompany.id)
-        .eq("nome", nome)
+        .eq("agente_id", selectedAgenteId)
+        .ilike("nome", nome)
         .maybeSingle();
       if (selErr) throw selErr;
 
@@ -1698,7 +1700,7 @@ export default function TemplatesPaty() {
         if (insErr) {
           if ((insErr as any).code === "23505") {
             toast.error(
-              `Já existe um template chamado "${nome}" nesta empresa. Renomeie o template na Meta ou remova o duplicado local antes de sincronizar.`,
+              `Já existe um template chamado "${nome}" para este agente. Renomeie o template na Meta ou remova o duplicado local antes de sincronizar.`,
               { duration: 10000 }
             );
             return;
