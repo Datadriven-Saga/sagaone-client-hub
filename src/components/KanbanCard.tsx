@@ -106,6 +106,22 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
     setShowCallConfirm(true);
   };
 
+  const formatPhoneForWhatsApp = (channel?: string | null): string | null => {
+    const normalized = normalizePhoneForComparison(channel || '');
+    if (normalized) return `55${normalized}`;
+    const digits = (channel || '').replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+    if (digits.length === 12 || digits.length === 13) return digits;
+    return null;
+  };
+
+  const handleWhatsAppClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const phone = formatPhoneForWhatsApp(item.channel);
+    if (!phone) return;
+    window.open(`https://wa.me/${phone}`, '_blank');
+  };
+
   const handleConfirmCall = async () => {
     setShowCallConfirm(false);
     const newCount = localTentativas + 1;
