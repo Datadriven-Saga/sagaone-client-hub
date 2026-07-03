@@ -5,7 +5,7 @@ import { KanbanItem } from './KanbanBoard';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Phone, PhoneCall } from 'lucide-react';
+import { Phone, PhoneCall, MessageCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -106,6 +106,22 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
     setShowCallConfirm(true);
   };
 
+  const formatPhoneForWhatsApp = (channel?: string | null): string | null => {
+    const normalized = normalizePhoneForComparison(channel || '');
+    if (normalized) return `55${normalized}`;
+    const digits = (channel || '').replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+    if (digits.length === 12 || digits.length === 13) return digits;
+    return null;
+  };
+
+  const handleWhatsAppClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const phone = formatPhoneForWhatsApp(item.channel);
+    if (!phone) return;
+    window.open(`https://wa.me/${phone}`, '_blank');
+  };
+
   const handleConfirmCall = async () => {
     setShowCallConfirm(false);
     const newCount = localTentativas + 1;
@@ -168,15 +184,34 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
             <p className="text-sm text-muted-foreground">
               {formatPhoneForDisplay(item.channel) || item.channel}
             </p>
-            {(
-              <button
-                onClick={handlePhoneClick}
-                className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
-                aria-label="Ligar para o lead"
-              >
-                <Phone className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handlePhoneClick}
+                  className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
+                  aria-label="Ligar para o lead"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Ligar para o lead</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleWhatsAppClick}
+                  className="flex items-center justify-center w-6 h-6 rounded-full bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 transition-colors shrink-0"
+                  aria-label="Abrir WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Abrir WhatsApp</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
 
