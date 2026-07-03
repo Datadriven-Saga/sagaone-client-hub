@@ -35,6 +35,7 @@ MobiGestor notifica mudança de status do lead no CRM externo.
 
 - **Ação:** atualiza `contatos.status` e grava em `logs_movimentacao_contatos` com `usuario_id = PRI_IA_USER_ID` (não re-dispara webhook out).
 - **Regra:** somente para leads cujo `empresa_id` casa com o `crm_id` do payload.
+- **Contrato reverso:** o disparo de saída correspondente está em [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md).
 
 ### `confirm-presence` / `confirm-presence-info`
 

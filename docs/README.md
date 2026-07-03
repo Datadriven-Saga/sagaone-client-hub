@@ -12,6 +12,7 @@ Este diretório é a fonte oficial de documentação técnica e funcional do sis
 - [Autenticação, SSO e sessão](arquitetura/autenticacao-e-sessao.md)
 - [Permissões, RBAC e Controle de Acessos](arquitetura/permissoes-e-rbac.md)
 - [Webhooks e integrações externas](arquitetura/webhooks-e-integracoes.md)
+- [Sincronização MobiGestor](arquitetura/sincronizacao-mobigestor.md)
 - [Performance e limites](arquitetura/performance.md)
 - [Notificações](arquitetura/notificacoes.md)
 

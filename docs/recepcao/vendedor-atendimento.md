@@ -42,4 +42,4 @@ Campo **opcional** no check-in que registra qual vendedor irá atender o cliente
 ## Relacionado
 
 - [Fluxo de check-in](./fluxo-checkin.md)
-- [Webhook de movimentação de lead](../arquitetura/webhooks-e-integracoes.md) *(pendente)*
+- [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md) — webhook de movimentação de lead

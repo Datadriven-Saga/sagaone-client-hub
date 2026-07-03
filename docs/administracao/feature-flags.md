@@ -40,3 +40,4 @@ Sistema de ativação/desativação de funcionalidades **globalmente** ou **por 
 ## Relacionado
 
 - [Visão geral Administração](./visao-geral.md)
+- [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md) — contrato do webhook `webhook_movimentacao_lead`

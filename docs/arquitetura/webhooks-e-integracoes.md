@@ -31,7 +31,7 @@ Memory: `webhook-token-strategy`.
 
 | Trigger / Edge | Destino | Payload |
 |---|---|---|
-| `trg_dispatch_movimentacao_lead_webhook` (PG) | MobiGestor | Mudança de status de lead — **fonte única** (memory `movimentacao-lead-single-source`) |
+| `trg_dispatch_movimentacao_lead_webhook` (PG) → n8n `recebe-status-sagaone` | MobiGestor (via n8n) | Mudança de status de lead — **fonte única** (memory `movimentacao-lead-single-source`). Detalhes: [sincronizacao-mobigestor.md](./sincronizacao-mobigestor.md) |
 | `external-webhook-proxy` (Edge) | n8n Paty | Peças / Entregas / Cadência (memory `external-api-proxy-and-csp-compliance`) |
 | `process-campaign-job` → Lambda AWS | Meta WPP | Disparo em lote (memory `persistent-campaign-dispatch-system`) |
 | `notify-evento-criado` | E-mail | Notificação de novo evento |
@@ -53,5 +53,6 @@ Memory: `webhook-token-strategy`.
 ## Relacionado
 
 - [Visão geral Arquitetura](./visao-geral.md)
-- [APIs recebidas](../apis/webhooks-recebidos.md) *(pendente)*
+- [APIs recebidas](../apis/webhooks-recebidos.md)
+- [Sincronização MobiGestor](./sincronizacao-mobigestor.md)
 - [Disparo WhatsApp](../prospeccao/dispatch-whatsapp.md)

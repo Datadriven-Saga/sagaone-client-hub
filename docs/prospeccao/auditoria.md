@@ -49,6 +49,8 @@ Trigger `trg_dispatch_movimentacao_lead_webhook` (fonte única) chama `trigger-w
 
 Memory canônica: `architecture/webhooks/movimentacao-lead-single-source`.
 
+Contrato do payload, gates e runbook: [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md).
+
 ## `contato_timeline` (view agregada)
 
 Combina `logs_movimentacao_contatos` + `contato_anotacoes` + chamadas + webhooks numa única sequência cronológica para exibição no lead. É **derivada**, não persistente.

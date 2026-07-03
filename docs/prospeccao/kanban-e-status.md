@@ -40,7 +40,7 @@ Tela `/prospeccao/atendimento` — quadro Kanban onde cada coluna é um valor de
 - **Tabelas:** `contatos`, `eventos_prospeccao`, `logs_movimentacao_contatos`, `contato_anotacoes`, `contato_timeline`.
 - **RPCs:** carregamento otimista + agregação server-side (padrão descrito em [performance](../arquitetura/performance.md) *(pendente)*).
 - **Mutação atômica de status:** `mutate_contato_status_atomic` — usada por `useContatoData` para evitar duplo trigger de webhook.
-- **Webhook Mobi:** trigger PG `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos` (única fonte — FE **não** invoca `trigger-webhook` para movimentação de Kanban).
+- **Webhook Mobi:** trigger PG `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos` (única fonte — FE **não** invoca `trigger-webhook` para movimentação de Kanban). Contrato completo em [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md).
 - **Filtros padrão:** [`.lovable/memory/architecture/performance/kanban-default-filter-and-timeout-prevention`](../../.lovable/memory) — nunca chamar RPC sem `prospeccaoIds`.
 
 ## Regras de negócio

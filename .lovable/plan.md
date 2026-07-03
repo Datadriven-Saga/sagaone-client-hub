@@ -1,85 +1,96 @@
+# Plano: Documentar Sincronização SagaOne ↔ MobiGestor
+
 ## Objetivo
 
-Garantir, no nível do banco, que nenhum lead seja gravado em `public.contatos` com um `responsavel_email` que não exista em `auth.users`. Hoje a coluna é texto livre, sem FK — qualquer caminho novo (edge function nova, script manual, integração futura) pode voltar a poluir a base. A única forma robusta é uma barreira no próprio Postgres.
+Criar um doc canônico end-to-end da sincronização com o MobiGestor (fluxo interno de qualificação antes do CRM), preencher a lacuna `(pendente)` em `docs/apis/webhooks-recebidos.md` e cruzar links a partir dos docs existentes (feature-flags, kanban, recepção, auditoria).
 
-## Caminho recomendado
+## Entregáveis
 
-**Trigger `BEFORE INSERT OR UPDATE OF responsavel_email` em `public.contatos`** com duas modalidades controladas por GUC/parâmetro:
+### 1. Novo doc — `docs/arquitetura/sincronizacao-mobigestor.md`
 
-1. **Modo estrito (padrão)**: rejeita a linha com `RAISE EXCEPTION` e grava log da tentativa.
-2. **Modo tolerante (opt-in)**: apenas normaliza para `NULL` (mantendo o lead disponível para distribuição) e grava log.
+Estrutura:
 
-O modo é decidido por uma flag por sessão (`SET LOCAL app.responsavel_strict = 'on'`) para não quebrar fluxos de background/legado enquanto observamos os logs.
-
-### Por que trigger e não FK
-
-- `responsavel_email` é texto (não é `auth.users.id`), então FK direta não é possível sem refatorar dezenas de queries e a UI.
-- `auth.users` é schema reservado do Supabase — não podemos colocar constraint cruzada.
-- Trigger `SECURITY DEFINER` consegue consultar `auth.users` e decidir; é o equivalente prático a uma FK "por email".
-
-### Estrutura
+- **O que é** — não é chamada direta ao CRM MobiGestor; é um fluxo n8n interno (`recebe-status-sagaone`) que orquestra qualificação/desqualificação de leads na central antes de propagar pro MobiGestor.
+- **Endpoint de saída**
+  - URL: `https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-status-sagaone` (env `WEBHOOK_MOVIMENTACAO_LEAD_URL`)
+  - Auth: header `saga_one_supabase: <SAGA_ONE>`
+  - Método: `POST`, `Content-Type: application/json`
+- **Origem canônica do disparo** — trigger PG `trg_dispatch_movimentacao_lead_webhook` em `logs_movimentacao_contatos` → `pg_net` → edge `trigger-webhook` → helper `dispararMovimentacaoLeadKanban`. Fonte única (FE/edges **não** chamam direto).
+- **Gates de disparo** (na ordem em que rodam no helper):
+  1. Campos obrigatórios: `contato_id`, `empresa_id`, `prospeccao_id`, `status_novo`.
+  2. Skip se `usuario_id = PRI_IA_USER_ID`.
+  3. Feature flag `webhook_movimentacao_lead` per_empresa ligada.
+  4. Canal da prospecção ∈ {`Mensal`, `Grande Evento`}.
+  5. `status_novo` ∈ {`Confirmado`, `Check-in`, `Descartado`}.
+- **Payload enviado** — tabela com campos:
+  `nome`, `telefone`, `dealer_id` (= `empresas.crm_id`), `nome_evento`, `status_anterior`, `status_novo`, `contato_id`, `lead_id`, `empresa_id`, `prospeccao_id`, `codigo_proposta`, `email_vendedor`, `vendedor_atendimento_nome`, `vendedor_atendimento_email` (opcionais quando recepção preencheu).
+- **Lógica interna do fluxo n8n** (explicada pelo usuário):
+  - `Confirmado` / `Check-in`: tenta criar o lead na loja; antes valida se já existe lead na central com aquele telefone.
+    - Se **existe**: qualifica o lead da central com tags/anotações indicando status SagaOne + evento.
+    - Se **não existe**: cria o lead.
+  - `Descartado`: cria e desqualifica o lead na central.
+  - Lead já existente vindo do SagaOne pode ser atualizado como check-in ou desqualificado conforme o `status_novo`.
+- **Resposta esperada**
+  - Sucesso na criação: JSON com `proposalId` (ou `codigo_proposta` / `proposal_id`) — capturado e persistido em `contatos.codigo_proposta`.
+  - Sucesso em atualização: `success: true` (sem proposalId).
+  - Fallback de parsing: aceita `data.proposalId`/`data.codigo_proposta` aninhados.
+- **Loop reverso (entrada)** — `atendimento-status-webhook` recebe do MobiGestor mudanças de status, valida `dealer_id ↔ crm_id`, escreve em `logs_movimentacao_contatos` com `usuario_id = PRI_IA_USER_ID` (gate #2 evita eco infinito).
+- **Idempotência & retry** — `pg_net` sem retry automático; duplicações históricas foram causadas por FE + trigger chamando em paralelo (resolvido: FE removido). Falha do endpoint fica logada nos logs da edge; retry manual via reprocesso do log.
+- **Diagrama** (```text ASCII):
 
 ```text
-1. Tabela  public.contatos_responsavel_rejeicoes
-   - id, contato_id (nullable, pois pode ser INSERT bloqueado)
-   - responsavel_email_tentado
-   - origem (current_user, session_user, application_name)
-   - operacao (INSERT | UPDATE)
-   - modo (strict | tolerant)
-   - payload_resumo (jsonb: telefone, empresa_id, prospeccao_id)
-   - stack_context (query atual via current_query())
-   - created_at
-
-2. Função  public.validate_contato_responsavel_email()
-   - Se NEW.responsavel_email IS NULL -> retorna NEW.
-   - Normaliza (lower/trim).
-   - Verifica EXISTS em auth.users por email.
-   - Se não existe:
-       * insere em contatos_responsavel_rejeicoes
-       * strict -> RAISE EXCEPTION
-       * tolerant -> NEW.responsavel_email := NULL; RETURN NEW.
-
-3. Trigger  trg_validate_contato_responsavel
-   - BEFORE INSERT OR UPDATE OF responsavel_email ON public.contatos
-   - FOR EACH ROW EXECUTE FUNCTION validate_contato_responsavel_email().
+[Kanban / Recepção / Check-in / confirm-presence]
+        │
+        ▼
+INSERT logs_movimentacao_contatos
+        │  (trigger trg_dispatch_movimentacao_lead_webhook)
+        ▼
+   pg_net POST → edge trigger-webhook
+        │
+        ▼
+dispararMovimentacaoLeadKanban  (aplica os 5 gates)
+        │
+        ▼  header saga_one_supabase
+n8n /webhook/recebe-status-sagaone
+        │
+        ├── existe na central? → qualifica (tags/anotações)
+        ├── não existe?        → cria lead
+        └── Descartado?        → cria e desqualifica
+        │
+        ▼ resposta { proposalId } | { success }
+UPDATE contatos.codigo_proposta ← proposalId
+        │
+        ▼ (fluxo reverso, assíncrono)
+MobiGestor → atendimento-status-webhook → logs_movimentacao_contatos
+        (com usuario_id = PRI_IA_USER_ID, evita loop)
 ```
 
-### Rollout seguro (evita quebrar produção)
+- **Runbook / erros comuns** — tabela:
+  - `webhook_url_missing` → conferir env `WEBHOOK_MOVIMENTACAO_LEAD_URL`.
+  - `flag_disabled` → habilitar `webhook_movimentacao_lead` para a empresa.
+  - `canal_nao_elegivel` → canal ≠ Mensal/Grande Evento, comportamento esperado.
+  - `status_nao_elegivel` → status ≠ Confirmado/Check-in/Descartado, comportamento esperado.
+  - 403 no destino → `SAGA_ONE` ausente/errado ou header com nome errado (histórico: `Authorization: Bearer` — errado, correto é `saga_one_supabase`).
+  - Duplicação → confirmar que nenhum FE/edge chama `trigger-webhook` para `movimentacao_lead_kanban` (só o trigger PG deve chamar).
+- **Segredos & envs** — `WEBHOOK_MOVIMENTACAO_LEAD_URL`, `SAGA_ONE`, `PRI_IA_USER_ID`.
+- **Relacionado** — links pros docs listados abaixo.
 
-Etapa 1 — deploy em **modo tolerante global** (default) por 3–5 dias:
-- Trigger só zera o email inválido e loga.
-- Monitoramos `contatos_responsavel_rejeicoes` para descobrir se ainda existe alguma origem viva alimentando lixo.
+### 2. Atualizações em docs existentes
 
-Etapa 2 — se logs zerarem (ou só mostrarem casos esperados já tratados):
-- Vira o default para **strict**.
-- `bulk_upsert_contatos` continua com a lógica atual (resolve/normaliza antes) e passa a rodar dentro da barreira sem impacto.
-- Fluxos que legitimamente devem cair para "sem responsável" chamam `SET LOCAL app.responsavel_strict = 'off'` no início da transação.
+- `docs/apis/webhooks-recebidos.md` — remover `(pendente)` na linha "APIs recebidas" da seção do fluxo de saída e apontar para o novo doc; enriquecer a seção `atendimento-status-webhook` com o gate anti-loop (`usuario_id = PRI_IA_USER_ID`).
+- `docs/arquitetura/webhooks-e-integracoes.md` — trocar link `APIs recebidas (pendente)` por `sincronizacao-mobigestor.md`; adicionar URL do endpoint na linha do trigger PG.
+- `docs/administracao/feature-flags.md` — linhas 29-30: adicionar link "Ver [Sincronização MobiGestor](../arquitetura/sincronizacao-mobigestor.md) para o contrato do webhook".
+- `docs/prospeccao/kanban-e-status.md` — no bloco "Webhook Mobi" (linha ~43) apontar pro novo doc.
+- `docs/prospeccao/auditoria.md` — na seção `logs_movimentacao_contatos` apontar pro novo doc.
+- `docs/recepcao/fluxo-checkin.md` e `docs/recepcao/vendedor-atendimento.md` — link cruzado no bloco de webhook.
+- `docs/README.md` — adicionar entrada na seção Arquitetura.
 
-Etapa 3 — auditoria:
-- Página em `/administracao` (ou aba dentro do monitor existente) listando `contatos_responsavel_rejeicoes` das últimas 24h, com contagem por origem, para que a operação identifique rapidamente qual integração precisa ser corrigida.
+## Fora de escopo
 
-## Tradeoffs
+- Alterações de código (edge/trigger).
+- Alterações no fluxo n8n do MobiGestor.
+- Documentar o webhook reverso `atendimento-status-webhook` em profundidade (fica com o esboço atual + gate anti-loop).
 
-- **Custo por INSERT**: 1 lookup indexado em `auth.users` por linha. `bulk_upsert_contatos` faz milhares por lote; medir, mas historicamente `auth.users(email)` já é indexado e o custo é marginal.
-- **Falhas silenciosas viram falhas ruidosas**: no modo strict, qualquer edge function nova mal escrita passa a estourar exceção. É desejável, mas exige que a etapa 1 seja levada a sério.
-- **Não cobre alteração externa via SQL direto do dashboard**: trigger cobre sim, exceto se alguém rodar `ALTER TABLE ... DISABLE TRIGGER`. Aceitável.
-- **Não impede email válido de usuário desativado** (`profiles.is_active = false`). Se quisermos endurecer, adicionamos verificação em `profiles` também — recomendo deixar para uma segunda iteração para não misturar responsabilidades.
+## Confirmação
 
-## Alternativas descartadas
-
-- **CHECK constraint**: não pode consultar outra tabela.
-- **FK para `profiles(id)`**: exigiria migrar `responsavel_email` para `responsavel_id uuid` em toda a stack (UI, edge functions, relatórios, importações). Trabalho grande, alto risco; pode ser um passo futuro, mas não é o caminho imediato para "nunca mais acontecer".
-- **Validação só na aplicação**: é o que temos hoje (parcial). Já falhou.
-
-## Entregáveis desta task
-
-1. Migração criando `contatos_responsavel_rejeicoes` (+ GRANTs + RLS restrita a Admin/TI/Master + índice em `created_at` e `responsavel_email_tentado`).
-2. Migração criando função `validate_contato_responsavel_email()` (SECURITY DEFINER, `search_path=public`) e trigger `trg_validate_contato_responsavel` em **modo tolerante**.
-3. Ajuste em `bulk_upsert_contatos` e `process-import` para, quando `p_strict_responsavel = true`, também emitir `SET LOCAL app.responsavel_strict = 'on'` — assim planilha continua rejeitando linhas ruins antes mesmo de chegar no trigger (mensagem de erro amigável já existente).
-4. Documentação em `docs/investigacao/responsavel-email-invalido.md` descrevendo o trigger, os dois modos, como consultar rejeições e o plano de virar o default para strict.
-
-## Fora de escopo agora
-
-- Tela de auditoria em `/administracao` (fica para depois de confirmar que o volume de logs é gerenciável).
-- Migração de `responsavel_email` → `responsavel_id`.
-- Validação de `profiles.is_active`.
+Se ok, sigo em modo build criando o `sincronizacao-mobigestor.md` e aplicando os cross-links.
