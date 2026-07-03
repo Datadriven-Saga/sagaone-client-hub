@@ -184,15 +184,34 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
             <p className="text-sm text-muted-foreground">
               {formatPhoneForDisplay(item.channel) || item.channel}
             </p>
-            {(
-              <button
-                onClick={handlePhoneClick}
-                className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
-                aria-label="Ligar para o lead"
-              >
-                <Phone className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handlePhoneClick}
+                  className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
+                  aria-label="Ligar para o lead"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Ligar para o lead</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleWhatsAppClick}
+                  className="flex items-center justify-center w-6 h-6 rounded-full bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 transition-colors shrink-0"
+                  aria-label="Abrir WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Abrir WhatsApp</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
 
