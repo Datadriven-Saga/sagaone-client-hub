@@ -5,7 +5,7 @@ import { KanbanItem } from './KanbanBoard';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Phone, PhoneCall } from 'lucide-react';
+import { Phone, PhoneCall, MessageCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
