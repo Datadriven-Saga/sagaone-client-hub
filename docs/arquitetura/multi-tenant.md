@@ -10,6 +10,14 @@
 - `user_empresas` — vínculo N:N usuário↔empresa (`is_ativa` marca qual está selecionada na sessão).
 - `proprietario_empresas` — dono da empresa (não escala perfis; usar `user_empresas`).
 
+## Vínculo real usuário↔empresa
+
+Para regras de acesso, atribuição operacional e listagens por loja, a fonte correta é sempre `user_empresas`.
+
+`profiles.empresa_id` é apenas uma referência/default do perfil e **não** deve ser usada para decidir se um vendedor, SDR, CRM ou recepcionista pertence a uma loja.
+
+Exemplo: a lista **"Vendedor que irá atender"** no check-in usa `get_vendedores_atendimento(p_empresa_id)`, que deve consultar vendedores vinculados pela `user_empresas`, não por `profiles.empresa_id`.
+
 ## Empresa ativa
 
 No FE, `CompanyContext` (`src/contexts/CompanyContext.tsx`) mantém a empresa selecionada. Toda consulta filtrada por `empresa_id` usa esse contexto (memory `logica-contexto-empresa-ativa`).
