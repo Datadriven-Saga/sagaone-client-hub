@@ -289,7 +289,10 @@ export function CheckinConfirmModal({
                         // se o usuário já o fechou propositalmente.
                       }}
                     />
-                    <CommandList>
+                    <CommandList
+                      onWheel={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                    >
                       <CommandEmpty>
                         {vendedorNome.trim()
                           ? `Sem correspondência — usar "${vendedorNome.trim()}" como texto livre.`
