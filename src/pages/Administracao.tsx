@@ -24,6 +24,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SsoSecretStatusCard } from "@/components/admin/SsoSecretStatusCard";
 
 const Administracao = () => {
   const navigate = useNavigate();
@@ -230,6 +231,8 @@ const Administracao = () => {
               Gerencie configurações avançadas do sistema Saga One
             </p>
           </div>
+
+          {p("canAccessAdminConfig") && <SsoSecretStatusCard />}
 
           {/* Admin Modules Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
