@@ -67,7 +67,7 @@ export function usePatyTemplates(agenteId: string | null, approvedOnly = false) 
   const [loading, setLoading] = useState(false);
 
   const reload = useCallback(async () => {
-    if (!activeCompany?.id || !agenteId) {
+    if (!agenteId) {
       setTemplates([]);
       return;
     }
@@ -75,14 +75,13 @@ export function usePatyTemplates(agenteId: string | null, approvedOnly = false) 
     let q = supabase
       .from("whatsapp_templates")
       .select("id, nome, categoria, category_meta, status_meta, agente_id, template_id_pri")
-      .eq("empresa_id", activeCompany.id)
       .eq("agente_id", agenteId)
       .eq("ativo", true);
     if (approvedOnly) q = q.eq("status_meta", "APPROVED");
     const { data } = await q.order("nome");
     setTemplates((data ?? []) as PatyTemplate[]);
     setLoading(false);
-  }, [activeCompany?.id, agenteId, approvedOnly]);
+  }, [agenteId, approvedOnly]);
 
   useEffect(() => { reload(); }, [reload]);
 

@@ -1,46 +1,65 @@
-# Plano — Corrigir "Erro ao criar lead" (PGRST203)
+## Diagnóstico — Entregas não carrega templates da Paty
 
-## Diagnóstico confirmado
+### Sintoma (screenshot)
+Na tela **Entregas — Gatilhos Saga Conecta** (agente `Paty · HYUNDAI/GO · 6230302248`, empresa ativa **HYUNDAI T9**), o dropdown de template do gatilho "Novo Lead" mostra **apenas 2 opções** (`agendamento_confirmado_v7` e `teste_paty`), e exibe o aviso:
 
-Nos logs de `create-lead`:
+> Template configurado (ID PRI 1695) não foi encontrado na lista local.
 
-```
-PGRST203 — Could not choose the best candidate function between:
-  bulk_upsert_contatos(jsonb, uuid, uuid, text, boolean)                 -- 5 args
-  bulk_upsert_contatos(jsonb, uuid, uuid, text, boolean, boolean)        -- 6 args
-```
+Já a tela **Paty Geral → Templates** (mesmo agente) mostra **dezenas de templates aprovados** (1720, 1721, 1722, 1729, 1748, 1693, 1700…).
 
-- `process-import` (planilha) passa 6 args → funciona → `import_logs` saudável.
-- `create-lead`, `create-lead-pri`, `useBulkImport` passam 5 args → ambiguidade → HTTP 500.
+### Causa raiz
 
-Não é bug de SDR, equipe, RLS ou vínculo do evento. É overload duplicado — viola a regra Core "No SQL function overloads to prevent PostgREST ambiguity".
+A Paty é **agente compartilhado por marca+UF** (memory `WPP Template Share` + doc `05-pos-vendas.md`). Consequências que colidem com o filtro atual:
 
-## Correção
+1. **`whatsapp_templates` armazena o template sob UMA empresa "dona"** (na prática, quase sempre a EMPRESA ADMIN sandbox `b32ae8c9-…` — memory `Core`). Não há uma linha por empresa que compartilha o agente.
+2. **Configuração n8n do gatilho de Entrega é global por telefone do agente** — ela guarda um `template_id_pri` só, válido pra qualquer loja daquela marca+UF.
+3. Cada tela usa um **filtro diferente** pra listar templates:
 
-Migration única removendo a assinatura antiga de 5 args. A assinatura de 6 args tem `p_strict_responsavel boolean DEFAULT false`, então os callers de 5 args voltam a funcionar sem alteração de código, com comportamento idêntico ao anterior à criação do overload.
+| Tela | Hook / query | Filtro |
+|---|---|---|
+| Paty Geral → Templates | `TemplatesPaty.tsx` L390-405 | `pri_telefone = <telefone do agente>` (global, sem empresa) |
+| Entregas → dropdown | `usePatyTemplates` em `src/hooks/pos-vendas/usePosVendasData.ts` L64-90 | `empresa_id = activeCompany.id` **AND** `agente_id = X` **AND** `ativo = true` **AND** `status_meta = 'APPROVED'` |
 
-```sql
-DROP FUNCTION IF EXISTS public.bulk_upsert_contatos(
-  jsonb, uuid, uuid, text, boolean
-);
-```
+Confirmado no banco: dos ~18 templates aprovados do agente `bf07a991-…` (Paty HY/GO):
+- **16 estão sob `empresa_id = b32ae8c9…` (sandbox ADMIN)**
+- **Apenas 2 estão sob `empresa_id = e2c4fdf8…` (HYUNDAI T9, empresa ativa do usuário)** → exatamente os 2 que aparecem no dropdown (PRI 2210 e 2209).
 
-Nenhuma alteração no corpo da função de 6 args. Nenhuma alteração em código de callers.
+O `template_id_pri = 1695` salvo no n8n aponta pra um template registrado sob a empresa sandbox (ou outra loja), então o `idByPri` local não acha e mostra o aviso.
 
-## Verificação após migration
+### Impacto
 
-1. `SELECT count(*) FROM pg_proc WHERE proname='bulk_upsert_contatos'` → deve retornar 1.
-2. Cadastrar lead novamente pela UI (mesmo cenário do print, SDR) → esperado 200 + lead vinculado ao evento.
-3. Confirmar que uma nova importação de planilha continua concluindo (process-import intacto — segue passando 6 args).
-4. `create-lead-pri`: opcional, disparar payload de teste do webhook PRI.
+- Toda loja que compartilha Paty com outra da mesma marca+UF vê o dropdown quase vazio.
+- Se o usuário trocar de template, o backend n8n vai salvar o PRI novo, mas outras lojas da mesma marca+UF podem passar a exibir o mesmo aviso "não encontrado".
+- Peças, Cadência e Agendamentos usam o mesmo `usePatyTemplates(effectiveId, true)` → **mesmo bug provável nessas 3 abas** (`PecasTemplatesSection.tsx`, `AgendamentosTab.tsx` L111 e L300, `PatyCadencia`).
 
-## O que NÃO alterar
+### Onde bater pra corrigir (proposta — sem código ainda)
 
-- Corpo de `bulk_upsert_contatos` (6 args) — zona crítica por KB.
-- Nenhum arquivo em `supabase/functions/**` ou `src/hooks/useBulkImport.ts`.
-- `contato_quarentena`, `upsert_quarentena`, `eventos_prospeccao` — fora do escopo.
+O consumo do template em Pós-Vendas precisa refletir o **modelo real**: template pertence ao **agente (pri_telefone/id_meta)**, não à empresa ativa. Duas opções, ambas isoladas ao frontend:
 
-## Riscos
+**Opção A — mudar `usePatyTemplates` pra buscar por agente, não por empresa (recomendada)**
 
-- Baixo. Callers externos (se existirem fora do repo) que usem parâmetros nomeados continuam funcionando na assinatura de 6 args.
-- Rollback: recriar a função de 5 args reintroduz a ambiguidade — não recomendado. Se aparecer regressão, investigar o caller específico e adicionar `p_strict_responsavel` explícito nele.
+- Remover o `.eq("empresa_id", activeCompany.id)`.
+- Filtrar por `agente_id = effectiveId` (ou `pri_telefone`, alinhando com `TemplatesPaty`).
+- Manter `ativo = true` e (quando `approvedOnly`) `status_meta = 'APPROVED'`.
+- Alinha Entregas/Peças/Cadência/Agendamentos com a tela de gestão de templates → mesma lista pra escolher e pra ver.
+- **Risco:** se algum ponto do app depender do escopo por empresa em `usePatyTemplates`, muda comportamento. Auditar chamadas antes.
+
+**Opção B — enriquecer a lista buscando também pelos templates da empresa "dona" do agente**
+
+- Fazer 2 queries: uma pela empresa ativa + uma pela empresa do agente (via `agente_empresas` ou empresa da linha existente em `whatsapp_templates`) e mesclar.
+- Mais defensivo mas mantém a inconsistência estrutural.
+
+**Ação imediata sugerida (não incluída neste plano de análise):**
+1. Confirmar com você qual opção seguir (A é mais limpa).
+2. Aplicar a mudança em `usePatyTemplates` e validar nas 4 abas (Entregas, Peças, Cadência, Agendamentos).
+3. Não mexer em RLS/DB — o problema é só de escopo de filtro no frontend.
+
+### Detalhes técnicos (para referência)
+
+- Hook consumido pela Entregas: `src/hooks/pos-vendas/usePosVendasData.ts` L64-90.
+- Fonte dos gatilhos: `usePatyEntregasTemplates` em `src/hooks/pos-vendas/useEntregasData.ts` chama edge `external-webhook-proxy` endpoint `busca-paty-entrega-template` — retorna `template_id` (PRI) global por `agente_telefone`.
+- Mapeamento PRI → local id: `EntregasTab.tsx` L28-37 (`priById` / `idByPri`).
+- Tela de gestão que "vê tudo": `src/pages/pos-vendas/TemplatesPaty.tsx` L389-406 filtra por `pri_telefone` apenas.
+
+### O que este plano NÃO faz
+Não altera código. É só o diagnóstico pedido — aguardo aprovação (Opção A ou B) pra abrir um segundo plano de correção.
