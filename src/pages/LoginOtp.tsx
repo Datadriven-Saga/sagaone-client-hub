@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Mail, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,6 @@ const LoginOtp = () => {
   const [cooldown, setCooldown] = useState(0);
   const { requestLoginOtp, verifyLoginOtp, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
@@ -42,20 +41,6 @@ const LoginOtp = () => {
     const timer = window.setTimeout(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearTimeout(timer);
   }, [cooldown]);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(`${location.search}&${location.hash.replace(/^#/, "")}`);
-    const errorCode = urlParams.get("error_code");
-
-    if (errorCode === "otp_expired" || urlParams.get("error") === "access_denied") {
-      toast({
-        title: "Link inválido ou expirado",
-        description: "Solicite um novo acesso e digite o código de 6 dígitos recebido por email.",
-        variant: "destructive",
-      });
-      window.history.replaceState(null, "", "/login/otp");
-    }
-  }, [location.hash, location.search]);
 
   const sendCode = async () => {
     if (!normalizedEmail) return;
@@ -134,7 +119,7 @@ const LoginOtp = () => {
               Entrar com código
             </CardTitle>
             <p className="text-center text-muted-foreground text-xs sm:text-sm dark:text-white/60">
-              Use o email cadastrado para receber um código de 6 dígitos
+              Use o email cadastrado para receber um código de acesso
             </p>
           </CardHeader>
           <CardContent className="space-y-4 px-4 sm:px-6">
@@ -170,9 +155,6 @@ const LoginOtp = () => {
                   </InputOTP>
                   <p className="text-xs text-muted-foreground dark:text-white/60">
                     Enviado para {normalizedEmail}
-                  </p>
-                  <p className="text-xs text-muted-foreground dark:text-white/60">
-                    Não clique em links do email; use apenas o código numérico.
                   </p>
                 </div>
                 <Button type="submit" className="w-full h-11" disabled={loading || code.length !== 6}>

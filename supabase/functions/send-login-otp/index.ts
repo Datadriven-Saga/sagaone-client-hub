@@ -11,7 +11,6 @@ const EMAIL_LIMIT_WINDOW_MINUTES = 10;
 const IP_LIMIT_WINDOW_MINUTES = 10;
 const MAX_EMAIL_ATTEMPTS = 5;
 const MAX_IP_ATTEMPTS = 20;
-const DEFAULT_FROM_EMAIL = "Saga One <onboarding@resend.dev>";
 
 type ResolveOtpUserRow = {
   user_id: string | null;
@@ -60,50 +59,6 @@ function getRedirectTo(req: Request, bodyRedirectTo: unknown) {
   }
 }
 
-async function sendOtpEmail(email: string, otp: string) {
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendApiKey) {
-    throw new Error("RESEND_API_KEY não configurada");
-  }
-
-  const from = Deno.env.get("LOGIN_OTP_FROM_EMAIL") || DEFAULT_FROM_EMAIL;
-  const subject = "Código de acesso Saga One";
-  const html = `
-    <div style="font-family: Arial, sans-serif; background: #f6f8fb; padding: 32px; color: #111827;">
-      <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;">
-        <div style="padding: 28px 28px 12px;">
-          <h1 style="font-size: 22px; line-height: 1.3; margin: 0 0 12px; color: #111827;">Código de acesso</h1>
-          <p style="font-size: 15px; line-height: 1.5; margin: 0 0 18px; color: #4b5563;">Use o código abaixo na tela de login do Saga One.</p>
-          <div style="font-size: 32px; letter-spacing: 8px; font-weight: 700; text-align: center; padding: 18px; border-radius: 10px; background: #eef6ff; color: #0f172a; margin: 20px 0;">${otp}</div>
-          <p style="font-size: 13px; line-height: 1.5; margin: 0; color: #6b7280;">Esse código é temporário. Se você não solicitou esse acesso, ignore este email.</p>
-        </div>
-        <div style="padding: 16px 28px 24px; color: #9ca3af; font-size: 12px;">Saga One</div>
-      </div>
-    </div>`;
-
-  const text = `Código de acesso Saga One: ${otp}\n\nUse este código na tela de login. Se você não solicitou esse acesso, ignore este email.`;
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [email],
-      subject,
-      html,
-      text,
-    }),
-  });
-
-  const resultText = await response.text();
-  if (!response.ok) {
-    throw new Error(`Resend [${response.status}]: ${resultText}`);
-  }
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -114,14 +69,19 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("send-login-otp missing Supabase environment variables");
     return jsonResponse({ message: GENERIC_MESSAGE }, 200);
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const supabaseAuth = createClient(supabaseUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
@@ -195,31 +155,16 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ message: GENERIC_MESSAGE });
     }
 
-    const { data: linkData, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
+    const { error: otpError } = await supabaseAuth.auth.signInWithOtp({
       email,
       options: {
-        redirectTo: emailRedirectTo,
+        shouldCreateUser: false,
+        emailRedirectTo,
       },
     });
 
-    const emailOtp = linkData?.properties?.email_otp;
-
-    if (otpError || !emailOtp) {
-      console.error("send-login-otp generateLink error", otpError?.message || "email_otp ausente");
-      await supabaseAdmin.from("otp_login_attempts").insert({
-        email,
-        ip,
-        user_id: resolved.user_id,
-        outcome: "generate_error",
-      });
-      return jsonResponse({ message: GENERIC_MESSAGE });
-    }
-
-    try {
-      await sendOtpEmail(email, emailOtp);
-    } catch (sendError) {
-      console.error("send-login-otp email send error", (sendError as Error).message);
+    if (otpError) {
+      console.error("send-login-otp signInWithOtp error", otpError.message);
       await supabaseAdmin.from("otp_login_attempts").insert({
         email,
         ip,

@@ -392,24 +392,16 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.verifyOtp({
       email,
       token,
-      type: 'magiclink',
+      type: 'email',
     });
 
-    const finalError = error
-      ? (await supabase.auth.verifyOtp({
-          email,
-          token,
-          type: 'email',
-        })).error
-      : null;
-
-    if (!finalError) {
+    if (!error) {
       const now = Date.now().toString();
       sessionStorage.setItem(SESSION_START_KEY, now);
       sessionStorage.setItem(LAST_ACTIVITY_KEY, now);
     }
 
-    return { error: finalError };
+    return { error };
   };
 
   const resetPassword = async (email: string) => {
