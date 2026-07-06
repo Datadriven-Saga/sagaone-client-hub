@@ -392,14 +392,14 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.verifyOtp({
       email,
       token,
-      type: 'email',
+      type: 'magiclink',
     });
 
     const finalError = error
       ? (await supabase.auth.verifyOtp({
           email,
           token,
-          type: 'magiclink',
+          type: 'email',
         })).error
       : null;
 
