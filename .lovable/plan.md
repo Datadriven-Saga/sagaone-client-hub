@@ -1,136 +1,91 @@
-## Diagnóstico do SSO
+## Objetivo
 
-O problema está claro nos logs do Supabase Auth:
+Evitar nova parada do SSO por expiração silenciosa do client secret do Azure AD. Registrar a rotação atual e disparar alertas automáticos para admins antes do próximo vencimento.
 
-```text
-AADSTS7000222: The provided client secret keys for app 'e00d4b5a-ae41-426f-ada6-ad136b7bd835' are expired.
-```
+## Premissas confirmadas
 
-Isso significa que o **Client Secret do App Registration Azure AD** usado pelo provider Microsoft/Azure no Supabase **expirou**.
+- Secret Azure acabou de ser rotacionado hoje (2026-07-06).
+- Assumir validade de **24 meses** → alerta começa **23 meses depois** (janela de ~30 dias antes de expirar). Reforço semanal enquanto não for renovado.
+- Email já disponível via `RESEND_API_KEY` (Resend). Sem necessidade de novo provedor.
+- Alertas vão para usuários com `canAccessAdminConfig` (Master / TI / Admin).
 
-Por isso:
-- Quem já está logado continua logado, porque a sessão local ainda é válida.
-- Quem sai e tenta entrar de novo trava no login, porque o Supabase não consegue trocar o `code` retornado pela Microsoft por uma sessão.
-- Os retornos aparecem como `302` e depois `200` porque o fluxo OAuth redireciona de volta para o app com erro na URL; o app carrega normalmente, mas sem sessão.
-- O erro final `Unable to exchange external code: 1.AV` é só a mensagem genérica do Supabase Auth depois da falha no callback.
+## Banco
 
-## Correção imediata do SSO
-
-Essa correção é operacional, fora do código do frontend:
-
-1. Entrar no Azure Portal.
-2. Abrir o App Registration com client id:
+Nova tabela `sso_secret_rotations`:
 
 ```text
-e00d4b5a-ae41-426f-ada6-ad136b7bd835
-```
-
-3. Ir em **Certificates & secrets**.
-4. Criar um novo **Client Secret**.
-5. Copiar o **Value** do segredo novo, não o Secret ID.
-6. No Supabase Dashboard do projeto `karcxgnfiymlrkbzhewo`, ir em:
-
-```text
-Authentication > Providers > Azure
-```
-
-7. Substituir o client secret antigo pelo novo.
-8. Salvar e testar login novamente.
-
-Recomendação: criar o secret com validade longa e registrar a data de expiração. Melhor ainda: migrar depois para certificado, porque reduz esse tipo de parada.
-
-## Plano de contingência: login por OTP via email
-
-Como o SSO depende de segredo externo e pode expirar novamente, criar uma rota alternativa de login por código de email para usuários já cadastrados.
-
-### Escopo
-
-- Login OTP apenas para usuários já existentes.
-- Sem cadastro público.
-- Sem bypass das regras atuais de acesso.
-- Manter SSO Microsoft como opção principal.
-- Manter login de terceiros por senha como está.
-
-### Backend
-
-Criar uma Edge Function `send-login-otp` pública com validação interna:
-
-1. Recebe `{ email }`.
-2. Valida formato do email.
-3. Verifica se o usuário existe e está ativo.
-4. Verifica se o usuário pode logar pelo método `otp`, reaproveitando a lógica de domínio/allowlist.
-5. Envia OTP via Supabase Auth usando `signInWithOtp` com `shouldCreateUser: false`.
-6. Retorna sempre mensagem genérica para não revelar se o email existe.
-7. Aplica rate limit por email/IP.
-
-Criar tabela de auditoria/rate limit:
-
-```text
-otp_login_attempts
 - id
-- email
-- ip
-- outcome
-- created_at
+- provider              (default 'azure')
+- client_id
+- rotated_at            (timestamp)
+- expires_at            (timestamp)
+- alert_at              (expires_at - interval '30 days')
+- last_alerted_at       (nullable)
+- alert_count           (default 0)
+- created_by            (uuid, nullable)
 ```
 
-Com grants/RLS restritos para não expor tentativas de login.
+RLS: leitura e escrita restritas a `canAccessAdminConfig` via `has_permission`. `service_role` full.
 
-### Banco
-
-Ajustar a lógica de domínio permitida para aceitar método `otp`:
+Seed inicial:
 
 ```text
-sso | password | otp | ambos
+provider     = 'azure'
+client_id    = 'e00d4b5a-ae41-426f-ada6-ad136b7bd835'
+rotated_at   = now()
+expires_at   = now() + interval '24 months'
+alert_at     = expires_at - interval '30 days'
 ```
 
-Liberar `otp` para `gruposaga.com.br`.
+Cron `pg_cron` diário chamando a edge function (via `pg_net`).
 
-### Frontend
+## Edge Function `check-sso-secret-expiration`
 
-Criar rota pública:
+Fluxo diário:
 
-```text
-/login/otp
-```
+1. Seleciona rotações ativas onde `alert_at <= now()` e (`last_alerted_at IS NULL` OR `now() - last_alerted_at >= 7 dias`) e `expires_at > now() - 7 dias`.
+2. Para cada uma:
+   - Lista admins alvo via query em `profiles` + `has_permission('canAccessAdminConfig')`.
+   - Cria notificação in-app (`tipo = 'sso_secret_expirando'`, título "Client Secret Azure expira em X dias", link `/administracao`).
+   - Envia email via **Resend** (`RESEND_API_KEY`) usando template simples HTML com: dias restantes, client_id, passo a passo curto de renovação, link do Azure Portal e do Supabase Auth Providers.
+   - Atualiza `last_alerted_at = now()`, incrementa `alert_count`.
+3. Se `expires_at < now()`, marca alerta como crítico (título e cor diferente, envia diariamente até renovar).
 
-Fluxo em duas etapas:
+Também registra em `logs_notificacoes_email` (tabela já existe).
 
-1. Usuário informa email e clica em **Enviar código**.
-2. Usuário digita o código de 6 dígitos recebido por email e clica em **Entrar**.
+## Frontend
 
-Adicionar na tela `/login` um botão secundário:
+Em `/administracao`, novo bloco no topo (apenas se `canAccessAdminConfig`):
 
-```text
-Entrar com código por email
-```
+- Card "SSO Microsoft — Client Secret"
+- Mostra `expires_at`, dias restantes e status (verde > 60d, amarelo 30–60d, vermelho < 30d ou vencido).
+- Botão **"Registrar nova rotação"** abre modal:
+  - Campo `expires_at` (default: hoje + 24 meses)
+  - Campo opcional `client_id`
+  - Ao salvar: insere nova linha em `sso_secret_rotations`, marca as anteriores como `resolved_at = now()` (adicionar coluna) e zera alertas.
 
-Após confirmar o OTP, manter o redirecionamento atual do sistema, inclusive deep link salvo antes do login.
+Sem mudanças em nenhum outro fluxo.
 
-### Email
+## Docs
 
-Usar o template padrão de OTP/Magic Link do Supabase Auth, configurando o conteúdo para destacar o código de 6 dígitos e validade curta.
+- `docs/arquitetura/autenticacao-e-sessao.md`: nova seção "Rotação do Client Secret Azure" com o processo e onde ver o alerta.
+- `.lovable/plan.md`: marcar SSO como resolvido e apontar para o novo alerta automático.
 
-### Segurança
+## Fora de escopo
 
-- `shouldCreateUser: false` obrigatório.
-- Mensagem genérica para emails inválidos/inexistentes.
-- Rate limit por IP e email.
-- Auditoria de tentativas.
-- Sem service role no frontend.
-- Sem armazenar código OTP em tabela própria.
+- Migração para autenticação por certificado no Azure (apenas mencionar como recomendação futura).
+- Alertas por WhatsApp/SMS.
+- Mexer no fluxo de login OTP já implementado.
+- Alertas para outros providers.
 
-## Plano de cadências
+## Ordem de execução
 
-O plano anterior de cadências deve ser retomado depois:
+1. Migração: tabela + índice + RLS + grants + seed + cron.
+2. Edge Function `check-sso-secret-expiration` + template de email Resend.
+3. UI card + modal em `/administracao`.
+4. Docs.
 
-- Etapa "Configuração IA" com tabela de até 3 cadências.
-- Antiga tela de cadência completa deixa de existir.
-- Payload ganha um item extra `cadencias` como lista.
-- Restante do payload permanece igual.
+## Perguntas rápidas
 
-## Ordem recomendada
-
-1. Corrigir o client secret expirado no Azure/Supabase para restaurar o SSO imediatamente.
-2. Implementar login OTP como contingência permanente.
-3. Depois voltar ao plano de cadências.
+1. Confirma validade padrão de **24 meses** com alerta 30 dias antes + reforço semanal? Se preferir 60 ou 90 dias, ajusto.
+2. Email deve ir só para Master/TI/Admin (`canAccessAdminConfig`), ou quer incluir uma lista fixa adicional (ex.: `ti@gruposaga.com.br`)?
