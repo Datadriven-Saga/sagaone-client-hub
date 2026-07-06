@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.bulk_upsert_contatos(jsonb, uuid, uuid, text, boolean);

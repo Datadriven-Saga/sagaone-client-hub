@@ -6693,28 +6693,17 @@ export type Database = {
         Args: { p_empresa_id: string; p_items: Json }
         Returns: number
       }
-      bulk_upsert_contatos:
-        | {
-            Args: {
-              p_canal?: string
-              p_contatos: Json
-              p_empresa_id: string
-              p_force_status_novo?: boolean
-              p_prospeccao_id?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_canal?: string
-              p_contatos: Json
-              p_empresa_id: string
-              p_force_status_novo?: boolean
-              p_prospeccao_id?: string
-              p_strict_responsavel?: boolean
-            }
-            Returns: Json
-          }
+      bulk_upsert_contatos: {
+        Args: {
+          p_canal?: string
+          p_contatos: Json
+          p_empresa_id: string
+          p_force_status_novo?: boolean
+          p_prospeccao_id?: string
+          p_strict_responsavel?: boolean
+        }
+        Returns: Json
+      }
       bulk_upsert_contatos_backup_v1: {
         Args: {
           p_canal?: string
