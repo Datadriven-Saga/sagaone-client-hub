@@ -1,65 +1,136 @@
-## Diagnóstico — Entregas não carrega templates da Paty
+## Diagnóstico do SSO
 
-### Sintoma (screenshot)
-Na tela **Entregas — Gatilhos Saga Conecta** (agente `Paty · HYUNDAI/GO · 6230302248`, empresa ativa **HYUNDAI T9**), o dropdown de template do gatilho "Novo Lead" mostra **apenas 2 opções** (`agendamento_confirmado_v7` e `teste_paty`), e exibe o aviso:
+O problema está claro nos logs do Supabase Auth:
 
-> Template configurado (ID PRI 1695) não foi encontrado na lista local.
+```text
+AADSTS7000222: The provided client secret keys for app 'e00d4b5a-ae41-426f-ada6-ad136b7bd835' are expired.
+```
 
-Já a tela **Paty Geral → Templates** (mesmo agente) mostra **dezenas de templates aprovados** (1720, 1721, 1722, 1729, 1748, 1693, 1700…).
+Isso significa que o **Client Secret do App Registration Azure AD** usado pelo provider Microsoft/Azure no Supabase **expirou**.
 
-### Causa raiz
+Por isso:
+- Quem já está logado continua logado, porque a sessão local ainda é válida.
+- Quem sai e tenta entrar de novo trava no login, porque o Supabase não consegue trocar o `code` retornado pela Microsoft por uma sessão.
+- Os retornos aparecem como `302` e depois `200` porque o fluxo OAuth redireciona de volta para o app com erro na URL; o app carrega normalmente, mas sem sessão.
+- O erro final `Unable to exchange external code: 1.AV` é só a mensagem genérica do Supabase Auth depois da falha no callback.
 
-A Paty é **agente compartilhado por marca+UF** (memory `WPP Template Share` + doc `05-pos-vendas.md`). Consequências que colidem com o filtro atual:
+## Correção imediata do SSO
 
-1. **`whatsapp_templates` armazena o template sob UMA empresa "dona"** (na prática, quase sempre a EMPRESA ADMIN sandbox `b32ae8c9-…` — memory `Core`). Não há uma linha por empresa que compartilha o agente.
-2. **Configuração n8n do gatilho de Entrega é global por telefone do agente** — ela guarda um `template_id_pri` só, válido pra qualquer loja daquela marca+UF.
-3. Cada tela usa um **filtro diferente** pra listar templates:
+Essa correção é operacional, fora do código do frontend:
 
-| Tela | Hook / query | Filtro |
-|---|---|---|
-| Paty Geral → Templates | `TemplatesPaty.tsx` L390-405 | `pri_telefone = <telefone do agente>` (global, sem empresa) |
-| Entregas → dropdown | `usePatyTemplates` em `src/hooks/pos-vendas/usePosVendasData.ts` L64-90 | `empresa_id = activeCompany.id` **AND** `agente_id = X` **AND** `ativo = true` **AND** `status_meta = 'APPROVED'` |
+1. Entrar no Azure Portal.
+2. Abrir o App Registration com client id:
 
-Confirmado no banco: dos ~18 templates aprovados do agente `bf07a991-…` (Paty HY/GO):
-- **16 estão sob `empresa_id = b32ae8c9…` (sandbox ADMIN)**
-- **Apenas 2 estão sob `empresa_id = e2c4fdf8…` (HYUNDAI T9, empresa ativa do usuário)** → exatamente os 2 que aparecem no dropdown (PRI 2210 e 2209).
+```text
+e00d4b5a-ae41-426f-ada6-ad136b7bd835
+```
 
-O `template_id_pri = 1695` salvo no n8n aponta pra um template registrado sob a empresa sandbox (ou outra loja), então o `idByPri` local não acha e mostra o aviso.
+3. Ir em **Certificates & secrets**.
+4. Criar um novo **Client Secret**.
+5. Copiar o **Value** do segredo novo, não o Secret ID.
+6. No Supabase Dashboard do projeto `karcxgnfiymlrkbzhewo`, ir em:
 
-### Impacto
+```text
+Authentication > Providers > Azure
+```
 
-- Toda loja que compartilha Paty com outra da mesma marca+UF vê o dropdown quase vazio.
-- Se o usuário trocar de template, o backend n8n vai salvar o PRI novo, mas outras lojas da mesma marca+UF podem passar a exibir o mesmo aviso "não encontrado".
-- Peças, Cadência e Agendamentos usam o mesmo `usePatyTemplates(effectiveId, true)` → **mesmo bug provável nessas 3 abas** (`PecasTemplatesSection.tsx`, `AgendamentosTab.tsx` L111 e L300, `PatyCadencia`).
+7. Substituir o client secret antigo pelo novo.
+8. Salvar e testar login novamente.
 
-### Onde bater pra corrigir (proposta — sem código ainda)
+Recomendação: criar o secret com validade longa e registrar a data de expiração. Melhor ainda: migrar depois para certificado, porque reduz esse tipo de parada.
 
-O consumo do template em Pós-Vendas precisa refletir o **modelo real**: template pertence ao **agente (pri_telefone/id_meta)**, não à empresa ativa. Duas opções, ambas isoladas ao frontend:
+## Plano de contingência: login por OTP via email
 
-**Opção A — mudar `usePatyTemplates` pra buscar por agente, não por empresa (recomendada)**
+Como o SSO depende de segredo externo e pode expirar novamente, criar uma rota alternativa de login por código de email para usuários já cadastrados.
 
-- Remover o `.eq("empresa_id", activeCompany.id)`.
-- Filtrar por `agente_id = effectiveId` (ou `pri_telefone`, alinhando com `TemplatesPaty`).
-- Manter `ativo = true` e (quando `approvedOnly`) `status_meta = 'APPROVED'`.
-- Alinha Entregas/Peças/Cadência/Agendamentos com a tela de gestão de templates → mesma lista pra escolher e pra ver.
-- **Risco:** se algum ponto do app depender do escopo por empresa em `usePatyTemplates`, muda comportamento. Auditar chamadas antes.
+### Escopo
 
-**Opção B — enriquecer a lista buscando também pelos templates da empresa "dona" do agente**
+- Login OTP apenas para usuários já existentes.
+- Sem cadastro público.
+- Sem bypass das regras atuais de acesso.
+- Manter SSO Microsoft como opção principal.
+- Manter login de terceiros por senha como está.
 
-- Fazer 2 queries: uma pela empresa ativa + uma pela empresa do agente (via `agente_empresas` ou empresa da linha existente em `whatsapp_templates`) e mesclar.
-- Mais defensivo mas mantém a inconsistência estrutural.
+### Backend
 
-**Ação imediata sugerida (não incluída neste plano de análise):**
-1. Confirmar com você qual opção seguir (A é mais limpa).
-2. Aplicar a mudança em `usePatyTemplates` e validar nas 4 abas (Entregas, Peças, Cadência, Agendamentos).
-3. Não mexer em RLS/DB — o problema é só de escopo de filtro no frontend.
+Criar uma Edge Function `send-login-otp` pública com validação interna:
 
-### Detalhes técnicos (para referência)
+1. Recebe `{ email }`.
+2. Valida formato do email.
+3. Verifica se o usuário existe e está ativo.
+4. Verifica se o usuário pode logar pelo método `otp`, reaproveitando a lógica de domínio/allowlist.
+5. Envia OTP via Supabase Auth usando `signInWithOtp` com `shouldCreateUser: false`.
+6. Retorna sempre mensagem genérica para não revelar se o email existe.
+7. Aplica rate limit por email/IP.
 
-- Hook consumido pela Entregas: `src/hooks/pos-vendas/usePosVendasData.ts` L64-90.
-- Fonte dos gatilhos: `usePatyEntregasTemplates` em `src/hooks/pos-vendas/useEntregasData.ts` chama edge `external-webhook-proxy` endpoint `busca-paty-entrega-template` — retorna `template_id` (PRI) global por `agente_telefone`.
-- Mapeamento PRI → local id: `EntregasTab.tsx` L28-37 (`priById` / `idByPri`).
-- Tela de gestão que "vê tudo": `src/pages/pos-vendas/TemplatesPaty.tsx` L389-406 filtra por `pri_telefone` apenas.
+Criar tabela de auditoria/rate limit:
 
-### O que este plano NÃO faz
-Não altera código. É só o diagnóstico pedido — aguardo aprovação (Opção A ou B) pra abrir um segundo plano de correção.
+```text
+otp_login_attempts
+- id
+- email
+- ip
+- outcome
+- created_at
+```
+
+Com grants/RLS restritos para não expor tentativas de login.
+
+### Banco
+
+Ajustar a lógica de domínio permitida para aceitar método `otp`:
+
+```text
+sso | password | otp | ambos
+```
+
+Liberar `otp` para `gruposaga.com.br`.
+
+### Frontend
+
+Criar rota pública:
+
+```text
+/login/otp
+```
+
+Fluxo em duas etapas:
+
+1. Usuário informa email e clica em **Enviar código**.
+2. Usuário digita o código de 6 dígitos recebido por email e clica em **Entrar**.
+
+Adicionar na tela `/login` um botão secundário:
+
+```text
+Entrar com código por email
+```
+
+Após confirmar o OTP, manter o redirecionamento atual do sistema, inclusive deep link salvo antes do login.
+
+### Email
+
+Usar o template padrão de OTP/Magic Link do Supabase Auth, configurando o conteúdo para destacar o código de 6 dígitos e validade curta.
+
+### Segurança
+
+- `shouldCreateUser: false` obrigatório.
+- Mensagem genérica para emails inválidos/inexistentes.
+- Rate limit por IP e email.
+- Auditoria de tentativas.
+- Sem service role no frontend.
+- Sem armazenar código OTP em tabela própria.
+
+## Plano de cadências
+
+O plano anterior de cadências deve ser retomado depois:
+
+- Etapa "Configuração IA" com tabela de até 3 cadências.
+- Antiga tela de cadência completa deixa de existir.
+- Payload ganha um item extra `cadencias` como lista.
+- Restante do payload permanece igual.
+
+## Ordem recomendada
+
+1. Corrigir o client secret expirado no Azure/Supabase para restaurar o SSO imediatamente.
+2. Implementar login OTP como contingência permanente.
+3. Depois voltar ao plano de cadências.
