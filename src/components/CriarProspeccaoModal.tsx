@@ -3108,10 +3108,16 @@ ${localEvento}`;
                       onChange={(e) => setDataEnvioCadencia(e.target.value)}
                       onClick={(e) => {
                         const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-                        el.showPicker?.();
+                        try {
+                          el.showPicker?.();
+                        } catch (err) {
+                          // cross-origin iframe pode bloquear showPicker(); fallback deixa o input nativo responder
+                        }
                       }}
+                      min="2000-01-01T00:00"
+                      max="2099-12-31T23:59"
                       style={{ colorScheme: 'dark' }}
-                      className="cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                      className="cursor-pointer min-h-[42px] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-calendar-picker-indicator]:p-2 [&::-webkit-calendar-picker-indicator]:m-[-8px]"
                     />
                   </div>
 
