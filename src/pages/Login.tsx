@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import sagaOneLogo from "@/assets/saga-one-logo.png";
-import { Loader2, KeyRound, MailKey } from "lucide-react";
+import { Loader2, KeyRound, Mail } from "lucide-react";
 
 // TODO: Alterar para true quando Azure SSO estiver configurado
 const USE_SSO_LOGIN = true;
@@ -101,7 +101,7 @@ const Login = () => {
                 onClick={() => navigate('/login/otp')}
                 disabled={loading}
               >
-                <MailKey className="h-4 w-4" />
+                <Mail className="h-4 w-4" />
                 Entrar com código por email
               </Button>
 
@@ -128,7 +128,7 @@ const Login = () => {
               to="/login/otp"
               className="mt-2 inline-flex items-center gap-1 text-xs text-foreground/60 hover:text-foreground hover:underline dark:text-white/60 dark:hover:text-white"
             >
-              <MailKey className="h-3 w-3" />
+              <Mail className="h-3 w-3" />
               <span>Entrar com código por email</span>
             </Link>
           </div>

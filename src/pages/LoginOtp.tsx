@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, MailKey, RotateCcw } from "lucide-react";
+import { ArrowLeft, Loader2, Mail, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -113,7 +113,7 @@ const LoginOtp = () => {
         <Card className="shadow-xl border-0 bg-sagaone-login-card dark:bg-[hsl(220,20%,14%)] dark:border dark:border-white/10 dark:shadow-2xl mx-auto">
           <CardHeader className="space-y-1 px-4 sm:px-6">
             <div className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <MailKey className="h-5 w-5" />
+              <Mail className="h-5 w-5" />
             </div>
             <CardTitle className="text-xl sm:text-2xl text-center font-semibold dark:text-white">
               Entrar com código
