@@ -1,44 +1,46 @@
-## Redesenho do modal "Configuração IA" — evento IA Whatsapp
+# Plano — Corrigir "Erro ao criar lead" (PGRST203)
 
-Reorganizar a aba **Configuração IA** de `src/components/CriarProspeccaoModal.tsx` (case `'Configuração IA'`, ~L2977–L3400) para uma UX mais densa, com menos rolagem, mantendo toda a lógica atual (states, validações, filtros de template, cadência completa vs. simples). Nada de mudança de negócio — apenas layout + o modal da descrição.
+## Diagnóstico confirmado
 
-### 1. Descrição em modal (em vez de expandir inline)
-- Substituir o botão Maximize/Minimize por **"Abrir editor"** que abre um `Dialog` (novo componente inline) com um `Textarea` grande (ex. `rows=20`), header com "Descrição da prospecção", botões **Aplicar modelo** e **Salvar**.
-- Remover o state `descricaoExpandida` (ou renomeá-lo para `descricaoModalOpen`).
-- No card principal mantém `Textarea` compacto (`rows={4}`), somente leitura visual continua editável. O botão "Aplicar modelo" fica no header do card.
+Nos logs de `create-lead`:
 
-### 2. Grid de templates em 3 colunas
-- Envolver os 3 selects em um `grid grid-cols-1 md:grid-cols-3 gap-3`:
-  - **Template Prospecção** * (sempre visível)
-  - **Cadência Agendados** (renomear de "Template Agendado (opcional)")
-  - **Cadência Não Responderam** (renomear de "Template Não Responderam")
-- Cada select fica em um bloco compacto com label + select + botão limpar (X) inline.
-- Erro de "obrigatório" fica embaixo do próprio select (mantém validação atual).
-- Quando `cadenciaCompleta === true`: o grid vira `grid-cols-1 md:grid-cols-4` mostrando: Prospecção, Agendado 48h, Agendado 24h, Não Responderam (todos obrigatórios). Helpers "enviado 48h/24h antes" viram um único tooltip no label pra economizar altura.
+```
+PGRST203 — Could not choose the best candidate function between:
+  bulk_upsert_contatos(jsonb, uuid, uuid, text, boolean)                 -- 5 args
+  bulk_upsert_contatos(jsonb, uuid, uuid, text, boolean, boolean)        -- 6 args
+```
 
-### 3. Data/hora da cadência junto dos templates
-- Mover **Data/Hora da Cadência** (renomear para **Data/Hora Cadência Agendados**) para dentro do mesmo grid de templates, ocupando a 4ª coluna quando cadência simples (grid vira `md:grid-cols-4`: Prospecção, Cadência Agendados, Data/Hora, Cadência Não Responderam) — ou linha abaixo em `grid-cols-2` se ficar apertado (validar visualmente).
-- Remover a seção separada "Configurações de Disparo".
+- `process-import` (planilha) passa 6 args → funciona → `import_logs` saudável.
+- `create-lead`, `create-lead-pri`, `useBulkImport` passam 5 args → ambiguidade → HTTP 500.
 
-### 4. Aviso "Disparo Inicial" alinhado à realidade
-- Substituir o card amarelo por uma linha discreta com ícone Info + texto:
-  > "O disparo inicial pode ser feito manualmente ou agendado pela tela da base do evento."
-- Colocada como legenda pequena logo abaixo do grid de templates.
+Não é bug de SDR, equipe, RLS ou vínculo do evento. É overload duplicado — viola a regra Core "No SQL function overloads to prevent PostgREST ambiguity".
 
-### 5. Configurações do Evento em 4 colunas
-- Transformar a seção "Configurações do Evento" em `grid grid-cols-1 md:grid-cols-3 gap-3` (são 3 controles: Tipo de Lead, Evento Principal, Qualificar Lead após Confirmação — o bloco "Evento de Confirmação" é só um aviso informativo, colocá-lo como banner fino abaixo do grid ocupando a linha inteira; assim ficam 3 colunas para os toggles/select + 1 banner).
-- Cada toggle (Evento Principal, Qualificar Lead) vira card compacto com Switch à direita e label + tooltip à esquerda, mesma altura do card do select Tipo de Lead.
-- Se o usuário preferir 4 colunas literais, colocar também o banner de "Evento de Confirmação" como 4º card (menor).
+## Correção
 
-### 6. Ajustes gerais
-- Reduzir `space-y-4` do container para `space-y-3` e paddings dos cards internos de `p-4` → `p-3`.
-- Manter todos os states, validações, `toast` de template duplicado, filtros de `whatsappTemplates` e comportamento de `cadenciaCompleta` intactos.
-- Não mexer nas outras abas (`case 'Configuração IA'` apenas para `tipoEvento === 'IA Whatsapp'`).
+Migration única removendo a assinatura antiga de 5 args. A assinatura de 6 args tem `p_strict_responsavel boolean DEFAULT false`, então os callers de 5 args voltam a funcionar sem alteração de código, com comportamento idêntico ao anterior à criação do overload.
 
-### Arquivos alterados
-- `src/components/CriarProspeccaoModal.tsx` — reescrita da renderização do case IA Whatsapp (~L2977–L3400) + novo sub-`Dialog` da descrição.
+```sql
+DROP FUNCTION IF EXISTS public.bulk_upsert_contatos(
+  jsonb, uuid, uuid, text, boolean
+);
+```
 
-### Fora do escopo
-- Lógica de disparo/cadência no backend.
-- Outros tipos de evento (Padrão, IA Ligação etc.).
-- Renomear campos no banco.
+Nenhuma alteração no corpo da função de 6 args. Nenhuma alteração em código de callers.
+
+## Verificação após migration
+
+1. `SELECT count(*) FROM pg_proc WHERE proname='bulk_upsert_contatos'` → deve retornar 1.
+2. Cadastrar lead novamente pela UI (mesmo cenário do print, SDR) → esperado 200 + lead vinculado ao evento.
+3. Confirmar que uma nova importação de planilha continua concluindo (process-import intacto — segue passando 6 args).
+4. `create-lead-pri`: opcional, disparar payload de teste do webhook PRI.
+
+## O que NÃO alterar
+
+- Corpo de `bulk_upsert_contatos` (6 args) — zona crítica por KB.
+- Nenhum arquivo em `supabase/functions/**` ou `src/hooks/useBulkImport.ts`.
+- `contato_quarentena`, `upsert_quarentena`, `eventos_prospeccao` — fora do escopo.
+
+## Riscos
+
+- Baixo. Callers externos (se existirem fora do repo) que usem parâmetros nomeados continuam funcionando na assinatura de 6 args.
+- Rollback: recriar a função de 5 args reintroduz a ambiguidade — não recomendado. Se aparecer regressão, investigar o caller específico e adicionar `p_strict_responsavel` explícito nele.
