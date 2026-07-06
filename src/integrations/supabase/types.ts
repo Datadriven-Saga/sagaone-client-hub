@@ -5736,6 +5736,51 @@ export type Database = {
           },
         ]
       }
+      sso_secret_rotations: {
+        Row: {
+          alert_at: string
+          alert_count: number
+          client_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          last_alerted_at: string | null
+          provider: string
+          resolved_at: string | null
+          rotated_at: string
+          updated_at: string
+        }
+        Insert: {
+          alert_at: string
+          alert_count?: number
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          last_alerted_at?: string | null
+          provider?: string
+          resolved_at?: string | null
+          rotated_at?: string
+          updated_at?: string
+        }
+        Update: {
+          alert_at?: string
+          alert_count?: number
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          last_alerted_at?: string | null
+          provider?: string
+          resolved_at?: string | null
+          rotated_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_feature_flags: {
         Row: {
           category: string
