@@ -142,3 +142,6 @@ verify_jwt = false
 
 [functions.scheduled-campaign-dispatcher]
 verify_jwt = false
+
+[functions.check-sso-secret-expiration]
+verify_jwt = false
