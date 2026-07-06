@@ -4040,6 +4040,33 @@ export type Database = {
           },
         ]
       }
+      otp_login_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip: unknown
+          outcome: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip?: unknown
+          outcome: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip?: unknown
+          outcome?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       participacoes_treinamento: {
         Row: {
           certificado_url: string | null
@@ -7311,6 +7338,13 @@ export type Database = {
           nome: string
           status_atual: string
           telefone: string
+        }[]
+      }
+      resolve_login_otp_user: {
+        Args: { _email: string }
+        Returns: {
+          allowed: boolean
+          user_id: string
         }[]
       }
       set_seat_limit: {

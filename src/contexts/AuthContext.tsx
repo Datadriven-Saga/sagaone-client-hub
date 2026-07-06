@@ -20,6 +20,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithAzure: () => Promise<{ error: any }>;
   signInWithMagicLink: (email: string) => Promise<{ error: any }>;
+  requestLoginOtp: (email: string) => Promise<{ error: any; message?: string }>;
+  verifyLoginOtp: (email: string, token: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
 }
@@ -372,6 +374,36 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const requestLoginOtp = async (email: string) => {
+    const { data, error } = await supabase.functions.invoke('send-login-otp', {
+      body: {
+        email,
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+
+    return {
+      error,
+      message: (data as { message?: string } | null)?.message,
+    };
+  };
+
+  const verifyLoginOtp = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+
+    if (!error) {
+      const now = Date.now().toString();
+      sessionStorage.setItem(SESSION_START_KEY, now);
+      sessionStorage.setItem(LAST_ACTIVITY_KEY, now);
+    }
+
+    return { error };
+  };
+
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -387,6 +419,8 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     signIn,
     signInWithAzure,
     signInWithMagicLink,
+    requestLoginOtp,
+    verifyLoginOtp,
     signOut,
     resetPassword,
   }), [user, session, loading]);
