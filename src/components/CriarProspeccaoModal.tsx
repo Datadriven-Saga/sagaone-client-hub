@@ -4379,38 +4379,49 @@ ${localEvento}`;
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-[calc((100vh-5rem)*0.85)] sm:h-[calc((100vh-6rem)*0.85)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 overflow-hidden">
         {/* Header fixo */}
-        <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <span>{editingProspeccao ? 'Editar Evento' : 'Novo Evento'}</span>
-              <span className="text-sm font-normal text-muted-foreground">
-                Etapa {currentStep + 1} de {steps.length}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-          
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mt-4">
-            {steps.map((step, index) => (
-              <div key={step} className="flex items-center">
-                <div 
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
-                    index === currentStep 
-                      ? 'bg-primary text-primary-foreground' 
-                      : index < currentStep 
-                        ? 'bg-primary/20 text-primary' 
-                        : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {index < currentStep ? <Check className="h-4 w-4" /> : index + 1}
+        <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
+          <div className="flex items-center justify-between gap-4">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="flex items-center gap-3 text-lg">
+                <span>{editingProspeccao ? 'Editar Evento' : 'Novo Evento'}</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  Etapa {currentStep + 1} de {steps.length}
+                </span>
+              </DialogTitle>
+            </DialogHeader>
+            
+            {/* Step indicator */}
+            <div className="flex items-center gap-1">
+              {steps.map((step, index) => (
+                <div key={step} className="flex items-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                            index === currentStep 
+                              ? 'bg-primary text-primary-foreground' 
+                              : index < currentStep 
+                                ? 'bg-primary/20 text-primary' 
+                                : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {index < currentStep ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>{step}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {index < steps.length - 1 && (
+                    <div className={`w-5 h-0.5 mx-1 ${index < currentStep ? 'bg-primary/50' : 'bg-muted'}`} />
+                  )}
                 </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-6 h-0.5 mx-1 ${index < currentStep ? 'bg-primary/50' : 'bg-muted'}`} />
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-          <p className="text-sm font-medium text-primary mt-2">{currentStepName}</p>
+          <p className="text-sm font-medium text-primary mt-1">{currentStepName}</p>
         </div>
         
         {/* Conteúdo com scroll */}
