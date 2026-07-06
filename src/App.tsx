@@ -43,6 +43,7 @@ const DePara = lazy(() => import("./pages/DePara"));
 const EntraDados = lazy(() => import("./pages/EntraDados"));
 const AlgoritmoEmConstrucao = lazy(() => import("./pages/algoritmos/EmConstrucao"));
 const LoginTerceiros = lazy(() => import("./pages/LoginTerceiros"));
+const LoginOtp = lazy(() => import("./pages/LoginOtp"));
 const Cadeiras = lazy(() => import("./pages/Cadeiras"));
 
 // Admin pages - lazy
@@ -92,6 +93,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/login/terceiros" element={<LoginTerceiros />} />
+        <Route path="/login/otp" element={<LoginOtp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         {/* Rota pública — landing page de confirmação de presença (acessada por clientes finais) */}
         <Route path="/confirmar/:token" element={<ConfirmarPresenca />} />

@@ -41,6 +41,9 @@ verify_jwt = false
 [functions.validate-domain]
 verify_jwt = false
 
+[functions.send-login-otp]
+verify_jwt = false
+
 [functions.cleanup-invalid-users]
 verify_jwt = false
 

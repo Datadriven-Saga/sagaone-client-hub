@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import sagaOneLogo from "@/assets/saga-one-logo.png";
-import { Loader2, KeyRound } from "lucide-react";
+import { Loader2, KeyRound, MailKey } from "lucide-react";
 
 // TODO: Alterar para true quando Azure SSO estiver configurado
 const USE_SSO_LOGIN = true;
@@ -94,6 +94,17 @@ const Login = () => {
                 )}
               </Button>
 
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2 h-10 sm:h-12 text-sm sm:text-base font-medium rounded-lg"
+                onClick={() => navigate('/login/otp')}
+                disabled={loading}
+              >
+                <MailKey className="h-4 w-4" />
+                Entrar com código por email
+              </Button>
+
               <div className="text-center pt-1 sm:pt-2">
                 <p className="text-[10px] sm:text-xs text-muted-foreground dark:text-white/50">
                   Ao entrar, você concorda com nossos termos de uso e política de privacidade.
@@ -112,6 +123,13 @@ const Login = () => {
             >
               <KeyRound className="h-3 w-3" />
               <span>Login para terceiros</span>
+            </Link>
+            <Link
+              to="/login/otp"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-foreground/60 hover:text-foreground hover:underline dark:text-white/60 dark:hover:text-white"
+            >
+              <MailKey className="h-3 w-3" />
+              <span>Entrar com código por email</span>
             </Link>
           </div>
         </div>

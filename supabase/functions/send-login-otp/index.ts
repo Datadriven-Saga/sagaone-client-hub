@@ -40,6 +40,25 @@ function getClientIp(req: Request) {
   return forwardedFor || realIp || cfIp || null;
 }
 
+function getRedirectTo(req: Request, bodyRedirectTo: unknown) {
+  const origin = req.headers.get("origin") || "";
+  const candidate = typeof bodyRedirectTo === "string" ? bodyRedirectTo : `${origin}/`;
+
+  try {
+    const url = new URL(candidate);
+    const isAllowed =
+      url.hostname === "one.sagadatadriven.com.br" ||
+      url.hostname === "sagaone-client-hub.lovable.app" ||
+      url.hostname.endsWith(".lovable.app") ||
+      url.hostname.endsWith(".lovableproject.com") ||
+      url.hostname === "localhost";
+
+    return isAllowed ? url.toString() : "https://one.sagadatadriven.com.br/";
+  } catch {
+    return "https://one.sagadatadriven.com.br/";
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -72,6 +91,7 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json().catch(() => ({}));
     email = normalizeEmail(body.email);
+    const emailRedirectTo = getRedirectTo(req, body.redirectTo);
 
     if (!isValidEmail(email)) {
       await supabaseAdmin.from("otp_login_attempts").insert({
@@ -139,7 +159,7 @@ Deno.serve(async (req: Request) => {
       email,
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${new URL(req.url).origin}/`,
+        emailRedirectTo,
       },
     });
 
