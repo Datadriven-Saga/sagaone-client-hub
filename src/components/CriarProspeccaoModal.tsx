@@ -232,6 +232,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Estado para expandir descrição
   const [descricaoExpandida, setDescricaoExpandida] = useState(false);
+  const [descricaoModalOpen, setDescricaoModalOpen] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
