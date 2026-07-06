@@ -4371,7 +4371,7 @@ ${localEvento}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-[calc((100vh-5rem)*0.85)] sm:h-[calc((100vh-6rem)*0.85)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 overflow-hidden">
         {/* Header fixo */}
         <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
           <div className="flex items-center justify-between gap-4">
