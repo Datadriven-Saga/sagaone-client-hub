@@ -3274,7 +3274,7 @@ ${localEvento}`;
                 </div>
               )}
 
-              {/* Configurações do Evento em grid compacto */}
+              {/* Configurações do Evento em grid compacto com labels quebrando linha */}
               <div className="border-t pt-3">
                 <h4 className="text-sm font-medium mb-2">Configurações do Evento</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
