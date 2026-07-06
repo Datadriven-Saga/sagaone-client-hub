@@ -1,164 +1,44 @@
-# Diagnóstico e plano — vendedores não aparecem no check-in
+## Redesenho do modal "Configuração IA" — evento IA Whatsapp
 
-## Diagnóstico confirmado
+Reorganizar a aba **Configuração IA** de `src/components/CriarProspeccaoModal.tsx` (case `'Configuração IA'`, ~L2977–L3400) para uma UX mais densa, com menos rolagem, mantendo toda a lógica atual (states, validações, filtros de template, cadência completa vs. simples). Nada de mudança de negócio — apenas layout + o modal da descrição.
 
-Você está certo: **`profiles.empresa_id` não é a fonte correta** para saber em quais lojas um vendedor está atribuído.
+### 1. Descrição em modal (em vez de expandir inline)
+- Substituir o botão Maximize/Minimize por **"Abrir editor"** que abre um `Dialog` (novo componente inline) com um `Textarea` grande (ex. `rows=20`), header com "Descrição da prospecção", botões **Aplicar modelo** e **Salvar**.
+- Remover o state `descricaoExpandida` (ou renomeá-lo para `descricaoModalOpen`).
+- No card principal mantém `Textarea` compacto (`rows={4}`), somente leitura visual continua editável. O botão "Aplicar modelo" fica no header do card.
 
-O clique nessa tela de **Acessos > Empresas com Acesso** atualiza a tabela:
+### 2. Grid de templates em 3 colunas
+- Envolver os 3 selects em um `grid grid-cols-1 md:grid-cols-3 gap-3`:
+  - **Template Prospecção** * (sempre visível)
+  - **Cadência Agendados** (renomear de "Template Agendado (opcional)")
+  - **Cadência Não Responderam** (renomear de "Template Não Responderam")
+- Cada select fica em um bloco compacto com label + select + botão limpar (X) inline.
+- Erro de "obrigatório" fica embaixo do próprio select (mantém validação atual).
+- Quando `cadenciaCompleta === true`: o grid vira `grid-cols-1 md:grid-cols-4` mostrando: Prospecção, Agendado 48h, Agendado 24h, Não Responderam (todos obrigatórios). Helpers "enviado 48h/24h antes" viram um único tooltip no label pra economizar altura.
 
-```text
-user_empresas
-```
+### 3. Data/hora da cadência junto dos templates
+- Mover **Data/Hora da Cadência** (renomear para **Data/Hora Cadência Agendados**) para dentro do mesmo grid de templates, ocupando a 4ª coluna quando cadência simples (grid vira `md:grid-cols-4`: Prospecção, Cadência Agendados, Data/Hora, Cadência Não Responderam) — ou linha abaixo em `grid-cols-2` se ficar apertado (validar visualmente).
+- Remover a seção separada "Configurações de Disparo".
 
-Fluxo real confirmado no código:
+### 4. Aviso "Disparo Inicial" alinhado à realidade
+- Substituir o card amarelo por uma linha discreta com ícone Info + texto:
+  > "O disparo inicial pode ser feito manualmente ou agendado pela tela da base do evento."
+- Colocada como legenda pequena logo abaixo do grid de templates.
 
-```text
-Acessos.tsx
-  └─ EmpresasSelector
-      └─ form.empresas = IDs marcados no checkbox
-          └─ manage-users edge function
-              └─ delete/insert em public.user_empresas
-```
+### 5. Configurações do Evento em 4 colunas
+- Transformar a seção "Configurações do Evento" em `grid grid-cols-1 md:grid-cols-3 gap-3` (são 3 controles: Tipo de Lead, Evento Principal, Qualificar Lead após Confirmação — o bloco "Evento de Confirmação" é só um aviso informativo, colocá-lo como banner fino abaixo do grid ocupando a linha inteira; assim ficam 3 colunas para os toggles/select + 1 banner).
+- Cada toggle (Evento Principal, Qualificar Lead) vira card compacto com Switch à direita e label + tooltip à esquerda, mesma altura do card do select Tipo de Lead.
+- Se o usuário preferir 4 colunas literais, colocar também o banner de "Evento de Confirmação" como 4º card (menor).
 
-Na criação/edição de usuário, a Edge Function `manage-users` grava os vínculos assim:
+### 6. Ajustes gerais
+- Reduzir `space-y-4` do container para `space-y-3` e paddings dos cards internos de `p-4` → `p-3`.
+- Manter todos os states, validações, `toast` de template duplicado, filtros de `whatsappTemplates` e comportamento de `cadenciaCompleta` intactos.
+- Não mexer nas outras abas (`case 'Configuração IA'` apenas para `tipoEvento === 'IA Whatsapp'`).
 
-```ts
-.from('user_empresas')
-.insert({
-  user_id,
-  empresa_id,
-  is_ativa
-})
-```
+### Arquivos alterados
+- `src/components/CriarProspeccaoModal.tsx` — reescrita da renderização do case IA Whatsapp (~L2977–L3400) + novo sub-`Dialog` da descrição.
 
-Ou seja: **a tabela que representa a atribuição real usuário/vendedor → empresa é `user_empresas`**.
-
-## Onde está o erro hoje
-
-A RPC usada no campo **“Vendedor que irá atender”** é:
-
-```sql
-public.get_vendedores_atendimento(p_empresa_id uuid)
-```
-
-Ela busca assim hoje:
-
-```sql
-FROM public.profiles p
-WHERE p.empresa_id = p_empresa_id
-  AND p.tipo_acesso = 'Vendedor'
-```
-
-Esse trecho é o problema:
-
-```sql
-p.empresa_id = p_empresa_id
-```
-
-Porque `profiles.empresa_id` é só uma empresa primária/default do perfil, não a lista real de lojas marcadas no controle de acessos.
-
-## Comportamento correto
-
-A busca deve ser:
-
-```text
-Buscar vendedores cujo usuário tenha vínculo com a loja ativa em user_empresas.
-```
-
-Ou seja:
-
-```sql
-profiles p
-JOIN user_empresas ue ON ue.user_id = p.id
-WHERE ue.empresa_id = p_empresa_id
-  AND p.tipo_acesso = 'Vendedor'
-  AND p.is_active = true
-```
-
-Importante: **não usar `ue.is_ativa = true`** para listar vendedores da loja.
-
-Motivo: `is_ativa` representa a empresa ativa na sessão daquele usuário, não se ele pertence à loja. Se o vendedor tem acesso a BMW GYN mas naquele momento está com outra loja ativa, ele ainda assim precisa aparecer como vendedor disponível para BMW GYN.
-
-## Correção proposta
-
-### 1. Alterar a RPC `get_vendedores_atendimento`
-
-Trocar a origem da loja de:
-
-```sql
-p.empresa_id = p_empresa_id
-```
-
-para:
-
-```sql
-JOIN public.user_empresas ue
-  ON ue.user_id = p.id
- AND ue.empresa_id = p_empresa_id
-```
-
-Mantendo:
-
-```sql
-p.tipo_acesso::text = 'Vendedor'
-COALESCE(p.is_active, true) = true
-public.user_can_access_empresa(p_empresa_id, auth.uid())
-```
-
-A chamada de `user_can_access_empresa` continuará com **dois argumentos**, como exige a regra do projeto, para evitar erro de overload.
-
-### 2. Não mexer no frontend
-
-O frontend já chama a RPC corretamente:
-
-```ts
-supabase.rpc("get_vendedores_atendimento", {
-  p_empresa_id: activeCompany.id,
-})
-```
-
-A falha está na lógica SQL da RPC, não no componente.
-
-A correção no banco resolve os dois lugares que usam o check-in:
-
-```text
-/prospeccao/recepcao
-DashboardLayout / FAB global
-```
-
-### 3. Validar com dados reais
-
-Depois da alteração, validar para a loja selecionada na tela, por exemplo BMW GYN:
-
-```sql
-SELECT p.id, p.nome_completo, p.tipo_acesso, ue.empresa_id
-FROM public.user_empresas ue
-JOIN public.profiles p ON p.id = ue.user_id
-WHERE ue.empresa_id = '78a6c1bd-1296-411b-a602-707c47e93e59'
-  AND p.tipo_acesso::text = 'Vendedor'
-  AND COALESCE(p.is_active, true) = true
-ORDER BY p.nome_completo;
-```
-
-Se essa query retornar vendedores, o combobox deve deixar de mostrar **“Nenhum vendedor cadastrado.”**
-
-### 4. Atualizar documentação/memória
-
-Registrar a regra para não repetirmos esse erro:
-
-```text
-Para atribuição de vendedor por loja, nunca usar profiles.empresa_id.
-Usar user_empresas como fonte real de vínculo usuário/empresa.
-```
-
-## Resultado esperado
-
-Após a migration:
-
-```text
-Recepção / Check-in
-  └─ Vendedor que irá atender
-      └─ lista vendedores vinculados à loja ativa via user_empresas
-```
-
-E não mais apenas vendedores cujo `profiles.empresa_id` bate com a loja.
+### Fora do escopo
+- Lógica de disparo/cadência no backend.
+- Outros tipos de evento (Padrão, IA Ligação etc.).
+- Renomear campos no banco.

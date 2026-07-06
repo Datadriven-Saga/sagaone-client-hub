@@ -232,6 +232,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   
   // Estado para expandir descrição
   const [descricaoExpandida, setDescricaoExpandida] = useState(false);
+  const [descricaoModalOpen, setDescricaoModalOpen] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -2976,10 +2977,11 @@ ${localEvento}`;
 
       case 'Configuração IA':
         if (tipoEvento === 'IA Whatsapp') {
+          const cadCompleta = cadenciaCompleta || editingProspeccao?.cadencia_completa;
           return (
-            <div className="space-y-4">
-              {/* Descrição com borda e botão expandir */}
-              <div className="rounded-lg border border-border p-4 bg-card">
+            <div className="space-y-3">
+              {/* Descrição compacta com botão para abrir editor em modal */}
+              <div className="rounded-lg border border-border p-3 bg-card">
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="descricao">Descrição <span className="text-destructive">*</span></Label>
                   <div className="flex items-center gap-2">
@@ -2987,17 +2989,9 @@ ${localEvento}`;
                       <FileText className="w-4 h-4 mr-1" />
                       Aplicar modelo
                     </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setDescricaoExpandida(!descricaoExpandida)}
-                    >
-                      {descricaoExpandida ? (
-                        <Minimize2 className="w-4 h-4" />
-                      ) : (
-                        <Maximize2 className="w-4 h-4" />
-                      )}
+                    <Button type="button" variant="outline" size="sm" onClick={() => setDescricaoModalOpen(true)}>
+                      <Maximize2 className="w-4 h-4 mr-1" />
+                      Abrir editor
                     </Button>
                   </div>
                 </div>
@@ -3006,416 +3000,350 @@ ${localEvento}`;
                   placeholder="Descreva os detalhes da prospecção..."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  rows={descricaoExpandida ? 16 : 6}
-                  className="resize-none transition-all"
+                  rows={4}
+                  className="resize-none"
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="template_prospeccao">
-                  Template Prospecção <span className="text-destructive">*</span>
-                </Label>
-                <div className="flex gap-2">
-                  <Select value={templateProspeccaoId} onValueChange={(value) => {
-                    if (value === templateAgendadoId || value === templateNaoAgendadoId) {
-                      toast({
-                        title: "Template já utilizado",
-                        description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    setTemplateProspeccaoId(value);
-                  }}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione um template aprovado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId && t.id !== templateNaoAgendadoId)
-                        .map(template => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.nome}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {templateProspeccaoId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setTemplateProspeccaoId("")}
-                      className="shrink-0"
-                      title="Limpar seleção"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {!templateProspeccaoId && (
-                  <p className="text-xs text-destructive">Template de prospecção é obrigatório</p>
-                )}
-              </div>
-              
-              {/* Template Agendado - visível apenas quando cadência completa está desativa */}
-              {!(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
-              <div className="space-y-2">
-                <Label htmlFor="template_agendado">Template Agendado (opcional)</Label>
-                <div className="flex gap-2">
-                  <Select value={templateAgendadoId} onValueChange={(value) => {
-                    if (value === templateProspeccaoId || value === templateNaoAgendadoId) {
-                      toast({
-                        title: "Template já utilizado",
-                        description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    setTemplateAgendadoId(value);
-                  }}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione um template aprovado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
-                        .map(template => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.nome}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {templateAgendadoId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setTemplateAgendadoId("")}
-                      className="shrink-0"
-                      title="Limpar seleção"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              )}
 
-              {/* Templates Agendado 48h e 24h - visíveis apenas quando cadência completa está ativa */}
-              {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
-                <>
+              {/* Modal editor de descrição */}
+              <Dialog open={descricaoModalOpen} onOpenChange={setDescricaoModalOpen}>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle>Descrição da prospecção</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex justify-end">
+                    <Button type="button" variant="outline" size="sm" onClick={aplicarModeloDescricao}>
+                      <FileText className="w-4 h-4 mr-1" />
+                      Aplicar modelo
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={descricao}
+                    onChange={(e) => setDescricao(e.target.value)}
+                    rows={20}
+                    placeholder="Descreva os detalhes da prospecção..."
+                    className="resize-none"
+                  />
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={() => setDescricaoModalOpen(false)}>Concluir</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Templates + cadência em grid */}
+              {!cadCompleta ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Template Prospecção */}
                   <div className="space-y-2">
-                    <Label htmlFor="template_agendado_48h">
-                      Template Agendado 48h <span className="text-destructive">*</span>
+                    <Label htmlFor="template_prospeccao" className="text-sm">
+                      Template Prospecção <span className="text-destructive">*</span>
                     </Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
+                      <Select value={templateProspeccaoId} onValueChange={(value) => {
+                        if (value === templateAgendadoId || value === templateNaoAgendadoId) {
+                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
+                          return;
+                        }
+                        setTemplateProspeccaoId(value);
+                      }}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateProspeccaoId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateProspeccaoId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
+                  </div>
+
+                  {/* Cadência Agendados */}
+                  <div className="space-y-2">
+                    <Label htmlFor="template_agendado" className="text-sm">Cadência Agendados</Label>
+                    <div className="flex gap-1">
+                      <Select value={templateAgendadoId} onValueChange={(value) => {
+                        if (value === templateProspeccaoId || value === templateNaoAgendadoId) {
+                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
+                          return;
+                        }
+                        setTemplateAgendadoId(value);
+                      }}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateAgendadoId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Data/Hora Cadência Agendados */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="data_envio_cadencia" className="text-sm">Data/Hora Cadência</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Quando a cadência de agendados será enviada. Em branco = 24h antes do evento.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <Input
+                      id="data_envio_cadencia"
+                      type="datetime-local"
+                      value={dataEnvioCadencia}
+                      onChange={(e) => setDataEnvioCadencia(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Cadência Não Responderam */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="template_nao_agendado" className="text-sm">Cadência Não Responderam</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Quem respondeu terá cadência automática "como a Maia", sem gastar template. Vale para leads que responderam, mas não agendaram.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="flex gap-1">
+                      <Select value={templateNaoAgendadoId} onValueChange={(value) => {
+                        if (value === templateProspeccaoId || value === templateAgendadoId) {
+                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
+                          return;
+                        }
+                        setTemplateNaoAgendadoId(value);
+                      }}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateNaoAgendadoId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0" title="Limpar seleção">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Prospecção */}
+                  <div className="space-y-2">
+                    <Label className="text-sm">Template Prospecção <span className="text-destructive">*</span></Label>
+                    <div className="flex gap-1">
+                      <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendado48hId && t.id !== templateAgendado24hId && t.id !== templateNaoAgendadoId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateProspeccaoId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateProspeccaoId("")} className="shrink-0"><X className="h-4 w-4" /></Button>
+                      )}
+                    </div>
+                    {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
+                  </div>
+
+                  {/* Agendados 48h */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1">
+                      <Label className="text-sm">Cadência Agendados 48h <span className="text-destructive">*</span></Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Enviado automaticamente 48h antes do início do evento.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="flex gap-1">
                       <Select value={templateAgendado48hId} onValueChange={setTemplateAgendado48hId}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione um template aprovado" />
-                        </SelectTrigger>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                           {whatsappTemplates
                             .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado24hId && t.id !== templateNaoAgendadoId)
                             .map(template => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.nome}
-                              </SelectItem>
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
                             ))}
                         </SelectContent>
                       </Select>
                       {templateAgendado48hId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado48hId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado48hId("")} className="shrink-0"><X className="h-4 w-4" /></Button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">Enviado automaticamente 48h antes do início do evento</p>
-                    {!templateAgendado48hId && (
-                      <p className="text-xs text-destructive">Template obrigatório</p>
-                    )}
+                    {!templateAgendado48hId && <p className="text-xs text-destructive">Obrigatório</p>}
                   </div>
 
+                  {/* Agendados 24h */}
                   <div className="space-y-2">
-                    <Label htmlFor="template_agendado_24h">
-                      Template Agendado 24h <span className="text-destructive">*</span>
-                    </Label>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1">
+                      <Label className="text-sm">Cadência Agendados 24h <span className="text-destructive">*</span></Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Enviado automaticamente 24h antes do início do evento.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="flex gap-1">
                       <Select value={templateAgendado24hId} onValueChange={setTemplateAgendado24hId}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione um template aprovado" />
-                        </SelectTrigger>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                           {whatsappTemplates
                             .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado48hId && t.id !== templateNaoAgendadoId)
                             .map(template => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.nome}
-                              </SelectItem>
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
                             ))}
                         </SelectContent>
                       </Select>
                       {templateAgendado24hId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado24hId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendado24hId("")} className="shrink-0"><X className="h-4 w-4" /></Button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">Enviado automaticamente 24h antes do início do evento</p>
-                    {!templateAgendado24hId && (
-                      <p className="text-xs text-destructive">Template obrigatório</p>
-                    )}
+                    {!templateAgendado24hId && <p className="text-xs text-destructive">Obrigatório</p>}
                   </div>
-                </>
-              )}
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="template_nao_agendado">
-                    Template Não Responderam {(cadenciaCompleta || editingProspeccao?.cadencia_completa) ? <span className="text-destructive">*</span> : '(opcional)'}
-                  </Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="font-medium mb-1">Motivo:</p>
-                        <p>Quem respondeu terá uma cadência automática "como a Maia", sem gastar dinheiro com template. Isso vale para os leads que responderam, mas não agendaram.</p>
-                        {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
-                          <p className="mt-2 text-xs">Será enviado 4 horas após o disparo inicial.</p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div className="flex gap-2">
-                  <Select value={templateNaoAgendadoId} onValueChange={(value) => {
-                    if (value === templateProspeccaoId || value === templateAgendadoId) {
-                      toast({
-                        title: "Template já utilizado",
-                        description: "Este template já está selecionado em outro campo. Escolha um template diferente.",
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    setTemplateNaoAgendadoId(value);
-                  }}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecione um template aprovado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {whatsappTemplates
-                        .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
-                        .map(template => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.nome}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {templateNaoAgendadoId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setTemplateNaoAgendadoId("")}
-                      className="shrink-0"
-                      title="Limpar seleção"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && !templateNaoAgendadoId && (
-                  <p className="text-xs text-destructive">Obrigatório com cadência completa ativa</p>
-                )}
-              </div>
 
-              {/* Configurações de Disparo - ocultas quando cadência completa ativa */}
-              {!(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-4">Configurações de Disparo</h4>
-                
-                {/* Aviso sobre Disparo Inicial */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Label>Disparo Inicial</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>O disparo inicial é realizado manualmente pelo botão "Disparar" na tela do evento.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
-                    <p className="text-sm text-amber-700 dark:text-amber-400">
-                      O disparo inicial é feito no momento em que você clica no botão de disparo na tela do evento. Apenas a cadência pode ser configurada com data/hora.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Data/Hora Cadência */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="data_envio_cadencia">Data/Hora da Cadência</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Define quando a mensagem de confirmação será enviada. Por padrão é 24 horas antes do início do evento.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Input
-                    id="data_envio_cadencia"
-                    type="datetime-local"
-                    value={dataEnvioCadencia}
-                    onChange={(e) => setDataEnvioCadencia(e.target.value)}
-                    placeholder="24h antes do evento (padrão)"
-                  />
-                  <p className="text-xs text-muted-foreground">Deixe em branco para usar 24h antes do evento</p>
-                </div>
-              </div>
-              )}
-
-              {/* Info sobre cadências fixas quando cadência completa ativa */}
-              {(cadenciaCompleta || editingProspeccao?.cadencia_completa) && (
-                <div className="border-t pt-4 mt-4">
-                  <h4 className="text-sm font-medium mb-3">Cadências Fixas (automáticas)</h4>
+                  {/* Não Responderam */}
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
-                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-muted-foreground">Agendados: <strong>48h</strong> e <strong>24h</strong> antes do início do evento</span>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-sm">Cadência Não Responderam <span className="text-destructive">*</span></Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Enviado 4h após o disparo inicial para quem não respondeu.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
                     </div>
-                    <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
-                      <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-muted-foreground">Não responderam: <strong>4h</strong> após o disparo inicial</span>
+                    <div className="flex gap-1">
+                      <Select value={templateNaoAgendadoId} onValueChange={setTemplateNaoAgendadoId}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                          {whatsappTemplates
+                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendado48hId && t.id !== templateAgendado24hId)
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {templateNaoAgendadoId && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0"><X className="h-4 w-4" /></Button>
+                      )}
                     </div>
+                    {!templateNaoAgendadoId && <p className="text-xs text-destructive">Obrigatório</p>}
                   </div>
                 </div>
               )}
 
-              {/* Separador */}
-              <div className="border-t pt-4 mt-4">
-                <h4 className="text-sm font-medium mb-4">Configurações do Evento</h4>
-                
-                {/* Tipo de Lead */}
-                <div className="p-3 rounded-lg border bg-card mb-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label htmlFor="tipo_lead" className="font-medium">Tipo de Lead</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Define qual o tipo de lead ou tipo de campanha desse evento. Os leads serão criados com uma tag específica no Mobigestor [tipo_lead] se for relacionamento ou prospecção. Para vendas não adicionaremos tags, apenas a tag padrão de lead, nesse caso consideramos que é uma campanha normal de negociação.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Select
-                    value={tipoLead}
-                    onValueChange={(v) => setTipoLead(v as 'vendas' | 'prospeccao' | 'relacionamento')}
-                    disabled={!!editingProspeccao}
-                  >
-                    <SelectTrigger id="tipo_lead">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="vendas">Vendas (padrão)</SelectItem>
-                      <SelectItem value="prospeccao">Prospecção</SelectItem>
-                      <SelectItem value="relacionamento">Relacionamento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {editingProspeccao && (
-                    <p className="text-xs text-muted-foreground mt-2">Este campo não pode ser alterado após a criação do evento.</p>
-                  )}
-                </div>
+              {/* Aviso disparo inicial – alinhado à realidade */}
+              <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
+              </div>
 
-                {/* Evento Principal */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mb-3">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="evento_principal" className="font-medium cursor-pointer">Evento Principal</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Se ativado, quando um lead falar com a Pri nessa empresa, ele será automaticamente direcionado para este evento.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Switch
-                    id="evento_principal"
-                    checked={eventoPrincipal}
-                    onCheckedChange={setEventoPrincipal}
-                  />
+              {cadCompleta && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span>Cadência completa ativa: envios fixos em <strong>48h</strong> e <strong>24h</strong> antes do evento, e <strong>4h</strong> após o disparo inicial.</span>
                 </div>
+              )}
 
-                {/* Qualificar Lead */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="qualificar_lead" className="font-medium cursor-pointer">Qualificar Lead após Confirmação</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Se ativado, o lead será qualificado para a loja após confirmação. Se desativado, o lead ficará na central de atendimento na coluna 'Agendados' com a tag 'CONFIRMADO'.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+              {/* Configurações do Evento em grid */}
+              <div className="border-t pt-3">
+                <h4 className="text-sm font-medium mb-3">Configurações do Evento</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Tipo de Lead */}
+                  <div className="p-3 rounded-lg border bg-card">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="tipo_lead" className="font-medium text-sm">Tipo de Lead</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Define o tipo de lead/campanha. Vendas usa apenas a tag padrão; prospecção/relacionamento adicionam uma tag específica no Mobigestor.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <Select
+                      value={tipoLead}
+                      onValueChange={(v) => setTipoLead(v as 'vendas' | 'prospeccao' | 'relacionamento')}
+                      disabled={!!editingProspeccao}
+                    >
+                      <SelectTrigger id="tipo_lead"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vendas">Vendas (padrão)</SelectItem>
+                        <SelectItem value="prospeccao">Prospecção</SelectItem>
+                        <SelectItem value="relacionamento">Relacionamento</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Switch
-                    id="qualificar_lead"
-                    checked={qualificarLead}
-                    onCheckedChange={setQualificarLead}
-                  />
-                </div>
 
-                {/* Evento de Confirmação */}
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-card mt-3">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="evento_confirmacao" className="font-medium cursor-pointer">Evento de Confirmação</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Disparo direcionado exclusivamente a leads que já estão agendados (status "Convidado"). O objetivo não é gerar novos agendamentos, mas confirmar a presença de quem já agendou. Ao confirmar, o lead avança para o status "Confirmado". Leads em qualquer outro status não serão impactados por esse tipo de evento.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  {/* Evento Principal */}
+                  <div className="p-3 rounded-lg border bg-card flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="evento_principal" className="font-medium text-sm cursor-pointer">Evento Principal</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Se ativo, leads que falarem com a Pri nesta empresa vão direto para este evento.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="flex justify-end">
+                      <Switch id="evento_principal" checked={eventoPrincipal} onCheckedChange={setEventoPrincipal} />
+                    </div>
                   </div>
-                  <Switch
-                    id="evento_confirmacao"
-                    checked={eventoConfirmacao}
-                    onCheckedChange={setEventoConfirmacao}
-                    disabled={!!editingProspeccao || !isConfirmacaoFlow}
-                  />
+
+                  {/* Qualificar Lead */}
+                  <div className="p-3 rounded-lg border bg-card flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="qualificar_lead" className="font-medium text-sm cursor-pointer">Qualificar após Confirmação</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Se ativo, o lead é qualificado para a loja após confirmar. Se inativo, fica na central em 'Agendados' com tag 'CONFIRMADO'.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="flex justify-end">
+                      <Switch id="qualificar_lead" checked={qualificarLead} onCheckedChange={setQualificarLead} />
+                    </div>
+                  </div>
+
+                  {/* Evento de Confirmação */}
+                  <div className="p-3 rounded-lg border bg-card flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Label htmlFor="evento_confirmacao" className="font-medium text-sm cursor-pointer">Evento de Confirmação</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Disparo exclusivo para leads já agendados (status 'Convidado'). Não gera novos agendamentos, apenas confirma presença.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <div className="flex justify-end">
+                      <Switch
+                        id="evento_confirmacao"
+                        checked={eventoConfirmacao}
+                        onCheckedChange={setEventoConfirmacao}
+                        disabled={!!editingProspeccao || !isConfirmacaoFlow}
+                      />
+                    </div>
+                  </div>
                 </div>
                 {editingProspeccao && (
-                  <p className="text-xs text-muted-foreground -mt-1">Este campo não pode ser alterado após a criação do evento.</p>
+                  <p className="text-xs text-muted-foreground mt-2">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
                 )}
                 {!editingProspeccao && !isConfirmacaoFlow && (
-                  <p className="text-xs text-muted-foreground -mt-1">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
+                  <p className="text-xs text-muted-foreground mt-2">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
                 )}
                 {isConfirmacaoFlow && parentEvento && (
-                  <p className="text-xs text-primary -mt-1">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
+                  <p className="text-xs text-primary mt-2">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
                 )}
               </div>
             </div>
