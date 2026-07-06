@@ -3092,13 +3092,13 @@ ${localEvento}`;
                     </div>
                   </div>
 
-                  {/* Data/Hora Cadência Agendados */}
+                  {/* Data/Hora – aplica às duas cadências */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-1">
-                      <Label htmlFor="data_envio_cadencia" className="text-sm">Data/Hora Cadência</Label>
+                      <Label htmlFor="data_envio_cadencia" className="text-sm">Data/Hora das Cadências</Label>
                       <TooltipProvider><Tooltip>
                         <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Quando a cadência de agendados será enviada. Em branco = 24h antes do evento.</p></TooltipContent>
+                        <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
                       </Tooltip></TooltipProvider>
                     </div>
                     <Input
@@ -3106,6 +3106,12 @@ ${localEvento}`;
                       type="datetime-local"
                       value={dataEnvioCadencia}
                       onChange={(e) => setDataEnvioCadencia(e.target.value)}
+                      onClick={(e) => {
+                        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+                        el.showPicker?.();
+                      }}
+                      style={{ colorScheme: 'dark' }}
+                      className="cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                     />
                   </div>
 
