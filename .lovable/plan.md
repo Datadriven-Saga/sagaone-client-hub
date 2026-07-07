@@ -1,38 +1,34 @@
-Ajustes visuais na Etapa 2 (Configuração IA) do modal "Novo Evento".
+## Ajustes no CriarProspeccaoModal.tsx
 
-## 1. Remover o "X" de fechar do topo-direito (apenas neste modal)
+### 1. Calendário visível em ambos os temas
 
-O botão X vem de `DialogContent` em `src/components/ui/dialog.tsx` (linha ~52) e é global — não vou alterar o dialog base para não afetar todos os modais do sistema.
+Nos dois `<Input type="datetime-local">` (linhas ~3373 e ~3444), adicionar as classes:
 
-Em `src/components/CriarProspeccaoModal.tsx`, adicionar CSS para esconder somente o botão de close deste modal:
-- Passar uma classe extra ao `DialogContent` (ex.: `[&>button.absolute]:hidden`) que oculta o `<button>` de close renderizado pelo Radix logo dentro do `DialogContent`.
-
-## 2. Calendário invisível no modo claro
-
-Nos `<Input type="datetime-local">` das cadências (linhas ~3385 e ~3457), remover `style={{ colorScheme: 'dark' }}`. O ícone do calendário passa a herdar o color-scheme do tema (claro/escuro), ficando visível em ambos.
-
-## 3. Remover linhas da tabela de cadências e reduzir altura dos dropdowns
-
-Na tabela de "Cadências (até 3)" (linhas ~3322–3500):
-- Trocar wrapper `<div className="rounded-md border overflow-x-auto">` por `<div className="overflow-x-auto">`.
-- Adicionar `className="border-0 hover:bg-transparent"` a cada `<TableRow>` (header e body) para eliminar as divisórias.
-- Reduzir padding vertical das células: `<TableHead>` recebe `h-8 py-1`; `<TableCell>` recebe `py-1`.
-- Reduzir altura dos controles: `SelectTrigger` e `Input datetime-local` ganham `h-8 text-sm`.
-
-## 4. Mover texto do tooltip para o espaço em branco
-
-Hoje o bloco "Template Prospecção" ocupa `max-w-md` sozinho, deixando o quadrado à direita vazio (marcado em vermelho na screenshot anterior).
-
-Reestruturar em grid de 2 colunas:
 ```
-[ Label + Select Template Prospecção ]   [ Texto informativo ]
+[color-scheme:light] dark:[color-scheme:dark]
 ```
-- Remover o `<TooltipProvider>` ao lado do label "Template Prospecção".
-- À direita, renderizar `<p className="text-xs text-muted-foreground self-center">` com o conteúdo antes escondido no tooltip: *"O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas."*
-- Manter o `*` obrigatório e a mensagem "Obrigatório" abaixo do select.
 
-## Fora de escopo
-- Modo cadência completa (`cadCompleta`).
-- Outros modais / dialog base (`ui/dialog.tsx`).
-- Botões "X" de limpar seleção dos selects (foram mantidos, não é o X que o usuário quer remover).
-- Lógica de negócio, payloads, banco.
+Isso faz o navegador renderizar o popup nativo do calendário conforme o tema atual (claro no light, escuro no dark), mesmo comportamento que os campos de texto já têm ao herdar as cores do tema.
+
+### 2. Reduzir largura do modal ~30% em telas grandes
+
+Linha 4654, `DialogContent`. Atualmente:
+
+```
+w-[calc((100vw-2rem)*0.8)] sm:max-w-[calc((100vw-2rem)*0.8)]
+```
+
+Mudar para manter o tamanho atual em telas pequenas e reduzir só em telas maiores:
+
+```
+w-[calc((100vw-2rem)*0.8)]
+sm:max-w-[calc((100vw-2rem)*0.8)]
+lg:w-[calc((100vw-2rem)*0.65)] lg:max-w-[calc((100vw-2rem)*0.65)]
+xl:w-[calc((100vw-2rem)*0.55)] xl:max-w-[calc((100vw-2rem)*0.55)]
+```
+
+Resultado: `lg` (≥1024px) ~65%, `xl` (≥1280px) ~55% — ~30% mais estreito que o atual em tela cheia; abaixo de `lg` o modal segue com a largura atual.
+
+### Escopo
+- Somente `src/components/CriarProspeccaoModal.tsx`.
+- Nenhuma alteração de lógica, payload ou banco.
