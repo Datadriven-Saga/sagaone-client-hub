@@ -169,7 +169,7 @@ export function EntregasTab() {
                       onClick={() => addDraftSequencia(g.slug)}
                     >
                       <Plus className="h-3.5 w-3.5 mr-1" />
-                      Adicionar seguimento
+                      Adicionar template
                     </Button>
                   </div>
                 </CardContent>
