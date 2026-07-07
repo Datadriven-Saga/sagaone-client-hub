@@ -2380,6 +2380,54 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           payload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || null;
           payload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || null;
         }
+
+        // Lista de cadências (até 3) — apenas fora do modo cadência completa.
+        // Cada item repete o template de Prospecção (enviado uma única vez em "Ver base")
+        // e traz agendado / não-agendado / data específicos da linha.
+        if (!prospeccaoData.cadencia_completa) {
+          const cadenciasList: any[] = [
+            {
+              ordem: 1,
+              template_id: templateProspeccaoData?.template_id_pri || null,
+              template_nome: templateProspeccaoData?.nome || null,
+              template_id_pri: templateProspeccaoData?.template_id_pri || null,
+              template_id_meta: templateProspeccaoData?.id_meta || null,
+              template_agendado_id: templateAgendadoUuid || null,
+              template_agendado_nome: templateAgendadoData?.nome || null,
+              template_agendado_id_pri: templateAgendadoData?.template_id_pri || null,
+              template_agendado_id_meta: templateAgendadoData?.id_meta || null,
+              data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
+              template_nao_agendado_id: templateNaoAgendadoUuid || null,
+              template_nao_agendado_nome: templateNaoAgendadoData?.nome || null,
+              template_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || null,
+              template_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || null,
+            },
+          ];
+
+          for (let i = 0; i < cadenciasExtras.length; i++) {
+            const c = cadenciasExtras[i];
+            const ag = await lookupTemplateById(c.template_agendado_id || null);
+            const na = await lookupTemplateById(c.template_nao_agendado_id || null);
+            cadenciasList.push({
+              ordem: i + 2,
+              template_id: templateProspeccaoData?.template_id_pri || null,
+              template_nome: templateProspeccaoData?.nome || null,
+              template_id_pri: templateProspeccaoData?.template_id_pri || null,
+              template_id_meta: templateProspeccaoData?.id_meta || null,
+              template_agendado_id: c.template_agendado_id || null,
+              template_agendado_nome: ag?.nome || null,
+              template_agendado_id_pri: ag?.template_id_pri || null,
+              template_agendado_id_meta: ag?.id_meta || null,
+              data_envio_cadencia: c.data_envio_cadencia ? new Date(c.data_envio_cadencia).toISOString() : null,
+              template_nao_agendado_id: c.template_nao_agendado_id || null,
+              template_nao_agendado_nome: na?.nome || null,
+              template_nao_agendado_id_pri: na?.template_id_pri || null,
+              template_nao_agendado_id_meta: na?.id_meta || null,
+            });
+          }
+
+          payload.cadencias = cadenciasList;
+        }
       }
 
       console.log(`📤 Disparando ${gatilhosEvento.length} gatilho(s) de novo_evento_criado para ${tipoEvento}`);
