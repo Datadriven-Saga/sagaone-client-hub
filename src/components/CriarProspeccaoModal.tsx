@@ -3279,9 +3279,21 @@ ${localEvento}`;
                 <div className="space-y-4">
                   {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
                   <div className="space-y-2 max-w-md">
-                    <Label htmlFor="template_prospeccao" className="text-sm">
-                      Template Prospecção <span className="text-destructive">*</span>
-                    </Label>
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="template_prospeccao" className="text-sm">
+                        Template Prospecção <span className="text-destructive">*</span>
+                      </Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <div className="flex gap-1">
                       <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
