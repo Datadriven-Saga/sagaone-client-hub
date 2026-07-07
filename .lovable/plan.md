@@ -1,31 +1,33 @@
-## Tornar data/hora obrigatória nas cadências extras (linhas 2 e 3)
+## Remover texto de confirmação e ajustar espaçamento na Configuração IA
 
 ### Contexto
-No modal `CriarProspeccaoModal.tsx`, a tabela de cadências para eventos `IA Whatsapp` permite até 3 cadências:
-- Cadência #1: usa campos legacy (`dataEnvioCadencia`); permanece opcional.
-- Cadências #2 e #3: vêm do estado `cadenciasExtras` e possuem o campo `data_envio_cadencia`.
+Na etapa "Configuração IA" do modal `CriarProspeccaoModal.tsx`, abaixo da div "Configurações do Evento" existe um texto explicativo (print do usuário, caixa vermelha):
+> "Para criar um evento de confirmação, use o botão 'Criar Confirmação' dentro da base de um evento existente."
 
-O usuário pediu que os campos de data/hora das cadências extras sejam obrigatórios quando essas cadências existem (ou seja, `cadenciasExtras.length > 0`).
+O usuário quer remover esse texto e, com isso, "subir as duas divs" (Descrição e Configurações do Evento) para aproveitar melhor o espaço vertical do modal.
 
 ### Escopo
 Alterações somente no frontend, no arquivo `src/components/CriarProspeccaoModal.tsx`.
 
 ### Implementação
 
-1. **Validação no submit (`handleSubmit`)**
-   - Após as validações existentes de `IA Whatsapp` e antes de iniciar o `setLoading(true)`, verificar se há cadências extras.
-   - Para cada item de `cadenciasExtras`, garantir que `data_envio_cadencia` esteja preenchido.
-   - Se algum estiver vazio, exibir `toast` de erro e abortar o submit.
+1. **Remover o texto explicativo**
+   - Remover o bloco condicional:
+     ```tsx
+     {!editingProspeccao && !isConfirmacaoFlow && (
+       <p className="text-xs text-muted-foreground mt-2">Para criar um evento de confirmação...</p>
+     )}
+     ```
+   - Manter os outros textos da div (edição e confirmação vinculada), pois não estão no print e não foram solicitados para remoção.
 
-2. **Validação na navegação entre etapas (`handleNextStep`)**
-   - Quando o usuário estiver na etapa `Configuração IA` e tentar avançar, se houver cadências extras sem data/hora preenchida, exibir `toast` e impedir a navegação.
+2. **Ajustar o espaçamento vertical para elevar o conteúdo**
+   - Reduzir o `space-y` do container da etapa `Configuração IA` para deixar o conteúdo mais compacto após a remoção do texto.
+   - Ou reduzir o padding/margin inferior da div "Configurações do Evento" para aproximá-la da seção "Template Prospecção" abaixo.
 
-3. **Indicador visual com asterisco**
-   - Seguir o mesmo padrão do campo `Descrição` (`<span className="text-destructive">*</span>` no `Label`).
-   - Adicionar o asterisco no cabeçalho da coluna `Data/Hora` da tabela de cadências (ou em cada input das linhas 2 e 3) para indicar obrigatoriedade quando cadências extras existirem.
-   - Não exibir texto "Obrigatório" em vermelho abaixo dos inputs.
+### Resultado esperado
+- O texto destacado em vermelho desaparece.
+- A div "Descrição" e a div "Configurações do Evento" ocupam menos altura, e a seção "Template Prospecção" sobe, ocupando o espaço liberado.
 
 ### Fora de escopo
-- Não alterar a cadência #1 (legacy).
-- Não modificar payload, banco, webhooks, RLS ou migrations.
-- Não adicionar validação server-side (a regra é de UX do modal; o backend continua aceitando `null` e aplicando o fallback de 24h antes do evento).
+- Não alterar a lógica de criação de confirmação, payload, banco ou validações.
+- Não modificar o texto dos outros estados (`editingProspeccao` / `isConfirmacaoFlow`).
