@@ -3633,11 +3633,6 @@ ${localEvento}`;
                 </div>
               )}
 
-              {/* Aviso disparo inicial – alinhado à realidade */}
-              <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
-              </div>
 
               {cadCompleta && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
