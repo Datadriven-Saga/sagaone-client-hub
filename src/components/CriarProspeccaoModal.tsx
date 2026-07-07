@@ -1340,6 +1340,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     }
 
+    // Validação: cadências extras devem ter data/hora de envio preenchida
+    if (tipoEvento === 'IA Whatsapp' && cadenciasExtras.length > 0) {
+      const missingDataHora = cadenciasExtras.some(c => !c.data_envio_cadencia);
+      if (missingDataHora) {
+        toast({
+          title: "Campo obrigatório",
+          description: "Preencha a data/hora de envio de todas as cadências adicionais.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+
     if (!user) {
       toast({
         title: "Erro",
