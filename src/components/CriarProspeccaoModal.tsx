@@ -99,6 +99,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [templateAgendado48hId, setTemplateAgendado48hId] = useState("");
   const [templateAgendado24hId, setTemplateAgendado24hId] = useState("");
 
+  // Cadências extras (IA WhatsApp, modo simples): posições 2 e 3
+  interface CadenciaExtra {
+    template_agendado_id: string;
+    template_nao_agendado_id: string;
+    data_envio_cadencia: string; // formato datetime-local
+  }
+  const [cadenciasExtras, setCadenciasExtras] = useState<CadenciaExtra[]>([]);
+
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
   const [metaSeminovos, setMetaSeminovos] = useState<number | "">("");
@@ -378,6 +386,42 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   }, [editingProspeccao, isOpen, parentEvento]);
 
+  // Hidratar cadências extras (ordem 2 e 3) da tabela prospeccao_cadencias
+  useEffect(() => {
+    const fetchCadenciasExtras = async () => {
+      if (!editingProspeccao?.id || !isOpen) return;
+      const { data, error } = await supabase
+        .from('prospeccao_cadencias')
+        .select('ordem, template_agendado_id, template_nao_agendado_id, data_envio_cadencia')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .gt('ordem', 1)
+        .order('ordem', { ascending: true });
+      if (error) {
+        console.error('[cadencias] erro ao carregar extras:', error);
+        setCadenciasExtras([]);
+        return;
+      }
+      const toLocal = (iso: string | null): string => {
+        if (!iso) return '';
+        try {
+          const d = new Date(iso);
+          const off = d.getTimezoneOffset();
+          return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
+        } catch {
+          return '';
+        }
+      };
+      setCadenciasExtras(
+        (data ?? []).map((r: any) => ({
+          template_agendado_id: r.template_agendado_id ?? '',
+          template_nao_agendado_id: r.template_nao_agendado_id ?? '',
+          data_envio_cadencia: toLocal(r.data_envio_cadencia),
+        })),
+      );
+    };
+    fetchCadenciasExtras();
+  }, [editingProspeccao?.id, isOpen]);
+
   // Buscar tamanho da base quando editando
   useEffect(() => {
     const fetchTamanhoBase = async () => {
@@ -521,6 +565,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setCadenciaCompleta(false);
     setTemplateAgendado48hId("");
     setTemplateAgendado24hId("");
+    setCadenciasExtras([]);
     // Reset IA Ligação
     setContatosLigacao([]);
     setContatosInvalidos([]);
@@ -1033,6 +1078,69 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     }
   };
+
+  // Persiste a tabela `prospeccao_cadencias` (até 3 linhas).
+  // Cadência #1 espelha os campos legacy (templateAgendadoId / templateNaoAgendadoId / dataEnvioCadencia).
+  // Cadências 2 e 3 vêm de `cadenciasExtras`. Só aplica para IA WhatsApp fora do modo cadência completa.
+  const saveCadencias = async (
+    prospeccaoId: string,
+    opts: { modoCompleto: boolean },
+  ) => {
+    if (tipoEvento !== 'IA Whatsapp') return;
+
+    // Modo cadência completa antigo não usa esta tabela — limpa tudo.
+    if (opts.modoCompleto) {
+      await supabase
+        .from('prospeccao_cadencias')
+        .delete()
+        .eq('prospeccao_id', prospeccaoId);
+      return;
+    }
+
+    const parseLocal = (v: string): string | null => {
+      if (!v) return null;
+      try {
+        return new Date(v).toISOString();
+      } catch {
+        return null;
+      }
+    };
+
+    const rows = [
+      {
+        prospeccao_id: prospeccaoId,
+        ordem: 1,
+        template_agendado_id: templateAgendadoId || null,
+        template_nao_agendado_id: templateNaoAgendadoId || null,
+        data_envio_cadencia: parseLocal(dataEnvioCadencia),
+      },
+      ...cadenciasExtras.map((c, i) => ({
+        prospeccao_id: prospeccaoId,
+        ordem: i + 2,
+        template_agendado_id: c.template_agendado_id || null,
+        template_nao_agendado_id: c.template_nao_agendado_id || null,
+        data_envio_cadencia: parseLocal(c.data_envio_cadencia),
+      })),
+    ];
+
+    const { error: upsertError } = await supabase
+      .from('prospeccao_cadencias')
+      .upsert(rows, { onConflict: 'prospeccao_id,ordem' });
+    if (upsertError) {
+      console.error('[cadencias] upsert error:', upsertError);
+      return;
+    }
+
+    // Remove linhas com ordem superior à quantidade atual (caso o usuário tenha removido).
+    const { error: deleteError } = await supabase
+      .from('prospeccao_cadencias')
+      .delete()
+      .eq('prospeccao_id', prospeccaoId)
+      .gt('ordem', rows.length);
+    if (deleteError) {
+      console.error('[cadencias] cleanup error:', deleteError);
+    }
+  };
   
   // Salvar página de captura
   const savePagina = async (prospeccaoId: string) => {
@@ -1528,6 +1636,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Whatsapp') {
           await saveConvite(data.id);
+          await saveCadencias(data.id, {
+            modoCompleto: !!(cadenciaCompleta || editingProspeccao?.cadencia_completa),
+          });
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
@@ -1660,6 +1771,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Whatsapp') {
           await saveConvite(data.id);
+          await saveCadencias(data.id, {
+            modoCompleto: !!cadenciaCompleta,
+          });
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
@@ -2265,6 +2379,54 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           payload.template_agendado_24h = templateAgendado24hData?.nome || null;
           payload.template_agendado_24h_id_pri = templateAgendado24hData?.template_id_pri || null;
           payload.template_agendado_24h_id_meta = templateAgendado24hData?.id_meta || null;
+        }
+
+        // Lista de cadências (até 3) — apenas fora do modo cadência completa.
+        // Cada item repete o template de Prospecção (enviado uma única vez em "Ver base")
+        // e traz agendado / não-agendado / data específicos da linha.
+        if (!prospeccaoData.cadencia_completa) {
+          const cadenciasList: any[] = [
+            {
+              ordem: 1,
+              template_id: templateProspeccaoData?.template_id_pri || null,
+              template_nome: templateProspeccaoData?.nome || null,
+              template_id_pri: templateProspeccaoData?.template_id_pri || null,
+              template_id_meta: templateProspeccaoData?.id_meta || null,
+              template_agendado_id: templateAgendadoUuid || null,
+              template_agendado_nome: templateAgendadoData?.nome || null,
+              template_agendado_id_pri: templateAgendadoData?.template_id_pri || null,
+              template_agendado_id_meta: templateAgendadoData?.id_meta || null,
+              data_envio_cadencia: formatarDataISO(prospeccaoData.data_envio_cadencia),
+              template_nao_agendado_id: templateNaoAgendadoUuid || null,
+              template_nao_agendado_nome: templateNaoAgendadoData?.nome || null,
+              template_nao_agendado_id_pri: templateNaoAgendadoData?.template_id_pri || null,
+              template_nao_agendado_id_meta: templateNaoAgendadoData?.id_meta || null,
+            },
+          ];
+
+          for (let i = 0; i < cadenciasExtras.length; i++) {
+            const c = cadenciasExtras[i];
+            const ag = await lookupTemplateById(c.template_agendado_id || null);
+            const na = await lookupTemplateById(c.template_nao_agendado_id || null);
+            cadenciasList.push({
+              ordem: i + 2,
+              template_id: templateProspeccaoData?.template_id_pri || null,
+              template_nome: templateProspeccaoData?.nome || null,
+              template_id_pri: templateProspeccaoData?.template_id_pri || null,
+              template_id_meta: templateProspeccaoData?.id_meta || null,
+              template_agendado_id: c.template_agendado_id || null,
+              template_agendado_nome: ag?.nome || null,
+              template_agendado_id_pri: ag?.template_id_pri || null,
+              template_agendado_id_meta: ag?.id_meta || null,
+              data_envio_cadencia: c.data_envio_cadencia ? new Date(c.data_envio_cadencia).toISOString() : null,
+              template_nao_agendado_id: c.template_nao_agendado_id || null,
+              template_nao_agendado_nome: na?.nome || null,
+              template_nao_agendado_id_pri: na?.template_id_pri || null,
+              template_nao_agendado_id_meta: na?.id_meta || null,
+            });
+          }
+
+          payload.cadencias = cadenciasList;
         }
       }
 
@@ -3032,24 +3194,18 @@ ${localEvento}`;
 
               {/* Templates + cadência em grid */}
               {!cadCompleta ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Template Prospecção */}
-                  <div className="space-y-2">
+                <div className="space-y-4">
+                  {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
+                  <div className="space-y-2 max-w-md">
                     <Label htmlFor="template_prospeccao" className="text-sm">
                       Template Prospecção <span className="text-destructive">*</span>
                     </Label>
                     <div className="flex gap-1">
-                      <Select value={templateProspeccaoId} onValueChange={(value) => {
-                        if (value === templateAgendadoId || value === templateNaoAgendadoId) {
-                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
-                          return;
-                        }
-                        setTemplateProspeccaoId(value);
-                      }}>
+                      <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                           {whatsappTemplates
-                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId && t.id !== templateNaoAgendadoId)
+                            .filter(t => t.template_id_pri || t.id_meta)
                             .map(template => (
                               <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
                             ))}
@@ -3064,95 +3220,203 @@ ${localEvento}`;
                     {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
                   </div>
 
-                  {/* Cadência Agendados */}
+                  {/* Tabela de cadências (até 3) */}
                   <div className="space-y-2">
-                    <Label htmlFor="template_agendado" className="text-sm">Cadência Agendados</Label>
-                    <div className="flex gap-1">
-                      <Select value={templateAgendadoId} onValueChange={(value) => {
-                        if (value === templateProspeccaoId || value === templateNaoAgendadoId) {
-                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
-                          return;
-                        }
-                        setTemplateAgendadoId(value);
-                      }}>
-                        <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
-                        <SelectContent>
-                          {whatsappTemplates
-                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
-                            .map(template => (
-                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {templateAgendadoId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Cadências (até 3)</Label>
                     </div>
-                  </div>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12 text-center">#</TableHead>
+                            <TableHead>Cadência Agendados</TableHead>
+                            <TableHead className="min-w-[200px]">
+                              <div className="flex items-center gap-1">
+                                Data/Hora
+                                <TooltipProvider><Tooltip>
+                                  <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                  <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) desta linha serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
+                                </Tooltip></TooltipProvider>
+                              </div>
+                            </TableHead>
+                            <TableHead>
+                              <div className="flex items-center gap-1">
+                                Cadência Não Responderam
+                                <TooltipProvider><Tooltip>
+                                  <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                  <TooltipContent className="max-w-xs"><p>Quem respondeu terá cadência automática "como a Maia", sem gastar template. Vale para leads que responderam, mas não agendaram.</p></TooltipContent>
+                                </Tooltip></TooltipProvider>
+                              </div>
+                            </TableHead>
+                            <TableHead className="w-12" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {/* Cadência #1 — campos legacy */}
+                          <TableRow>
+                            <TableCell className="text-center font-medium">1</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Select value={templateAgendadoId} onValueChange={(value) => {
+                                  if (value === templateNaoAgendadoId) {
+                                    toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                    return;
+                                  }
+                                  setTemplateAgendadoId(value);
+                                }}>
+                                  <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                  <SelectContent>
+                                    {whatsappTemplates
+                                      .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateNaoAgendadoId)
+                                      .map(template => (
+                                        <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                {templateAgendadoId && (
+                                  <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0" title="Limpar">
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="datetime-local"
+                                value={dataEnvioCadencia}
+                                onChange={(e) => setDataEnvioCadencia(e.target.value)}
+                                min="2000-01-01T00:00"
+                                max="2099-12-31T23:59"
+                                style={{ colorScheme: 'dark' }}
+                                className="cursor-pointer"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Select value={templateNaoAgendadoId} onValueChange={(value) => {
+                                  if (value === templateAgendadoId) {
+                                    toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                    return;
+                                  }
+                                  setTemplateNaoAgendadoId(value);
+                                }}>
+                                  <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                  <SelectContent>
+                                    {whatsappTemplates
+                                      .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId)
+                                      .map(template => (
+                                        <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                {templateNaoAgendadoId && (
+                                  <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0" title="Limpar">
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
 
-                  {/* Data/Hora – aplica às duas cadências */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1">
-                      <Label htmlFor="data_envio_cadencia" className="text-sm">Data/Hora das Cadências</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
+                          {/* Cadências extras (2 e 3) */}
+                          {cadenciasExtras.map((cad, idx) => {
+                            const updateExtra = (patch: Partial<CadenciaExtra>) => {
+                              setCadenciasExtras(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+                            };
+                            return (
+                              <TableRow key={`cad-extra-${idx}`}>
+                                <TableCell className="text-center font-medium">{idx + 2}</TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Select value={cad.template_agendado_id} onValueChange={(value) => {
+                                      if (value === cad.template_nao_agendado_id) {
+                                        toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                        return;
+                                      }
+                                      updateExtra({ template_agendado_id: value });
+                                    }}>
+                                      <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                      <SelectContent>
+                                        {whatsappTemplates
+                                          .filter(t => (t.template_id_pri || t.id_meta) && t.id !== cad.template_nao_agendado_id)
+                                          .map(template => (
+                                            <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {cad.template_agendado_id && (
+                                      <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_agendado_id: "" })} className="shrink-0" title="Limpar">
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="datetime-local"
+                                    value={cad.data_envio_cadencia}
+                                    onChange={(e) => updateExtra({ data_envio_cadencia: e.target.value })}
+                                    min="2000-01-01T00:00"
+                                    max="2099-12-31T23:59"
+                                    style={{ colorScheme: 'dark' }}
+                                    className="cursor-pointer"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Select value={cad.template_nao_agendado_id} onValueChange={(value) => {
+                                      if (value === cad.template_agendado_id) {
+                                        toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                        return;
+                                      }
+                                      updateExtra({ template_nao_agendado_id: value });
+                                    }}>
+                                      <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                      <SelectContent>
+                                        {whatsappTemplates
+                                          .filter(t => (t.template_id_pri || t.id_meta) && t.id !== cad.template_agendado_id)
+                                          .map(template => (
+                                            <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {cad.template_nao_agendado_id && (
+                                      <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_nao_agendado_id: "" })} className="shrink-0" title="Limpar">
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setCadenciasExtras(prev => prev.filter((_, i) => i !== idx))}
+                                    title="Remover cadência"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
-                    <Input
-                      id="data_envio_cadencia"
-                      type="datetime-local"
-                      value={dataEnvioCadencia}
-                      onChange={(e) => setDataEnvioCadencia(e.target.value)}
-                      onClick={(e) => {
-                        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-                        try {
-                          el.showPicker?.();
-                        } catch (err) {
-                          // cross-origin iframe pode bloquear showPicker(); fallback deixa o input nativo responder
-                        }
-                      }}
-                      min="2000-01-01T00:00"
-                      max="2099-12-31T23:59"
-                      style={{ colorScheme: 'dark' }}
-                      className="cursor-pointer min-h-[42px] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-calendar-picker-indicator]:p-2 [&::-webkit-calendar-picker-indicator]:m-[-8px]"
-                    />
-                  </div>
-
-                  {/* Cadência Não Responderam */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1">
-                      <Label htmlFor="template_nao_agendado" className="text-sm">Cadência Não Responderam</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Quem respondeu terá cadência automática "como a Maia", sem gastar template. Vale para leads que responderam, mas não agendaram.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
-                    </div>
-                    <div className="flex gap-1">
-                      <Select value={templateNaoAgendadoId} onValueChange={(value) => {
-                        if (value === templateProspeccaoId || value === templateAgendadoId) {
-                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
-                          return;
-                        }
-                        setTemplateNaoAgendadoId(value);
-                      }}>
-                        <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
-                        <SelectContent>
-                          {whatsappTemplates
-                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
-                            .map(template => (
-                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {templateNaoAgendadoId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    {cadenciasExtras.length < 2 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCadenciasExtras(prev => [...prev, { template_agendado_id: "", template_nao_agendado_id: "", data_envio_cadencia: "" }])}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar cadência
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (

@@ -50,6 +50,11 @@ payload.cadencias = [
 
 ### Fora de escopo
 
-- Não alterar banco agora.
 - Não mexer em IA Ligação.
 - Não alterar dispatcher/webhooks além do payload da criação/edição de evento.
+
+### Implementado
+
+- Nova tabela `prospeccao_cadencias` (ordem 1..3) espelhando a cadência #1 das colunas legacy.
+- Template Prospecção fica fora da tabela (single select acima), nunca se repete entre cadências.
+- Payload do webhook ganha `cadencias: []` além dos campos legacy.
