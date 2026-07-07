@@ -3142,6 +3142,8 @@ ${localEvento}`;
           const cadCompleta = cadenciaCompleta || editingProspeccao?.cadencia_completa;
           return (
             <div className="space-y-3">
+              {/* Descrição + Configurações do Evento lado a lado */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
               {/* Descrição compacta com botão para abrir editor em modal */}
               <div className="rounded-lg border border-border p-3 bg-card">
                 <div className="flex items-center justify-between mb-2">
@@ -3165,6 +3167,86 @@ ${localEvento}`;
                   rows={4}
                   className="resize-none"
                 />
+              </div>
+
+              {/* Configurações do Evento (topo, ao lado da Descrição) */}
+              <div className="rounded-lg border border-border p-3 bg-card">
+                <h4 className="text-sm font-medium mb-2">Configurações do Evento</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Tipo de Lead */}
+                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                      <Label htmlFor="tipo_lead" className="font-medium text-xs leading-tight break-words">Tipo de Lead</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Define o tipo de lead/campanha. Vendas usa apenas a tag padrão; prospecção/relacionamento adicionam uma tag específica no Mobigestor.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <Select
+                      value={tipoLead}
+                      onValueChange={(v) => setTipoLead(v as 'vendas' | 'prospeccao' | 'relacionamento')}
+                      disabled={!!editingProspeccao}
+                    >
+                      <SelectTrigger id="tipo_lead" className="h-8 w-auto min-w-[100px] text-xs shrink-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vendas">Vendas</SelectItem>
+                        <SelectItem value="prospeccao">Prospecção</SelectItem>
+                        <SelectItem value="relacionamento">Relacionamento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Qualificar Lead */}
+                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                      <Label htmlFor="qualificar_lead" className="font-medium text-xs leading-tight break-words cursor-pointer">Qualificar após Confirmação</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Se ativo, o lead é qualificado para a loja após confirmar. Se inativo, fica na central em 'Agendados' com tag 'CONFIRMADO'.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <Switch id="qualificar_lead" checked={qualificarLead} onCheckedChange={setQualificarLead} />
+                  </div>
+
+                  {/* Evento Principal */}
+                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                      <Label htmlFor="evento_principal" className="font-medium text-xs leading-tight break-words cursor-pointer">Evento Principal</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Se ativo, leads que falarem com a Pri nesta empresa vão direto para este evento.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <Switch id="evento_principal" checked={eventoPrincipal} onCheckedChange={setEventoPrincipal} />
+                  </div>
+
+                  {/* Evento de Confirmação */}
+                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                      <Label htmlFor="evento_confirmacao" className="font-medium text-xs leading-tight break-words cursor-pointer">Evento de Confirmação</Label>
+                      <TooltipProvider><Tooltip>
+                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
+                        <TooltipContent className="max-w-xs"><p>Disparo exclusivo para leads já agendados (status 'Convidado'). Não gera novos agendamentos, apenas confirma presença.</p></TooltipContent>
+                      </Tooltip></TooltipProvider>
+                    </div>
+                    <Switch
+                      id="evento_confirmacao"
+                      checked={eventoConfirmacao}
+                      onCheckedChange={setEventoConfirmacao}
+                      disabled={!!editingProspeccao || !isConfirmacaoFlow}
+                    />
+                  </div>
+                </div>
+                {editingProspeccao && (
+                  <p className="text-xs text-muted-foreground mt-2">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
+                )}
+                {!editingProspeccao && !isConfirmacaoFlow && (
+                  <p className="text-xs text-muted-foreground mt-2">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
+                )}
+                {isConfirmacaoFlow && parentEvento && (
+                  <p className="text-xs text-primary mt-2">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
+                )}
+              </div>
               </div>
 
               {/* Modal editor de descrição */}
@@ -3408,14 +3490,16 @@ ${localEvento}`;
                       </Table>
                     </div>
                     {cadenciasExtras.length < 2 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCadenciasExtras(prev => [...prev, { template_agendado_id: "", template_nao_agendado_id: "", data_envio_cadencia: "" }])}
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Adicionar cadência
-                      </Button>
+                      <div className="flex justify-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCadenciasExtras(prev => [...prev, { template_agendado_id: "", template_nao_agendado_id: "", data_envio_cadencia: "" }])}
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Adicionar cadência
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -3538,84 +3622,6 @@ ${localEvento}`;
                 </div>
               )}
 
-              {/* Configurações do Evento em grid compacto com labels quebrando linha */}
-              <div className="border-t pt-3">
-                <h4 className="text-sm font-medium mb-2">Configurações do Evento</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Tipo de Lead */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
-                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
-                      <Label htmlFor="tipo_lead" className="font-medium text-xs leading-tight break-words">Tipo de Lead</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Define o tipo de lead/campanha. Vendas usa apenas a tag padrão; prospecção/relacionamento adicionam uma tag específica no Mobigestor.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
-                    </div>
-                    <Select
-                      value={tipoLead}
-                      onValueChange={(v) => setTipoLead(v as 'vendas' | 'prospeccao' | 'relacionamento')}
-                      disabled={!!editingProspeccao}
-                    >
-                      <SelectTrigger id="tipo_lead" className="h-8 w-auto min-w-[100px] text-xs shrink-0"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="vendas">Vendas</SelectItem>
-                        <SelectItem value="prospeccao">Prospecção</SelectItem>
-                        <SelectItem value="relacionamento">Relacionamento</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Evento Principal */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
-                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
-                      <Label htmlFor="evento_principal" className="font-medium text-xs leading-tight break-words cursor-pointer">Evento Principal</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Se ativo, leads que falarem com a Pri nesta empresa vão direto para este evento.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
-                    </div>
-                    <Switch id="evento_principal" checked={eventoPrincipal} onCheckedChange={setEventoPrincipal} />
-                  </div>
-
-                  {/* Qualificar Lead */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
-                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
-                      <Label htmlFor="qualificar_lead" className="font-medium text-xs leading-tight break-words cursor-pointer">Qualificar após Confirmação</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Se ativo, o lead é qualificado para a loja após confirmar. Se inativo, fica na central em 'Agendados' com tag 'CONFIRMADO'.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
-                    </div>
-                    <Switch id="qualificar_lead" checked={qualificarLead} onCheckedChange={setQualificarLead} />
-                  </div>
-
-                  {/* Evento de Confirmação */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
-                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
-                      <Label htmlFor="evento_confirmacao" className="font-medium text-xs leading-tight break-words cursor-pointer">Evento de Confirmação</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3 w-3 text-muted-foreground cursor-help shrink-0 mt-0.5" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Disparo exclusivo para leads já agendados (status 'Convidado'). Não gera novos agendamentos, apenas confirma presença.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
-                    </div>
-                    <Switch
-                      id="evento_confirmacao"
-                      checked={eventoConfirmacao}
-                      onCheckedChange={setEventoConfirmacao}
-                      disabled={!!editingProspeccao || !isConfirmacaoFlow}
-                    />
-                  </div>
-                </div>
-                {editingProspeccao && (
-                  <p className="text-xs text-muted-foreground mt-2">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
-                )}
-                {!editingProspeccao && !isConfirmacaoFlow && (
-                  <p className="text-xs text-muted-foreground mt-2">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
-                )}
-                {isConfirmacaoFlow && parentEvento && (
-                  <p className="text-xs text-primary mt-2">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
-                )}
-              </div>
             </div>
           );
         } else {
