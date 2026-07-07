@@ -3490,14 +3490,16 @@ ${localEvento}`;
                       </Table>
                     </div>
                     {cadenciasExtras.length < 2 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCadenciasExtras(prev => [...prev, { template_agendado_id: "", template_nao_agendado_id: "", data_envio_cadencia: "" }])}
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Adicionar cadência
-                      </Button>
+                      <div className="flex justify-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCadenciasExtras(prev => [...prev, { template_agendado_id: "", template_nao_agendado_id: "", data_envio_cadencia: "" }])}
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Adicionar cadência
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
