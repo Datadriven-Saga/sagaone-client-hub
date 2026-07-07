@@ -386,6 +386,42 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     }
   }, [editingProspeccao, isOpen, parentEvento]);
 
+  // Hidratar cadências extras (ordem 2 e 3) da tabela prospeccao_cadencias
+  useEffect(() => {
+    const fetchCadenciasExtras = async () => {
+      if (!editingProspeccao?.id || !isOpen) return;
+      const { data, error } = await supabase
+        .from('prospeccao_cadencias')
+        .select('ordem, template_agendado_id, template_nao_agendado_id, data_envio_cadencia')
+        .eq('prospeccao_id', editingProspeccao.id)
+        .gt('ordem', 1)
+        .order('ordem', { ascending: true });
+      if (error) {
+        console.error('[cadencias] erro ao carregar extras:', error);
+        setCadenciasExtras([]);
+        return;
+      }
+      const toLocal = (iso: string | null): string => {
+        if (!iso) return '';
+        try {
+          const d = new Date(iso);
+          const off = d.getTimezoneOffset();
+          return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
+        } catch {
+          return '';
+        }
+      };
+      setCadenciasExtras(
+        (data ?? []).map((r: any) => ({
+          template_agendado_id: r.template_agendado_id ?? '',
+          template_nao_agendado_id: r.template_nao_agendado_id ?? '',
+          data_envio_cadencia: toLocal(r.data_envio_cadencia),
+        })),
+      );
+    };
+    fetchCadenciasExtras();
+  }, [editingProspeccao?.id, isOpen]);
+
   // Buscar tamanho da base quando editando
   useEffect(() => {
     const fetchTamanhoBase = async () => {
