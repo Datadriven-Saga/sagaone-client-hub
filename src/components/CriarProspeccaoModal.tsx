@@ -1340,6 +1340,20 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     }
 
+    // Validação: cadências extras devem ter data/hora de envio preenchida
+    if (tipoEvento === 'IA Whatsapp' && cadenciasExtras.length > 0) {
+      const missingDataHora = cadenciasExtras.some(c => !c.data_envio_cadencia);
+      if (missingDataHora) {
+        toast({
+          title: "Campo obrigatório",
+          description: "Preencha a data/hora de envio de todas as cadências adicionais.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+
     if (!user) {
       toast({
         title: "Erro",
@@ -2793,6 +2807,19 @@ ${localEvento}`;
       }
     }
 
+    // Validação: cadências extras devem ter data/hora de envio preenchida
+    if (tipoEvento === 'IA Whatsapp' && currentStepName === 'Configuração IA' && cadenciasExtras.length > 0) {
+      const missingDataHora = cadenciasExtras.some(c => !c.data_envio_cadencia);
+      if (missingDataHora) {
+        toast({
+          title: "Campo obrigatório",
+          description: "Preencha a data/hora de envio de todas as cadências adicionais.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     // Validação específica para IA Ligação na etapa de Configuração IA
     if (tipoEvento === 'IA Ligação' && currentStepName === 'Configuração IA') {
       if (!eventoUF.trim() || !eventoCidade.trim() || !eventoEndereco.trim()) {
@@ -2804,6 +2831,7 @@ ${localEvento}`;
         return;
       }
     }
+
     
     if (!isLastStep) {
       setCurrentStep(currentStep + 1);
@@ -3318,15 +3346,17 @@ ${localEvento}`;
                            <TableRow className="border-0 hover:bg-transparent">
                              <TableHead className="w-12 text-center h-8 py-1">#</TableHead>
                              <TableHead className="h-8 py-1">Cadência Agendados</TableHead>
-                             <TableHead className="min-w-[200px] h-8 py-1">
-                              <div className="flex items-center gap-1">
-                                Data/Hora
-                                <TooltipProvider><Tooltip>
-                                  <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                  <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) desta linha serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
-                                </Tooltip></TooltipProvider>
-                              </div>
-                            </TableHead>
+                              <TableHead className="min-w-[200px] h-8 py-1">
+                                <div className="flex items-center gap-1">
+                                  Data/Hora {cadenciasExtras.length > 0 && <span className="text-destructive">*</span>}
+                                  <TooltipProvider><Tooltip>
+                                    <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                    <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) desta linha serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
+                                  </Tooltip></TooltipProvider>
+                                </div>
+                              </TableHead>
+
+
                              <TableHead className="h-8 py-1">
                               <div className="flex items-center gap-1">
                                 Cadência Não Responderam
