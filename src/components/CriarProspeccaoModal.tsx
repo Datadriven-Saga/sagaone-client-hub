@@ -3169,7 +3169,7 @@ ${localEvento}`;
         if (tipoEvento === 'IA Whatsapp') {
           const cadCompleta = cadenciaCompleta || editingProspeccao?.cadencia_completa;
           return (
-            <div className="space-y-3 px-4">
+            <div className="space-y-2 px-4">
               {/* Descrição + Configurações do Evento lado a lado */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
               {/* Descrição compacta com botão para abrir editor em modal */}
