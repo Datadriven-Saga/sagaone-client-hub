@@ -3519,7 +3519,19 @@ ${localEvento}`;
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Prospecção */}
                   <div className="space-y-2">
-                    <Label className="text-sm">Template Prospecção <span className="text-destructive">*</span></Label>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-sm">Template Prospecção <span className="text-destructive">*</span></Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <div className="flex gap-1">
                       <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
