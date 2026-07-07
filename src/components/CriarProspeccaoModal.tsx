@@ -3279,9 +3279,21 @@ ${localEvento}`;
                 <div className="space-y-4">
                   {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
                   <div className="space-y-2 max-w-md">
-                    <Label htmlFor="template_prospeccao" className="text-sm">
-                      Template Prospecção <span className="text-destructive">*</span>
-                    </Label>
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="template_prospeccao" className="text-sm">
+                        Template Prospecção <span className="text-destructive">*</span>
+                      </Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <div className="flex gap-1">
                       <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -3507,7 +3519,19 @@ ${localEvento}`;
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* Prospecção */}
                   <div className="space-y-2">
-                    <Label className="text-sm">Template Prospecção <span className="text-destructive">*</span></Label>
+                    <div className="flex items-center gap-1">
+                      <Label className="text-sm">Template Prospecção <span className="text-destructive">*</span></Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <div className="flex gap-1">
                       <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -3609,11 +3633,6 @@ ${localEvento}`;
                 </div>
               )}
 
-              {/* Aviso disparo inicial – alinhado à realidade */}
-              <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
-              </div>
 
               {cadCompleta && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
@@ -4643,7 +4662,7 @@ ${localEvento}`;
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 overflow-hidden">
         {/* Header fixo */}
-        <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
+        <div className="flex-shrink-0 px-4 py-2 border-b bg-background">
           <div className="flex items-center justify-between gap-4">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-3 text-lg">
@@ -4689,12 +4708,12 @@ ${localEvento}`;
         </div>
         
         {/* Conteúdo com scroll */}
-        <ScrollIndicator className="flex-1 min-h-0 px-6 py-4">
+        <ScrollIndicator className="flex-1 min-h-0 px-4 py-2">
           {renderStepContent()}
         </ScrollIndicator>
 
         {/* Footer fixo */}
-        <div className="flex-shrink-0 flex justify-between gap-2 px-6 py-4 border-t bg-background">
+        <div className="flex-shrink-0 flex justify-between gap-2 px-4 py-3 border-t bg-background">
           <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
             Cancelar
           </Button>
