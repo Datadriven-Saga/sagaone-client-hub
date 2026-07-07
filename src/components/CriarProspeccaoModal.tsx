@@ -4662,7 +4662,7 @@ ${localEvento}`;
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 overflow-hidden">
         {/* Header fixo */}
-        <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
+        <div className="flex-shrink-0 px-4 py-2 border-b bg-background">
           <div className="flex items-center justify-between gap-4">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-3 text-lg">
@@ -4708,12 +4708,12 @@ ${localEvento}`;
         </div>
         
         {/* Conteúdo com scroll */}
-        <ScrollIndicator className="flex-1 min-h-0 px-6 py-4">
+        <ScrollIndicator className="flex-1 min-h-0 px-4 py-2">
           {renderStepContent()}
         </ScrollIndicator>
 
         {/* Footer fixo */}
-        <div className="flex-shrink-0 flex justify-between gap-2 px-6 py-4 border-t bg-background">
+        <div className="flex-shrink-0 flex justify-between gap-2 px-4 py-3 border-t bg-background">
           <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
             Cancelar
           </Button>
