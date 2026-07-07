@@ -219,6 +219,8 @@ Montado em `process-campaign-job:478-494`, um POST por lead:
 }
 ```
 
+> **Payload de criação/edição do evento** (fluxo distinto do payload por-lead acima) inclui também `cadencias: [{ ordem, template_id, template_nome, template_id_pri, template_id_meta, template_agendado_*, template_nao_agendado_*, data_envio_cadencia }]` com até 3 entradas (ordem 1..3). A cadência #1 continua duplicada nas chaves legacy de `prospeccoes`; ordens 2 e 3 vivem em `prospeccao_cadencias`. Ver [Prospecção — Visão geral](./visao-geral.md#cadências-ia-whatsapp).
+
 ### Resolução de variáveis (`resolveVariableMapping`, `:38-65`)
 
 `whatsapp_templates.variable_mapping` é `{ "<posição>": "<fieldName>" }`. O edge troca cada `fieldName` pelo valor real do lead/empresa/prospecção antes do POST. A Lambda interpola `{{1}}`, `{{2}}`, ... no corpo do template.
