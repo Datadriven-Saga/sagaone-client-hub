@@ -2807,6 +2807,19 @@ ${localEvento}`;
       }
     }
 
+    // Validação: cadências extras devem ter data/hora de envio preenchida
+    if (tipoEvento === 'IA Whatsapp' && currentStepName === 'Configuração IA' && cadenciasExtras.length > 0) {
+      const missingDataHora = cadenciasExtras.some(c => !c.data_envio_cadencia);
+      if (missingDataHora) {
+        toast({
+          title: "Campo obrigatório",
+          description: "Preencha a data/hora de envio de todas as cadências adicionais.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     // Validação específica para IA Ligação na etapa de Configuração IA
     if (tipoEvento === 'IA Ligação' && currentStepName === 'Configuração IA') {
       if (!eventoUF.trim() || !eventoCidade.trim() || !eventoEndereco.trim()) {
@@ -2818,6 +2831,7 @@ ${localEvento}`;
         return;
       }
     }
+
     
     if (!isLastStep) {
       setCurrentStep(currentStep + 1);
