@@ -3276,56 +3276,49 @@ ${localEvento}`;
 
               {/* Templates + cadência em grid */}
               {!cadCompleta ? (
-                <div className="space-y-4">
-                  {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
-                  <div className="space-y-2 max-w-md">
-                    <div className="flex items-center gap-1">
-                      <Label htmlFor="template_prospeccao" className="text-sm">
-                        Template Prospecção <span className="text-destructive">*</span>
-                      </Label>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="flex gap-1">
-                      <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
-                        <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                          {whatsappTemplates
-                            .filter(t => t.template_id_pri || t.id_meta)
-                            .map(template => (
-                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {templateProspeccaoId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateProspeccaoId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
-                  </div>
+                 <div className="space-y-4">
+                   {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                     <div className="space-y-2">
+                       <Label htmlFor="template_prospeccao" className="text-sm">
+                         Template Prospecção <span className="text-destructive">*</span>
+                       </Label>
+                       <div className="flex gap-1">
+                         <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
+                           <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                           <SelectContent>
+                             {whatsappTemplates
+                               .filter(t => t.template_id_pri || t.id_meta)
+                               .map(template => (
+                                 <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                               ))}
+                           </SelectContent>
+                         </Select>
+                         {templateProspeccaoId && (
+                           <Button type="button" variant="outline" size="icon" onClick={() => setTemplateProspeccaoId("")} className="shrink-0 h-8 w-8" title="Limpar seleção">
+                             <X className="h-4 w-4" />
+                           </Button>
+                         )}
+                       </div>
+                       {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
+                     </div>
+                     <p className="text-xs text-muted-foreground">
+                       O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.
+                     </p>
+                   </div>
 
                   {/* Tabela de cadências (até 3) */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Cadências (até 3)</Label>
                     </div>
-                    <div className="rounded-md border overflow-x-auto">
+                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-12 text-center">#</TableHead>
-                            <TableHead>Cadência Agendados</TableHead>
-                            <TableHead className="min-w-[200px]">
+                           <TableRow className="border-0 hover:bg-transparent">
+                             <TableHead className="w-12 text-center h-8 py-1">#</TableHead>
+                             <TableHead className="h-8 py-1">Cadência Agendados</TableHead>
+                             <TableHead className="min-w-[200px] h-8 py-1">
                               <div className="flex items-center gap-1">
                                 Data/Hora
                                 <TooltipProvider><Tooltip>
@@ -3334,7 +3327,7 @@ ${localEvento}`;
                                 </Tooltip></TooltipProvider>
                               </div>
                             </TableHead>
-                            <TableHead>
+                             <TableHead className="h-8 py-1">
                               <div className="flex items-center gap-1">
                                 Cadência Não Responderam
                                 <TooltipProvider><Tooltip>
@@ -3343,14 +3336,14 @@ ${localEvento}`;
                                 </Tooltip></TooltipProvider>
                               </div>
                             </TableHead>
-                            <TableHead className="w-12" />
+                             <TableHead className="w-12 h-8 py-1" />
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {/* Cadência #1 — campos legacy */}
-                          <TableRow>
-                            <TableCell className="text-center font-medium">1</TableCell>
-                            <TableCell>
+                           <TableRow className="border-0 hover:bg-transparent">
+                             <TableCell className="text-center font-medium py-1">1</TableCell>
+                             <TableCell className="py-1">
                               <div className="flex gap-1">
                                 <Select value={templateAgendadoId} onValueChange={(value) => {
                                   if (value === templateNaoAgendadoId) {
@@ -3359,7 +3352,7 @@ ${localEvento}`;
                                   }
                                   setTemplateAgendadoId(value);
                                 }}>
-                                  <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                   <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="Opcional" /></SelectTrigger>
                                   <SelectContent>
                                     {whatsappTemplates
                                       .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateNaoAgendadoId)
@@ -3369,24 +3362,23 @@ ${localEvento}`;
                                   </SelectContent>
                                 </Select>
                                 {templateAgendadoId && (
-                                  <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0" title="Limpar">
+                                   <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0 h-8 w-8" title="Limpar">
                                     <X className="h-4 w-4" />
                                   </Button>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>
+                             <TableCell className="py-1">
                               <Input
                                 type="datetime-local"
                                 value={dataEnvioCadencia}
                                 onChange={(e) => setDataEnvioCadencia(e.target.value)}
                                 min="2000-01-01T00:00"
                                 max="2099-12-31T23:59"
-                                style={{ colorScheme: 'dark' }}
-                                className="cursor-pointer"
+                                 className="cursor-pointer h-8 text-sm"
                               />
                             </TableCell>
-                            <TableCell>
+                             <TableCell className="py-1">
                               <div className="flex gap-1">
                                 <Select value={templateNaoAgendadoId} onValueChange={(value) => {
                                   if (value === templateAgendadoId) {
@@ -3395,7 +3387,7 @@ ${localEvento}`;
                                   }
                                   setTemplateNaoAgendadoId(value);
                                 }}>
-                                  <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                   <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="Opcional" /></SelectTrigger>
                                   <SelectContent>
                                     {whatsappTemplates
                                       .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId)
@@ -3405,13 +3397,13 @@ ${localEvento}`;
                                   </SelectContent>
                                 </Select>
                                 {templateNaoAgendadoId && (
-                                  <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0" title="Limpar">
+                                   <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0 h-8 w-8" title="Limpar">
                                     <X className="h-4 w-4" />
                                   </Button>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell />
+                             <TableCell className="py-1" />
                           </TableRow>
 
                           {/* Cadências extras (2 e 3) */}
@@ -3420,9 +3412,9 @@ ${localEvento}`;
                               setCadenciasExtras(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
                             };
                             return (
-                              <TableRow key={`cad-extra-${idx}`}>
-                                <TableCell className="text-center font-medium">{idx + 2}</TableCell>
-                                <TableCell>
+                               <TableRow key={`cad-extra-${idx}`} className="border-0 hover:bg-transparent">
+                                 <TableCell className="text-center font-medium py-1">{idx + 2}</TableCell>
+                                 <TableCell className="py-1">
                                   <div className="flex gap-1">
                                     <Select value={cad.template_agendado_id} onValueChange={(value) => {
                                       if (value === cad.template_nao_agendado_id) {
@@ -3431,7 +3423,7 @@ ${localEvento}`;
                                       }
                                       updateExtra({ template_agendado_id: value });
                                     }}>
-                                      <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                       <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="Opcional" /></SelectTrigger>
                                       <SelectContent>
                                         {whatsappTemplates
                                           .filter(t => (t.template_id_pri || t.id_meta) && t.id !== cad.template_nao_agendado_id)
@@ -3441,24 +3433,23 @@ ${localEvento}`;
                                       </SelectContent>
                                     </Select>
                                     {cad.template_agendado_id && (
-                                      <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_agendado_id: "" })} className="shrink-0" title="Limpar">
+                                       <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_agendado_id: "" })} className="shrink-0 h-8 w-8" title="Limpar">
                                         <X className="h-4 w-4" />
                                       </Button>
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell>
+                                 <TableCell className="py-1">
                                   <Input
                                     type="datetime-local"
                                     value={cad.data_envio_cadencia}
                                     onChange={(e) => updateExtra({ data_envio_cadencia: e.target.value })}
                                     min="2000-01-01T00:00"
                                     max="2099-12-31T23:59"
-                                    style={{ colorScheme: 'dark' }}
-                                    className="cursor-pointer"
+                                     className="cursor-pointer h-8 text-sm"
                                   />
                                 </TableCell>
-                                <TableCell>
+                                 <TableCell className="py-1">
                                   <div className="flex gap-1">
                                     <Select value={cad.template_nao_agendado_id} onValueChange={(value) => {
                                       if (value === cad.template_agendado_id) {
@@ -3467,7 +3458,7 @@ ${localEvento}`;
                                       }
                                       updateExtra({ template_nao_agendado_id: value });
                                     }}>
-                                      <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                       <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="Opcional" /></SelectTrigger>
                                       <SelectContent>
                                         {whatsappTemplates
                                           .filter(t => (t.template_id_pri || t.id_meta) && t.id !== cad.template_agendado_id)
@@ -3477,13 +3468,13 @@ ${localEvento}`;
                                       </SelectContent>
                                     </Select>
                                     {cad.template_nao_agendado_id && (
-                                      <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_nao_agendado_id: "" })} className="shrink-0" title="Limpar">
+                                       <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_nao_agendado_id: "" })} className="shrink-0 h-8 w-8" title="Limpar">
                                         <X className="h-4 w-4" />
                                       </Button>
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell>
+                                 <TableCell className="py-1">
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -4660,7 +4651,7 @@ ${localEvento}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col !p-0 sm:!p-0 gap-0 overflow-hidden">
+      <DialogContent hideCloseButton className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col !p-0 sm:!p-0 gap-0 overflow-hidden">
         {/* Header fixo */}
         <div className="flex-shrink-0 px-0 py-2 border-b bg-background">
           <div className="flex items-center justify-between gap-4 px-4">
