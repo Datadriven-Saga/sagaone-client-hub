@@ -4651,7 +4651,7 @@ ${localEvento}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col !p-0 sm:!p-0 gap-0 overflow-hidden">
+      <DialogContent hideCloseButton className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] lg:w-[calc((100vw-2rem)*0.65)] lg:max-w-[calc((100vw-2rem)*0.65)] xl:w-[calc((100vw-2rem)*0.55)] xl:max-w-[calc((100vw-2rem)*0.55)] flex flex-col !p-0 sm:!p-0 gap-0 overflow-hidden">
         {/* Header fixo */}
         <div className="flex-shrink-0 px-0 py-2 border-b bg-background">
           <div className="flex items-center justify-between gap-4 px-4">
