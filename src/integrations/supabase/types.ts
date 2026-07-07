@@ -4808,6 +4808,61 @@ export type Database = {
           },
         ]
       }
+      prospeccao_cadencias: {
+        Row: {
+          created_at: string
+          data_envio_cadencia: string | null
+          id: string
+          ordem: number
+          prospeccao_id: string
+          template_agendado_id: string | null
+          template_nao_agendado_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_envio_cadencia?: string | null
+          id?: string
+          ordem: number
+          prospeccao_id: string
+          template_agendado_id?: string | null
+          template_nao_agendado_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_envio_cadencia?: string | null
+          id?: string
+          ordem?: number
+          prospeccao_id?: string
+          template_agendado_id?: string | null
+          template_nao_agendado_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospeccao_cadencias_prospeccao_id_fkey"
+            columns: ["prospeccao_id"]
+            isOneToOne: false
+            referencedRelation: "prospeccoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_cadencias_template_agendado_id_fkey"
+            columns: ["template_agendado_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospeccao_cadencias_template_nao_agendado_id_fkey"
+            columns: ["template_nao_agendado_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospeccao_convites: {
         Row: {
           created_at: string
