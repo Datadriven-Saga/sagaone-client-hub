@@ -1,33 +1,31 @@
-## Remover texto de confirmação e ajustar espaçamento na Configuração IA
+## Atualizar documentação com as últimas mudanças
 
-### Contexto
-Na etapa "Configuração IA" do modal `CriarProspeccaoModal.tsx`, abaixo da div "Configurações do Evento" existe um texto explicativo (print do usuário, caixa vermelha):
-> "Para criar um evento de confirmação, use o botão 'Criar Confirmação' dentro da base de um evento existente."
+Atualizar os docs de arquitetura e prospecção para refletir o que foi corrigido/registrado nesta thread sobre `user_can_access_empresa`, `user_empresas` como fonte de verdade e a nova tabela `prospeccao_cadencias`.
 
-O usuário quer remover esse texto e, com isso, "subir as duas divs" (Descrição e Configurações do Evento) para aproveitar melhor o espaço vertical do modal.
+### Arquivos a atualizar
 
-### Escopo
-Alterações somente no frontend, no arquivo `src/components/CriarProspeccaoModal.tsx`.
+1. **`docs/arquitetura/multi-tenant.md`**
+   - Reforçar bloco "⚠️ Overload intencional" adicionando a regra da **ordem dos argumentos**: `user_can_access_empresa(empresa_id, auth.uid())` — inverter faz RLS bloquear silenciosamente.
+   - Citar o incidente real em `prospeccao_cadencias` (policies com args invertidos → tabela ficou 0 linhas globalmente) como exemplo.
+   - Adicionar link para as memories `user-can-access-empresa-signature` e `vendor-company-link-source`.
 
-### Implementação
+2. **`docs/arquitetura/permissoes-e-rbac.md`**
+   - Na seção "RLS Security Definer", incluir o padrão canônico para tabelas filhas (EXISTS + join no pai + `user_can_access_empresa(p.empresa_id, auth.uid())`).
 
-1. **Remover o texto explicativo**
-   - Remover o bloco condicional:
-     ```tsx
-     {!editingProspeccao && !isConfirmacaoFlow && (
-       <p className="text-xs text-muted-foreground mt-2">Para criar um evento de confirmação...</p>
-     )}
-     ```
-   - Manter os outros textos da div (edição e confirmação vinculada), pois não estão no print e não foram solicitados para remoção.
+3. **`docs/prospeccao/visao-geral.md`** (ler antes)
+   - Registrar que cadências extras (ordens 2 e 3) vivem em `prospeccao_cadencias` e são somadas ao payload do webhook em `cadencias: []`, mantendo os campos legacy da cadência #1 nas colunas de `prospeccoes`.
+   - Nota sobre RLS: acesso via join com `prospeccoes` usando `user_can_access_empresa(empresa_id, auth.uid())`.
 
-2. **Ajustar o espaçamento vertical para elevar o conteúdo**
-   - Reduzir o `space-y` do container da etapa `Configuração IA` para deixar o conteúdo mais compacto após a remoção do texto.
-   - Ou reduzir o padding/margin inferior da div "Configurações do Evento" para aproximá-la da seção "Template Prospecção" abaixo.
+4. **`docs/prospeccao/dispatch-whatsapp.md`** (ler antes)
+   - Complementar payload do webhook com o novo campo `cadencias[]` e a ordem 1..3.
 
-### Resultado esperado
-- O texto destacado em vermelho desaparece.
-- A div "Descrição" e a div "Configurações do Evento" ocupam menos altura, e a seção "Template Prospecção" sobe, ocupando o espaço liberado.
+5. **`docs/historico/breaking-changes.md`** (ler antes)
+   - Nova entrada datada 2026-07-07:
+     - Fix RLS `prospeccao_cadencias` (args de `user_can_access_empresa` corrigidos).
+     - Introdução da tabela `prospeccao_cadencias` para cadências 2 e 3.
 
 ### Fora de escopo
-- Não alterar a lógica de criação de confirmação, payload, banco ou validações.
-- Não modificar o texto dos outros estados (`editingProspeccao` / `isConfirmacaoFlow`).
+
+- Não mexer em código (FE/BE/edge functions/migrations).
+- Não recriar as memories já salvas — apenas referenciá-las nos docs.
+- Não tocar em docs não relacionados a esses temas.
