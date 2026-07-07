@@ -529,6 +529,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
     setCadenciaCompleta(false);
     setTemplateAgendado48hId("");
     setTemplateAgendado24hId("");
+    setCadenciasExtras([]);
     // Reset IA Ligação
     setContatosLigacao([]);
     setContatosInvalidos([]);
