@@ -2971,7 +2971,7 @@ ${localEvento}`;
     switch (currentStepName) {
       case 'Dados Gerais':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <div>
               <Label htmlFor="titulo">Título *</Label>
               <Input
@@ -3141,7 +3141,7 @@ ${localEvento}`;
         if (tipoEvento === 'IA Whatsapp') {
           const cadCompleta = cadenciaCompleta || editingProspeccao?.cadencia_completa;
           return (
-            <div className="space-y-3">
+            <div className="space-y-3 px-4">
               {/* Descrição + Configurações do Evento lado a lado */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
               {/* Descrição compacta com botão para abrir editor em modal */}
@@ -3646,7 +3646,7 @@ ${localEvento}`;
         } else {
           // IA Ligação - Configuração de localização + Upload de Base
           return (
-            <div className="space-y-4">
+            <div className="space-y-4 px-4">
               {/* Localização do Evento */}
               <div className="rounded-lg border border-border p-4 bg-card">
                 <div className="flex items-center gap-2 mb-4">
@@ -3809,7 +3809,7 @@ ${localEvento}`;
 
       case 'Metas':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-primary/80 to-primary text-primary-foreground">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="h-4 w-4" />
@@ -3945,7 +3945,7 @@ ${localEvento}`;
         const algumUltrapassou = ultrapassouVendas || ultrapassouCheckins || ultrapassouConfirmacoes || ultrapassouConvites;
         
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             {/* Indicadores de Distribuição */}
             <Card className={`p-4 ${algumUltrapassou ? 'border-destructive bg-destructive/5' : 'border-primary/20'}`}>
               <div className="flex items-center gap-2 mb-3">
@@ -4129,7 +4129,7 @@ ${localEvento}`;
 
       case 'Equipes':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-violet-500/80 to-violet-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -4446,7 +4446,7 @@ ${localEvento}`;
 
       case 'Premiações':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-amber-500/80 to-amber-600 text-white">
               <div className="flex items-center gap-2 mb-2">
                 <Trophy className="h-4 w-4" />
@@ -4509,7 +4509,7 @@ ${localEvento}`;
 
       case 'Convite':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Nesta tela, o gestor deve cadastrar os KVs das ofertas vigentes. Essas informações serão utilizadas pelos vendedores como referência para entender quais campanhas, condições e comunicações estão ativas no momento.
               <br />
@@ -4576,7 +4576,7 @@ ${localEvento}`;
 
       case 'Marketing':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-orange-500/80 to-orange-600 text-white">
               <div className="flex items-center gap-2 mb-1">
                 <Megaphone className="h-4 w-4" />
@@ -4660,10 +4660,10 @@ ${localEvento}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100vh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header fixo */}
-        <div className="flex-shrink-0 px-4 py-2 border-b bg-background">
-          <div className="flex items-center justify-between gap-4">
+        <div className="flex-shrink-0 px-0 py-2 border-b bg-background">
+          <div className="flex items-center justify-between gap-4 px-4">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-3 text-lg">
                 <span>{editingProspeccao ? 'Editar Evento' : 'Novo Evento'}</span>
@@ -4704,41 +4704,43 @@ ${localEvento}`;
               ))}
             </div>
           </div>
-          <p className="text-sm font-medium text-primary mt-1">{currentStepName}</p>
+          <p className="text-sm font-medium text-primary mt-1 px-4">{currentStepName}</p>
         </div>
         
         {/* Conteúdo com scroll */}
-        <ScrollIndicator className="flex-1 min-h-0 px-4 py-2">
+        <ScrollIndicator className="flex-1 min-h-0 px-0 py-2">
           {renderStepContent()}
         </ScrollIndicator>
 
         {/* Footer fixo */}
-        <div className="flex-shrink-0 flex justify-between gap-2 px-4 py-3 border-t bg-background">
-          <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
-            Cancelar
-          </Button>
-          
-          <div className="flex gap-2">
-            {!isFirstStep && (
-              <Button type="button" variant="outline" onClick={handlePreviousStep} disabled={loading}>
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Voltar
-              </Button>
-            )}
+        <div className="flex-shrink-0 px-0 py-0 border-t bg-background">
+          <div className="flex justify-between gap-2 px-4 py-3">
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
+              Cancelar
+            </Button>
             
-            {isLastStep ? (
-              <Button onClick={handleSubmit} disabled={loading}>
-                {loading 
-                  ? (loadingMessage || (editingProspeccao ? "Salvando..." : "Criando..."))
-                  : (editingProspeccao ? "Salvar Alterações" : "Criar Evento")
-                }
-              </Button>
-            ) : (
-              <Button type="button" onClick={handleNextStep} disabled={loading}>
-                Próxima Etapa
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {!isFirstStep && (
+                <Button type="button" variant="outline" onClick={handlePreviousStep} disabled={loading}>
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Voltar
+                </Button>
+              )}
+              
+              {isLastStep ? (
+                <Button onClick={handleSubmit} disabled={loading}>
+                  {loading 
+                    ? (loadingMessage || (editingProspeccao ? "Salvando..." : "Criando..."))
+                    : (editingProspeccao ? "Salvar Alterações" : "Criar Evento")
+                  }
+                </Button>
+              ) : (
+                <Button type="button" onClick={handleNextStep} disabled={loading}>
+                  Próxima Etapa
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
