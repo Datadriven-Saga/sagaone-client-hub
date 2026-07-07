@@ -39,6 +39,24 @@ SDR/Vendedor veem só leads da sua equipe (memory `lead-visibility-security-rule
 
 Padrão: RPC `SECURITY DEFINER` que valida `user_can_access_empresa` e devolve dados filtrados. Evita recursão em políticas RLS (memory `rls-security-definer-pattern`).
 
+### Padrão para policies RLS em tabelas filhas
+
+Tabelas sem `empresa_id` próprio (ex.: `prospeccao_cadencias`, `campaign_batches`) devem validar acesso via join com o pai:
+
+```sql
+CREATE POLICY "<nome>" ON public.<child>
+FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.<parent> p
+    WHERE p.id = <child>.<parent>_id
+      AND public.user_can_access_empresa(p.empresa_id, auth.uid())
+  )
+);
+```
+
+**Ordem dos args é obrigatória**: `(empresa_id, auth.uid())`. Inverter faz o RLS bloquear tudo silenciosamente — bug real ocorrido em `prospeccao_cadencias` (ver [Multi-tenant](./multi-tenant.md#-ordem-dos-argumentos)).
+
 ## Documentos históricos
 
 - [RBAC — inventariado](../historico/rbac-inventariado.md) — plano original de RBAC fine-grained (parcialmente implementado).

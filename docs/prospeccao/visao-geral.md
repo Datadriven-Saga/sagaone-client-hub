@@ -39,6 +39,14 @@ Nomes iguais, coisas diferentes:
 |------|--------|-------|
 | Prospecção / Evento | `prospeccoes` | Definição do evento (template, canal, datas). |
 | Evento de Prospecção | `eventos_prospeccao` | Vínculo lead↔evento **e** histórico (débito arquitetural conhecido). |
+| Cadências extras | `prospeccao_cadencias` | Ordens 2 e 3 da cadência de disparo IA WhatsApp (a #1 continua nas colunas legacy de `prospeccoes`). |
+
+### Cadências (IA WhatsApp)
+
+- Cadência **#1** permanece nas colunas legacy de `prospeccoes` (template principal, template agendado/não agendado, `data_envio_cadencia`) — não quebrar consumidores existentes.
+- Cadências **#2 e #3** vivem em `prospeccao_cadencias` (`ordem` 1..3, FK para `prospeccoes`).
+- No payload do webhook de criação/edição de evento vai um novo campo `cadencias: []` agregando todas — a estrutura legacy também é enviada por compatibilidade.
+- **RLS**: `prospeccao_cadencias` não tem `empresa_id` próprio; policies validam via join com `prospeccoes` usando `user_can_access_empresa(p.empresa_id, auth.uid())` — ordem dos args crítica (ver [Multi-tenant](../arquitetura/multi-tenant.md#-ordem-dos-argumentos)).
 
 ## Canais
 

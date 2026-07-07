@@ -32,6 +32,26 @@ public.user_can_access_empresa(p_empresa_id uuid, p_user_id uuid DEFAULT auth.ui
 
 A função tem duas assinaturas (1-arg e 2-arg). Callers SQL/RPC **devem passar `(empresa_id, auth.uid())`** — chamada com 1 arg explode `42725 is not unique` (memory `user-can-access-empresa-overload-call`).
 
+### ⚠️ Ordem dos argumentos
+
+Primeiro argumento é **EMPRESA**, segundo é **USUÁRIO**. Inverter (`user_can_access_empresa(auth.uid(), p.empresa_id)`) faz a função retornar sempre `false` e o RLS bloquear leituras/escritas **silenciosamente** — sem erro, apenas 0 linhas.
+
+Incidente real: policies de `prospeccao_cadencias` foram criadas com args invertidos e a tabela ficou 0 linhas globalmente até o fix de 2026-07-07. Sempre revisar visualmente a ordem antes de submeter migration.
+
+Padrão canônico para tabelas filhas:
+
+```sql
+USING (
+  EXISTS (
+    SELECT 1 FROM public.<parent> p
+    WHERE p.id = <child>.<parent>_id
+      AND public.user_can_access_empresa(p.empresa_id, auth.uid())
+  )
+)
+```
+
+Memory: `user-can-access-empresa-signature`.
+
 ## Isolamento estrito
 
 - **Store isolation:** `dealer_id` deve bater com `crm_id` para filtrar eventos externos (regra core).
@@ -47,3 +67,4 @@ A função tem duas assinaturas (1-arg e 2-arg). Callers SQL/RPC **devem passar 
 - [Autenticação e sessão](./autenticacao-e-sessao.md)
 - [Permissões e RBAC](./permissoes-e-rbac.md)
 - [Empresas e Cadeiras](../administracao/empresas-e-cadeiras.md)
+- Memory: `vendor-company-link-source`, `user-can-access-empresa-signature`, `user-can-access-empresa-overload-call`
