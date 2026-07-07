@@ -3375,7 +3375,7 @@ ${localEvento}`;
                                 onChange={(e) => setDataEnvioCadencia(e.target.value)}
                                 min="2000-01-01T00:00"
                                 max="2099-12-31T23:59"
-                                 className="cursor-pointer h-8 text-sm"
+                                  className="cursor-pointer h-8 text-sm [color-scheme:light] dark:[color-scheme:dark]"
                               />
                             </TableCell>
                              <TableCell className="py-1">
@@ -3446,7 +3446,7 @@ ${localEvento}`;
                                     onChange={(e) => updateExtra({ data_envio_cadencia: e.target.value })}
                                     min="2000-01-01T00:00"
                                     max="2099-12-31T23:59"
-                                     className="cursor-pointer h-8 text-sm"
+                                      className="cursor-pointer h-8 text-sm [color-scheme:light] dark:[color-scheme:dark]"
                                   />
                                 </TableCell>
                                  <TableCell className="py-1">
