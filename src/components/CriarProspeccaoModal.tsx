@@ -2971,7 +2971,7 @@ ${localEvento}`;
     switch (currentStepName) {
       case 'Dados Gerais':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <div>
               <Label htmlFor="titulo">Título *</Label>
               <Input
@@ -3809,7 +3809,7 @@ ${localEvento}`;
 
       case 'Metas':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-primary/80 to-primary text-primary-foreground">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="h-4 w-4" />
@@ -3945,7 +3945,7 @@ ${localEvento}`;
         const algumUltrapassou = ultrapassouVendas || ultrapassouCheckins || ultrapassouConfirmacoes || ultrapassouConvites;
         
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             {/* Indicadores de Distribuição */}
             <Card className={`p-4 ${algumUltrapassou ? 'border-destructive bg-destructive/5' : 'border-primary/20'}`}>
               <div className="flex items-center gap-2 mb-3">
@@ -4129,7 +4129,7 @@ ${localEvento}`;
 
       case 'Equipes':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-violet-500/80 to-violet-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -4446,7 +4446,7 @@ ${localEvento}`;
 
       case 'Premiações':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-amber-500/80 to-amber-600 text-white">
               <div className="flex items-center gap-2 mb-2">
                 <Trophy className="h-4 w-4" />
@@ -4509,7 +4509,7 @@ ${localEvento}`;
 
       case 'Convite':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Nesta tela, o gestor deve cadastrar os KVs das ofertas vigentes. Essas informações serão utilizadas pelos vendedores como referência para entender quais campanhas, condições e comunicações estão ativas no momento.
               <br />
@@ -4576,7 +4576,7 @@ ${localEvento}`;
 
       case 'Marketing':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4">
             <Card className="p-4 bg-gradient-to-r from-orange-500/80 to-orange-600 text-white">
               <div className="flex items-center gap-2 mb-1">
                 <Megaphone className="h-4 w-4" />
