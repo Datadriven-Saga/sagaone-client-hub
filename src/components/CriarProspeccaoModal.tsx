@@ -1636,6 +1636,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Whatsapp') {
           await saveConvite(data.id);
+          await saveCadencias(data.id, {
+            modoCompleto: !!(cadenciaCompleta || editingProspeccao?.cadencia_completa),
+          });
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
@@ -1768,6 +1771,9 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
           await saveConvite(data.id);
         } else if (tipoEvento === 'IA Whatsapp') {
           await saveConvite(data.id);
+          await saveCadencias(data.id, {
+            modoCompleto: !!cadenciaCompleta,
+          });
         } else if (tipoEvento === 'IA Ligação') {
           await saveConvite(data.id);
 
