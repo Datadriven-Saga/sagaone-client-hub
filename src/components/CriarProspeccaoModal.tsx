@@ -3169,7 +3169,7 @@ ${localEvento}`;
         if (tipoEvento === 'IA Whatsapp') {
           const cadCompleta = cadenciaCompleta || editingProspeccao?.cadencia_completa;
           return (
-            <div className="space-y-3 px-4">
+            <div className="space-y-2 px-4">
               {/* Descrição + Configurações do Evento lado a lado */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
               {/* Descrição compacta com botão para abrir editor em modal */}
@@ -3268,12 +3268,10 @@ ${localEvento}`;
                 {editingProspeccao && (
                   <p className="text-xs text-muted-foreground mt-2">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
                 )}
-                {!editingProspeccao && !isConfirmacaoFlow && (
-                  <p className="text-xs text-muted-foreground mt-2">Para criar um evento de confirmação, use o botão <strong>"Criar Confirmação"</strong> dentro da base de um evento existente.</p>
-                )}
                 {isConfirmacaoFlow && parentEvento && (
                   <p className="text-xs text-primary mt-2">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
                 )}
+
               </div>
               </div>
 
