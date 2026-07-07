@@ -99,6 +99,14 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [templateAgendado48hId, setTemplateAgendado48hId] = useState("");
   const [templateAgendado24hId, setTemplateAgendado24hId] = useState("");
 
+  // Cadências extras (IA WhatsApp, modo simples): posições 2 e 3
+  interface CadenciaExtra {
+    template_agendado_id: string;
+    template_nao_agendado_id: string;
+    data_envio_cadencia: string; // formato datetime-local
+  }
+  const [cadenciasExtras, setCadenciasExtras] = useState<CadenciaExtra[]>([]);
+
   // Metas
   const [metaNovos, setMetaNovos] = useState<number | "">("");
   const [metaSeminovos, setMetaSeminovos] = useState<number | "">("");
