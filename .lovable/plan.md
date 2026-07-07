@@ -1,22 +1,24 @@
-Ajustar o layout do modal de Configuração IA em `src/components/CriarProspeccaoModal.tsx` para eliminar o espaço vazio e reposicionar o aviso informativo.
+Ajustar somente o modal `CriarProspeccaoModal` para as divs encostarem de fato nas bordas internas do dialog.
 
-## O que será feito
+## Plano
 
-### 1. Mover o aviso informativo para o lado do dropdown
-- Remover o bloco de aviso atual no rodapé da etapa Configuração IA (linhas ~3612-3616):
-  - Texto: "O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas."
-- Adicionar o mesmo texto como tooltip do ícone `Info` ao lado do label "Template Prospecção", no bloco de `!cadCompleta` (linhas ~3280-3303) e no bloco `cadCompleta` (linhas ~3509-3526).
-- Isso libera a linha do rodapé e deixa a informação contextual junto ao campo principal.
+1. **Neutralizar o padding padrão do DialogContent com prioridade**
+   - Trocar `p-0` por classes mais fortes, por exemplo `!p-0 sm:!p-0`, porque o componente global aplica `p-4 sm:p-6` antes.
+   - Isso remove a margem cinza que aparece acima do header e abaixo do footer na imagem.
 
-### 2. Reduzir o padding da modal (eliminar os espaços vazios)
-Ajustar os espaçamentos internos do `DialogContent` principal (linhas ~4644-4724):
-- Header: `px-6 py-3` → `px-4 py-2`
-- Conteúdo (ScrollIndicator): `px-6 py-4` → `px-4 py-2`
-- Footer: `px-6 py-4` → `px-4 py-3`
+2. **Fazer header, conteúdo e footer ocuparem 100% da largura**
+   - Manter `gap-0` e `overflow-hidden`.
+   - Garantir que os blocos internos não recebam margem externa.
+   - Deixar padding apenas dentro do conteúdo de cada bloco, não no container do dialog.
 
-Isso fará o conteúdo ocupar melhor a altura da modal, reduzindo o espaço vazio nas bordas (os "quadrados vermelhos" indicados).
+3. **Reduzir espaçamento vertical residual**
+   - Remover `py-2` do header/container de conteúdo se ainda criar faixa visual indesejada.
+   - Preservar o padding interno horizontal onde precisa para os textos e botões não grudarem.
+
+## Arquivo alterado
+
+- `src/components/CriarProspeccaoModal.tsx`
 
 ## Fora de escopo
-- Não alterar a tabela de cadências, lógica de persistência, payload ou banco de dados.
-- Não alterar outros passos do modal (Dados Gerais, Convite, etc.).
-- Não alterar o `DialogContent` global do shadcn; ajuste somente nas classes passadas na instância do modal.
+
+- Não alterar regras de negócio, cadências, banco, payloads ou componentes globais de dialog.
