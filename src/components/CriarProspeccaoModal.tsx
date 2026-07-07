@@ -3194,24 +3194,18 @@ ${localEvento}`;
 
               {/* Templates + cadência em grid */}
               {!cadCompleta ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Template Prospecção */}
-                  <div className="space-y-2">
+                <div className="space-y-4">
+                  {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
+                  <div className="space-y-2 max-w-md">
                     <Label htmlFor="template_prospeccao" className="text-sm">
                       Template Prospecção <span className="text-destructive">*</span>
                     </Label>
                     <div className="flex gap-1">
-                      <Select value={templateProspeccaoId} onValueChange={(value) => {
-                        if (value === templateAgendadoId || value === templateNaoAgendadoId) {
-                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
-                          return;
-                        }
-                        setTemplateProspeccaoId(value);
-                      }}>
+                      <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                           {whatsappTemplates
-                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId && t.id !== templateNaoAgendadoId)
+                            .filter(t => t.template_id_pri || t.id_meta)
                             .map(template => (
                               <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
                             ))}
@@ -3226,95 +3220,203 @@ ${localEvento}`;
                     {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
                   </div>
 
-                  {/* Cadência Agendados */}
+                  {/* Tabela de cadências (até 3) */}
                   <div className="space-y-2">
-                    <Label htmlFor="template_agendado" className="text-sm">Cadência Agendados</Label>
-                    <div className="flex gap-1">
-                      <Select value={templateAgendadoId} onValueChange={(value) => {
-                        if (value === templateProspeccaoId || value === templateNaoAgendadoId) {
-                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
-                          return;
-                        }
-                        setTemplateAgendadoId(value);
-                      }}>
-                        <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
-                        <SelectContent>
-                          {whatsappTemplates
-                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateNaoAgendadoId)
-                            .map(template => (
-                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {templateAgendadoId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Cadências (até 3)</Label>
                     </div>
-                  </div>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12 text-center">#</TableHead>
+                            <TableHead>Cadência Agendados</TableHead>
+                            <TableHead className="min-w-[200px]">
+                              <div className="flex items-center gap-1">
+                                Data/Hora
+                                <TooltipProvider><Tooltip>
+                                  <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                  <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) desta linha serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
+                                </Tooltip></TooltipProvider>
+                              </div>
+                            </TableHead>
+                            <TableHead>
+                              <div className="flex items-center gap-1">
+                                Cadência Não Responderam
+                                <TooltipProvider><Tooltip>
+                                  <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                  <TooltipContent className="max-w-xs"><p>Quem respondeu terá cadência automática "como a Maia", sem gastar template. Vale para leads que responderam, mas não agendaram.</p></TooltipContent>
+                                </Tooltip></TooltipProvider>
+                              </div>
+                            </TableHead>
+                            <TableHead className="w-12" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {/* Cadência #1 — campos legacy */}
+                          <TableRow>
+                            <TableCell className="text-center font-medium">1</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Select value={templateAgendadoId} onValueChange={(value) => {
+                                  if (value === templateNaoAgendadoId) {
+                                    toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                    return;
+                                  }
+                                  setTemplateAgendadoId(value);
+                                }}>
+                                  <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                  <SelectContent>
+                                    {whatsappTemplates
+                                      .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateNaoAgendadoId)
+                                      .map(template => (
+                                        <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                {templateAgendadoId && (
+                                  <Button type="button" variant="outline" size="icon" onClick={() => setTemplateAgendadoId("")} className="shrink-0" title="Limpar">
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="datetime-local"
+                                value={dataEnvioCadencia}
+                                onChange={(e) => setDataEnvioCadencia(e.target.value)}
+                                min="2000-01-01T00:00"
+                                max="2099-12-31T23:59"
+                                style={{ colorScheme: 'dark' }}
+                                className="cursor-pointer"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Select value={templateNaoAgendadoId} onValueChange={(value) => {
+                                  if (value === templateAgendadoId) {
+                                    toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                    return;
+                                  }
+                                  setTemplateNaoAgendadoId(value);
+                                }}>
+                                  <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                  <SelectContent>
+                                    {whatsappTemplates
+                                      .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateAgendadoId)
+                                      .map(template => (
+                                        <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                {templateNaoAgendadoId && (
+                                  <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0" title="Limpar">
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
 
-                  {/* Data/Hora – aplica às duas cadências */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1">
-                      <Label htmlFor="data_envio_cadencia" className="text-sm">Data/Hora das Cadências</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Define quando <strong>ambas</strong> as cadências (Agendados e Não Responderam) serão enviadas. Em branco = 24h antes do evento.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
+                          {/* Cadências extras (2 e 3) */}
+                          {cadenciasExtras.map((cad, idx) => {
+                            const updateExtra = (patch: Partial<CadenciaExtra>) => {
+                              setCadenciasExtras(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+                            };
+                            return (
+                              <TableRow key={`cad-extra-${idx}`}>
+                                <TableCell className="text-center font-medium">{idx + 2}</TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Select value={cad.template_agendado_id} onValueChange={(value) => {
+                                      if (value === cad.template_nao_agendado_id) {
+                                        toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                        return;
+                                      }
+                                      updateExtra({ template_agendado_id: value });
+                                    }}>
+                                      <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                      <SelectContent>
+                                        {whatsappTemplates
+                                          .filter(t => (t.template_id_pri || t.id_meta) && t.id !== cad.template_nao_agendado_id)
+                                          .map(template => (
+                                            <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {cad.template_agendado_id && (
+                                      <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_agendado_id: "" })} className="shrink-0" title="Limpar">
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="datetime-local"
+                                    value={cad.data_envio_cadencia}
+                                    onChange={(e) => updateExtra({ data_envio_cadencia: e.target.value })}
+                                    min="2000-01-01T00:00"
+                                    max="2099-12-31T23:59"
+                                    style={{ colorScheme: 'dark' }}
+                                    className="cursor-pointer"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Select value={cad.template_nao_agendado_id} onValueChange={(value) => {
+                                      if (value === cad.template_agendado_id) {
+                                        toast({ title: "Template já utilizado", description: "Este template já está selecionado nesta linha.", variant: "destructive" });
+                                        return;
+                                      }
+                                      updateExtra({ template_nao_agendado_id: value });
+                                    }}>
+                                      <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
+                                      <SelectContent>
+                                        {whatsappTemplates
+                                          .filter(t => (t.template_id_pri || t.id_meta) && t.id !== cad.template_agendado_id)
+                                          .map(template => (
+                                            <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {cad.template_nao_agendado_id && (
+                                      <Button type="button" variant="outline" size="icon" onClick={() => updateExtra({ template_nao_agendado_id: "" })} className="shrink-0" title="Limpar">
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setCadenciasExtras(prev => prev.filter((_, i) => i !== idx))}
+                                    title="Remover cadência"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
-                    <Input
-                      id="data_envio_cadencia"
-                      type="datetime-local"
-                      value={dataEnvioCadencia}
-                      onChange={(e) => setDataEnvioCadencia(e.target.value)}
-                      onClick={(e) => {
-                        const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-                        try {
-                          el.showPicker?.();
-                        } catch (err) {
-                          // cross-origin iframe pode bloquear showPicker(); fallback deixa o input nativo responder
-                        }
-                      }}
-                      min="2000-01-01T00:00"
-                      max="2099-12-31T23:59"
-                      style={{ colorScheme: 'dark' }}
-                      className="cursor-pointer min-h-[42px] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-calendar-picker-indicator]:p-2 [&::-webkit-calendar-picker-indicator]:m-[-8px]"
-                    />
-                  </div>
-
-                  {/* Cadência Não Responderam */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1">
-                      <Label htmlFor="template_nao_agendado" className="text-sm">Cadência Não Responderam</Label>
-                      <TooltipProvider><Tooltip>
-                        <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs"><p>Quem respondeu terá cadência automática "como a Maia", sem gastar template. Vale para leads que responderam, mas não agendaram.</p></TooltipContent>
-                      </Tooltip></TooltipProvider>
-                    </div>
-                    <div className="flex gap-1">
-                      <Select value={templateNaoAgendadoId} onValueChange={(value) => {
-                        if (value === templateProspeccaoId || value === templateAgendadoId) {
-                          toast({ title: "Template já utilizado", description: "Este template já está selecionado em outro campo. Escolha um template diferente.", variant: "destructive" });
-                          return;
-                        }
-                        setTemplateNaoAgendadoId(value);
-                      }}>
-                        <SelectTrigger className="flex-1"><SelectValue placeholder="Opcional" /></SelectTrigger>
-                        <SelectContent>
-                          {whatsappTemplates
-                            .filter(t => (t.template_id_pri || t.id_meta) && t.id !== templateProspeccaoId && t.id !== templateAgendadoId)
-                            .map(template => (
-                              <SelectItem key={template.id} value={template.id}>{template.nome}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {templateNaoAgendadoId && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => setTemplateNaoAgendadoId("")} className="shrink-0" title="Limpar seleção">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    {cadenciasExtras.length < 2 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCadenciasExtras(prev => [...prev, { template_agendado_id: "", template_nao_agendado_id: "", data_envio_cadencia: "" }])}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar cadência
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (
