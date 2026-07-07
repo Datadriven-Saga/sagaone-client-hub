@@ -1,128 +1,47 @@
-## Implementação — Cadências (até 3) na criação/edição de evento IA Whatsapp
+## Ajustes de UI na Etapa 2 — Editar Evento (IA WhatsApp)
 
-### Escopo
+Escopo: apenas layout/apresentação em `src/components/CriarProspeccaoModal.tsx`, sem tocar em lógica de persistência, webhook ou banco.
 
-Somente `tipoEvento === 'IA Whatsapp'`. IA Ligação, Padrão, etc. **não são tocados** — não leem nem escrevem em `prospeccao_cadencias`.
+### 1. Mover "Configurações do Evento" para o topo, ao lado da Descrição
 
-Fora deste escopo: modo `cadencia_completa` antigo (mantido intacto), dispatcher, webhooks de disparo.
+Hoje o bloco `Configurações do Evento` (Tipo de Lead, Evento Principal, Qualificar após Confirmação, Evento de Confirmação) fica na última linha do formulário (linha ~3541 do arquivo), depois da tabela de cadências.
 
-### Regra confirmada
+Passar para o topo, formando um grid de 2 colunas com a Descrição:
 
-- **Template Prospecção NÃO se repete** entre cadências — segue enviado uma vez em "Ver base".
-- Cadências 2 e 3 têm somente: Agendados, Data/Hora, Não Responderam.
+- Coluna esquerda: bloco atual da Descrição (com os botões "Aplicar modelo" e "Abrir editor").
+- Coluna direita: os 4 cartões de configuração, em grid 2x2 compacto (mesma estética atual dos cartões `p-2 rounded-lg border bg-card`), rótulo `Configurações do Evento` acima.
 
-### 1. Banco — nova tabela `prospeccao_cadencias`
-
-Migração:
-
-```sql
-create table public.prospeccao_cadencias (
-  id uuid primary key default gen_random_uuid(),
-  prospeccao_id uuid not null references public.prospeccoes(id) on delete cascade,
-  ordem smallint not null check (ordem between 1 and 3),
-  template_agendado_id uuid references public.whatsapp_templates(id) on delete set null,
-  template_nao_agendado_id uuid references public.whatsapp_templates(id) on delete set null,
-  data_envio_cadencia timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (prospeccao_id, ordem)
-);
-create index on public.prospeccao_cadencias (prospeccao_id);
-
-grant select, insert, update, delete on public.prospeccao_cadencias to authenticated;
-grant all on public.prospeccao_cadencias to service_role;
-
-alter table public.prospeccao_cadencias enable row level security;
-
--- RLS espelha prospeccoes: quem pode ler/escrever a prospecção pode a cadência
-create policy "cadencias select via prospeccao"
-  on public.prospeccao_cadencias for select to authenticated
-  using (exists (select 1 from public.prospeccoes p
-                 where p.id = prospeccao_id
-                   and public.user_can_access_empresa(auth.uid(), p.empresa_id)));
-
-create policy "cadencias write via prospeccao"
-  on public.prospeccao_cadencias for all to authenticated
-  using (exists (select 1 from public.prospeccoes p
-                 where p.id = prospeccao_id
-                   and public.user_can_access_empresa(auth.uid(), p.empresa_id)))
-  with check (exists (select 1 from public.prospeccoes p
-                      where p.id = prospeccao_id
-                        and public.user_can_access_empresa(auth.uid(), p.empresa_id)));
-
--- trigger updated_at (reusa update_updated_at_column existente)
-create trigger set_updated_at
-  before update on public.prospeccao_cadencias
-  for each row execute function public.update_updated_at_column();
-```
-
-Colunas legacy em `prospeccoes` (`template_agendado_id`, `template_nao_agendado_id`, `data_envio_cadencia`) **permanecem** e continuam sendo a fonte da Cadência #1 para o dispatcher/webhooks. A tabela nova é sempre gravada em espelho: linha `ordem=1` recebe os mesmos valores; `ordem=2/3` são as cadências extras.
-
-### 2. Frontend — `src/components/CriarProspeccaoModal.tsx`
-
-UI da etapa "Configuração IA" (branch `tipoEvento === 'IA Whatsapp'` → `!cadCompleta`, linhas ~3033–3157):
+Estrutura no JSX:
 
 ```text
-Editar Evento  Etapa 2 de 3                                             (X)
-Configuração IA
-─────────────────────────────────────────────────────────────────────────
-┌─ Descrição ─────────────────┐  ┌─ Configurações do Evento ──────────┐
-│ [Aplicar modelo] [Abrir…]   │  │ Tipo de Lead / Qualificar / …      │
-└─────────────────────────────┘  └────────────────────────────────────┘
-
-Template Prospecção *  (fora da tabela, único)
-[select ......................▾]
-
-Cadências (até 3)
-┌─#─┬─ Cadência Agendados ─┬─ Data/Hora ──────┬─ Cadência Não Respond. ─┬─┐
-│ 1 │ [select ...........▾]│ [datetime-local] │ [select .............▾] │ │
-│ 2 │ [select ...........▾]│ [datetime-local] │ [select .............▾] │🗑│
-│ 3 │ [select ...........▾]│ [datetime-local] │ [select .............▾] │🗑│
-└───┴──────────────────────┴──────────────────┴─────────────────────────┴─┘
-                              [ + adicionar cadência ]
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  <DescricaoBlock />
+  <ConfiguracoesEventoBlock />
+</div>
+<TemplateProspeccao + TabelaCadencias />
 ```
 
-- Novo estado: `cadenciasExtras: Array<{ template_agendado_id, data_envio_cadencia, template_nao_agendado_id }>` (max 2).
-- Cadência #1 continua nos estados existentes (`templateAgendadoId`, `dataEnvioCadencia`, `templateNaoAgendadoId`).
-- Botão `+` desabilitado quando `cadenciasExtras.length === 2`; lixeira só nas linhas 2/3.
-- Regra de unicidade atual (Prospecção ≠ Agendados ≠ Não Responderam) mantida **dentro** de cada linha; entre linhas pode repetir.
-- Hidratar `cadenciasExtras` no `useEffect` de `editingProspeccao` a partir de um SELECT em `prospeccao_cadencias where prospeccao_id = editingProspeccao.id order by ordem` (linhas 2 e 3 → estado extra; linha 1 confere com os campos legacy).
-- Reset em `resetForm`: `setCadenciasExtras([])`.
+Manter, logo abaixo do grid de configurações, os textos auxiliares que já existem hoje ("Tipo de Lead e Evento de Confirmação não podem ser alterados…", "Para criar um evento de confirmação…", "Confirmação vinculada ao evento…").
 
-### 3. Persistência
+Remover o bloco duplicado da posição original (linhas ~3541–3618) para não repetir os controles.
 
-Após o `upsert` de `prospeccoes` (bloco ~1413–1468), executar em sequência:
+### 2. Centralizar o botão "Adicionar cadência"
 
-```ts
-// 1. Espelha cadência #1 (já persistida nas colunas legacy) na tabela nova
-// 2. Insere/atualiza cadências extras
-// 3. Deleta linhas ordem>=N+1 removidas pelo usuário
-if (tipoEvento === 'IA Whatsapp' && !cadCompleta) {
-  const rows = [
-    { prospeccao_id, ordem: 1,
-      template_agendado_id: templateAgendadoId || null,
-      template_nao_agendado_id: templateNaoAgendadoId || null,
-      data_envio_cadencia: dadosProspeccao.data_envio_cadencia },
-    ...cadenciasExtras.map((c, i) => ({ prospeccao_id, ordem: i + 2, ...c })),
-  ];
-  await supabase.from('prospeccao_cadencias').upsert(rows, { onConflict: 'prospeccao_id,ordem' });
-  await supabase.from('prospeccao_cadencias')
-    .delete().eq('prospeccao_id', prospeccao_id).gt('ordem', rows.length);
-}
-```
+Hoje o botão `Adicionar cadência` fica alinhado à esquerda logo abaixo da tabela. Envolver em um wrapper `flex justify-center` (mantendo o estilo `variant="outline" size="sm"` atual) para ficar centralizado sob a tabela, como no mockup enviado.
 
-### 4. Payload do webhook (`payload.cadencias`)
+### 3. Não muda
 
-No bloco ~2228–2267, montar a lista a partir das mesmas fontes (cadência #1 dos campos legacy + `cadenciasExtras`), com todos os campos derivados (`_nome`, `_id_pri`, `_id_meta`) resolvidos via `whatsappTemplates`. Todos os campos legacy do payload continuam sendo enviados.
+- Modo "Cadência Completa" (`cadCompleta === true`): permanece exatamente como está.
+- Persistência (`saveCadencias`, colunas legacy, tabela `prospeccao_cadencias`).
+- Payload do webhook.
+- Regras de validação de templates e uniqueness por linha.
+- Migration/schema: nenhuma mudança neste passo.
 
-### 5. Arquivos alterados
+### Como aumentar o limite de cadências no futuro (referência, fora deste plano)
 
-- Migração nova (via tool) — cria `prospeccao_cadencias`.
-- `src/components/CriarProspeccaoModal.tsx` — UI, estado, hidratação, persistência, payload.
-- `.lovable/plan-cadencias.md` — atualizar notas.
+Para permitir N cadências:
 
-### Fora de escopo
+1. `ALTER TABLE public.prospeccao_cadencias DROP CONSTRAINT prospeccao_cadencias_ordem_check; ALTER TABLE ... ADD CONSTRAINT ... CHECK (ordem BETWEEN 1 AND N);` (ou remover o check).
+2. No modal, trocar `cadenciasExtras.length < 2` pelo novo teto (`< N-1`, porque a linha #1 é fixa).
 
-- Dispatcher, webhooks internos e envio real (continuam usando as colunas legacy da cadência #1).
-- Cadência completa antiga.
-- IA Ligação, Padrão e outros tipos de evento.
+Nenhuma outra alteração de código é necessária — save, hydrate e webhook já são dinâmicos.
