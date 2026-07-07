@@ -1078,6 +1078,69 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
       }
     }
   };
+
+  // Persiste a tabela `prospeccao_cadencias` (até 3 linhas).
+  // Cadência #1 espelha os campos legacy (templateAgendadoId / templateNaoAgendadoId / dataEnvioCadencia).
+  // Cadências 2 e 3 vêm de `cadenciasExtras`. Só aplica para IA WhatsApp fora do modo cadência completa.
+  const saveCadencias = async (
+    prospeccaoId: string,
+    opts: { modoCompleto: boolean },
+  ) => {
+    if (tipoEvento !== 'IA Whatsapp') return;
+
+    // Modo cadência completa antigo não usa esta tabela — limpa tudo.
+    if (opts.modoCompleto) {
+      await supabase
+        .from('prospeccao_cadencias')
+        .delete()
+        .eq('prospeccao_id', prospeccaoId);
+      return;
+    }
+
+    const parseLocal = (v: string): string | null => {
+      if (!v) return null;
+      try {
+        return new Date(v).toISOString();
+      } catch {
+        return null;
+      }
+    };
+
+    const rows = [
+      {
+        prospeccao_id: prospeccaoId,
+        ordem: 1,
+        template_agendado_id: templateAgendadoId || null,
+        template_nao_agendado_id: templateNaoAgendadoId || null,
+        data_envio_cadencia: parseLocal(dataEnvioCadencia),
+      },
+      ...cadenciasExtras.map((c, i) => ({
+        prospeccao_id: prospeccaoId,
+        ordem: i + 2,
+        template_agendado_id: c.template_agendado_id || null,
+        template_nao_agendado_id: c.template_nao_agendado_id || null,
+        data_envio_cadencia: parseLocal(c.data_envio_cadencia),
+      })),
+    ];
+
+    const { error: upsertError } = await supabase
+      .from('prospeccao_cadencias')
+      .upsert(rows, { onConflict: 'prospeccao_id,ordem' });
+    if (upsertError) {
+      console.error('[cadencias] upsert error:', upsertError);
+      return;
+    }
+
+    // Remove linhas com ordem superior à quantidade atual (caso o usuário tenha removido).
+    const { error: deleteError } = await supabase
+      .from('prospeccao_cadencias')
+      .delete()
+      .eq('prospeccao_id', prospeccaoId)
+      .gt('ordem', rows.length);
+    if (deleteError) {
+      console.error('[cadencias] cleanup error:', deleteError);
+    }
+  };
   
   // Salvar página de captura
   const savePagina = async (prospeccaoId: string) => {
