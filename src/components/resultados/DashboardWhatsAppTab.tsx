@@ -123,6 +123,8 @@ export const DashboardWhatsAppTab = ({
   const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
   const [showBRL, setShowBRL] = useState(false);
   const [webhookProgress, setWebhookProgress] = useState(0);
+  const [showLidas, setShowLidas] = useState(true);
+  const [baseCalc, setBaseCalc] = useState<"entregues" | "base">("entregues");
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startWebhookProgress = useCallback(() => {
@@ -490,6 +492,8 @@ export const DashboardWhatsAppTab = ({
     const taxaLeituraBase = safeDiv(d.msg_lida, d.msg_entregue);
     const taxaAgendBase = safeDiv(d.agendado, d.total_base);
     const taxaAgendResp = safeDiv(d.agendado, d.msg_respondida);
+    const taxaAgendEntregue = safeDiv(d.agendado, d.msg_entregue);
+    const taxaRespostaEntregue = safeDiv(d.msg_respondida, d.msg_entregue);
 
     const cpoEntregue = safeDiv(gastoAtivo, d.msg_entregue);
     const cpoRespondido = safeDiv(gastoAtivo, d.msg_respondida);
@@ -503,6 +507,8 @@ export const DashboardWhatsAppTab = ({
       taxaLeituraBase,
       taxaAgendBase,
       taxaAgendResp,
+      taxaAgendEntregue,
+      taxaRespostaEntregue,
       cpoEntregue,
       cpoRespondido,
       cpoAgendado,
@@ -522,7 +528,10 @@ export const DashboardWhatsAppTab = ({
   const kpiCards = useMemo(() => {
     if (!metrics) return [];
     const m = metrics;
-    const taxaAgendPct = m.taxaAgendBase * 100;
+    const taxaRespostaShow = baseCalc === "entregues" ? m.taxaRespostaEntregue : m.taxaResposta;
+    const taxaRespostaSuffix = baseCalc === "entregues" ? "das entregues" : "das lidas";
+    const taxaAgendShow = baseCalc === "entregues" ? m.taxaAgendEntregue : m.taxaAgendBase;
+    const taxaAgendSuffix = baseCalc === "entregues" ? "das entregues" : "da base";
 
     return [
       {
@@ -538,19 +547,25 @@ export const DashboardWhatsAppTab = ({
         pctSuffix: "das enviadas",
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <CheckCircle2 className="h-4 w-4" />,
+        tooltip: {
+          title: "Taxa de leitura",
+          value: pctFmt(m.taxaLeituraBase),
+          detail: `${numFmt(m.msg_lida)} lidas de ${numFmt(m.msg_entregue)} entregues`,
+        },
       },
       {
         label: "Leads responderam",
         value: numFmt(m.msg_respondida),
-        pctVal: m.taxaResposta,
-        pctSuffix: "das lidas",
+        pctVal: taxaRespostaShow,
+        pctSuffix: taxaRespostaSuffix,
         hint: `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
         icon: <MessageCircle className="h-4 w-4" />,
       },
       {
         label: "Leads agendados",
         value: numFmt(m.agendado),
-        pctVal: m.taxaAgendBase,
+        pctVal: taxaAgendShow,
+        pctSuffix: taxaAgendSuffix,
         hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
@@ -561,35 +576,14 @@ export const DashboardWhatsAppTab = ({
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <DollarSign className="h-4 w-4" />,
       },
-      {
-        label: "Taxa de leitura",
-        value: pctFmt(m.taxaLeituraBase),
-        hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`,
-        icon: <Eye className="h-4 w-4" />,
-      },
-      {
-        label: "Taxa resposta",
-        value: pctFmt(m.taxaResposta),
-        hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`,
-        icon: <TrendingUp className="h-4 w-4" />,
-      },
-      {
-        label: "Taxa agendamento",
-        value: pctFmt(m.taxaAgendBase),
-        pctVal: m.taxaAgendBase,
-        hint: taxaAgendPct > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%",
-        threshold: 0.03,
-        useValueColor: true,
-        icon: <BarChart3 className="h-4 w-4" />,
-      },
     ];
-  }, [metrics, showBRL, money, moneyVal]);
+  }, [metrics, showBRL, money, moneyVal, baseCalc]);
 
   // Funnel steps
   const funnelSteps = useMemo(() => {
     if (!metrics) return [];
     const d = metrics;
-    return [
+    const steps = [
       { name: "Total da base", count: d.total_base, desc: "Total de leads no evento", key: "base" },
       {
         name: "Mensagem enviada",
@@ -607,7 +601,8 @@ export const DashboardWhatsAppTab = ({
       { name: "Mensagem respondida", count: d.msg_respondida, desc: "Leads que responderam", key: "respondida" },
       { name: "Agendado", count: d.agendado, desc: "Leads que agendaram", key: "agendado" },
     ];
-  }, [metrics]);
+    return showLidas ? steps : steps.filter((s) => s.key !== "lida");
+  }, [metrics, showLidas]);
 
   // Losses
   const losses = useMemo(() => {
@@ -802,25 +797,22 @@ export const DashboardWhatsAppTab = ({
       {metrics && (
         <>
           {/* KPI Cards */}
-           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {kpiCards.map((kpi, idx) => {
-              let valueColor = "";
-              if (kpi.useValueColor && kpi.threshold !== undefined) {
-                const pv = kpi.pctVal ?? 0;
-                valueColor = pv > kpi.threshold ? "text-emerald-500" : "text-destructive";
-              }
-
-              return (
-                <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {kpiCards.map((kpi: any, idx) => {
+              const cardInner = (
+                <Card className="bg-gradient-to-b from-card/80 to-card border-border/50 h-full">
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                      {kpi.icon}
-                      <span className="text-xs font-medium">{kpi.label}</span>
+                    <div className="flex items-center justify-between gap-2 text-muted-foreground mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="[&_svg]:h-5 [&_svg]:w-5">{kpi.icon}</span>
+                        <span className="text-xs font-medium">{kpi.label}</span>
+                      </div>
+                      {kpi.tooltip && <Info className="h-3.5 w-3.5 opacity-60" />}
                     </div>
-                    <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
-                    {kpi.pctVal !== undefined && !kpi.useValueColor && (
+                    <p className="text-2xl md:text-3xl font-extrabold">{kpi.value}</p>
+                    {kpi.pctVal !== undefined && (
                       <p
-                        className={`text-sm font-bold mt-1 ${
+                        className={`text-base md:text-lg font-bold mt-1 ${
                           kpi.threshold !== undefined
                             ? kpi.pctVal > kpi.threshold
                               ? "text-emerald-500"
@@ -830,14 +822,33 @@ export const DashboardWhatsAppTab = ({
                       >
                         {pctFmt(kpi.pctVal)}
                         {kpi.pctSuffix && (
-                          <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
+                          <span className="text-sm text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
                         )}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{kpi.hint}</p>
                   </CardContent>
                 </Card>
               );
+
+              if (kpi.tooltip) {
+                return (
+                  <TooltipProvider key={idx}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">{cardInner}</div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-xs font-bold">
+                          {kpi.tooltip.title}: {kpi.tooltip.value}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{kpi.tooltip.detail}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              }
+              return <div key={idx}>{cardInner}</div>;
             })}
           </div>
 
@@ -846,9 +857,20 @@ export const DashboardWhatsAppTab = ({
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-sm font-bold">Funil de leads</CardTitle>
-                <Badge variant="outline" className="text-xs">
-                  Base → Enviada → Entregue → Lida → Respondida → Agendado
-                </Badge>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Switch checked={showLidas} onCheckedChange={setShowLidas} />
+                    Mostrar etapa "Lidas"
+                  </label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <span className={baseCalc === "entregues" ? "font-bold text-primary" : "text-muted-foreground"}>Entregues</span>
+                    <Switch
+                      checked={baseCalc === "base"}
+                      onCheckedChange={(v) => setBaseCalc(v ? "base" : "entregues")}
+                    />
+                    <span className={baseCalc === "base" ? "font-bold text-primary" : "text-muted-foreground"}>Base</span>
+                  </label>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -857,6 +879,8 @@ export const DashboardWhatsAppTab = ({
                 const width = safeDiv(step.count, leadBase) * 100;
                 const prevText = prev === null ? "—" : pctFmt(safeDiv(step.count, prev));
                 const totalPct = safeDiv(step.count, leadBase);
+                const showDeliveredPct = step.key === "respondida" || step.key === "agendado";
+                const deliveredPct = metrics ? safeDiv(step.count, metrics.msg_entregue) : 0;
 
                 return (
                   <div key={step.key} className="border rounded-xl p-3 border-border/50 bg-background/30">
@@ -874,6 +898,11 @@ export const DashboardWhatsAppTab = ({
                         <Badge variant="outline" className="text-xs">
                           Δ ant: {prevText}
                         </Badge>
+                        {showDeliveredPct && (
+                          <Badge variant="outline" className="text-xs">
+                            {pctFmt(deliveredPct)} dos entregues
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-xs">
                           {pctFmt(totalPct)} da base
                         </Badge>
