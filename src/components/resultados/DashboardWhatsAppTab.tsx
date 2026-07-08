@@ -636,7 +636,7 @@ export const DashboardWhatsAppTab = ({
       <div className="space-y-3">
         <div className="space-y-1">
           <Progress value={webhookProgress} className="h-1" />
-          <p className="text-xs text-muted-foreground">Consultando webhook…</p>
+          <p className="text-xs text-muted-foreground">Agregando dados do WhatsApp</p>
         </div>
         <DashboardWhatsAppSkeleton />
       </div>
@@ -793,7 +793,7 @@ export const DashboardWhatsAppTab = ({
       {loading && (
         <div className="space-y-1">
           <Progress value={webhookProgress} className="h-1" />
-          <p className="text-xs text-muted-foreground">Consultando webhook…</p>
+          <p className="text-xs text-muted-foreground">Agregando dados do WhatsApp</p>
         </div>
       )}
 
