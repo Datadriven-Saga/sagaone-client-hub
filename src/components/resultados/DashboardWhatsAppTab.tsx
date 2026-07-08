@@ -123,6 +123,8 @@ export const DashboardWhatsAppTab = ({
   const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
   const [showBRL, setShowBRL] = useState(false);
   const [webhookProgress, setWebhookProgress] = useState(0);
+  const [showLidas, setShowLidas] = useState(true);
+  const [baseCalc, setBaseCalc] = useState<"entregues" | "base">("entregues");
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startWebhookProgress = useCallback(() => {
@@ -490,6 +492,8 @@ export const DashboardWhatsAppTab = ({
     const taxaLeituraBase = safeDiv(d.msg_lida, d.msg_entregue);
     const taxaAgendBase = safeDiv(d.agendado, d.total_base);
     const taxaAgendResp = safeDiv(d.agendado, d.msg_respondida);
+    const taxaAgendEntregue = safeDiv(d.agendado, d.msg_entregue);
+    const taxaRespostaEntregue = safeDiv(d.msg_respondida, d.msg_entregue);
 
     const cpoEntregue = safeDiv(gastoAtivo, d.msg_entregue);
     const cpoRespondido = safeDiv(gastoAtivo, d.msg_respondida);
@@ -503,6 +507,8 @@ export const DashboardWhatsAppTab = ({
       taxaLeituraBase,
       taxaAgendBase,
       taxaAgendResp,
+      taxaAgendEntregue,
+      taxaRespostaEntregue,
       cpoEntregue,
       cpoRespondido,
       cpoAgendado,
@@ -522,7 +528,10 @@ export const DashboardWhatsAppTab = ({
   const kpiCards = useMemo(() => {
     if (!metrics) return [];
     const m = metrics;
-    const taxaAgendPct = m.taxaAgendBase * 100;
+    const taxaRespostaShow = baseCalc === "entregues" ? m.taxaRespostaEntregue : m.taxaResposta;
+    const taxaRespostaSuffix = baseCalc === "entregues" ? "das entregues" : "das lidas";
+    const taxaAgendShow = baseCalc === "entregues" ? m.taxaAgendEntregue : m.taxaAgendBase;
+    const taxaAgendSuffix = baseCalc === "entregues" ? "das entregues" : "da base";
 
     return [
       {
@@ -538,19 +547,25 @@ export const DashboardWhatsAppTab = ({
         pctSuffix: "das enviadas",
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <CheckCircle2 className="h-4 w-4" />,
+        tooltip: {
+          title: "Taxa de leitura",
+          value: pctFmt(m.taxaLeituraBase),
+          detail: `${numFmt(m.msg_lida)} lidas de ${numFmt(m.msg_entregue)} entregues`,
+        },
       },
       {
         label: "Leads responderam",
         value: numFmt(m.msg_respondida),
-        pctVal: m.taxaResposta,
-        pctSuffix: "das lidas",
+        pctVal: taxaRespostaShow,
+        pctSuffix: taxaRespostaSuffix,
         hint: `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
         icon: <MessageCircle className="h-4 w-4" />,
       },
       {
         label: "Leads agendados",
         value: numFmt(m.agendado),
-        pctVal: m.taxaAgendBase,
+        pctVal: taxaAgendShow,
+        pctSuffix: taxaAgendSuffix,
         hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
@@ -561,35 +576,14 @@ export const DashboardWhatsAppTab = ({
         hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <DollarSign className="h-4 w-4" />,
       },
-      {
-        label: "Taxa de leitura",
-        value: pctFmt(m.taxaLeituraBase),
-        hint: `${numFmt(m.msg_lida)} de ${numFmt(m.msg_entregue)} entregues`,
-        icon: <Eye className="h-4 w-4" />,
-      },
-      {
-        label: "Taxa resposta",
-        value: pctFmt(m.taxaResposta),
-        hint: `${numFmt(m.msg_respondida)} de ${numFmt(m.msg_lida)} lidas`,
-        icon: <TrendingUp className="h-4 w-4" />,
-      },
-      {
-        label: "Taxa agendamento",
-        value: pctFmt(m.taxaAgendBase),
-        pctVal: m.taxaAgendBase,
-        hint: taxaAgendPct > 3 ? "✓ Acima de 3%" : "✕ Abaixo de 3%",
-        threshold: 0.03,
-        useValueColor: true,
-        icon: <BarChart3 className="h-4 w-4" />,
-      },
     ];
-  }, [metrics, showBRL, money, moneyVal]);
+  }, [metrics, showBRL, money, moneyVal, baseCalc]);
 
   // Funnel steps
   const funnelSteps = useMemo(() => {
     if (!metrics) return [];
     const d = metrics;
-    return [
+    const steps = [
       { name: "Total da base", count: d.total_base, desc: "Total de leads no evento", key: "base" },
       {
         name: "Mensagem enviada",
@@ -607,7 +601,8 @@ export const DashboardWhatsAppTab = ({
       { name: "Mensagem respondida", count: d.msg_respondida, desc: "Leads que responderam", key: "respondida" },
       { name: "Agendado", count: d.agendado, desc: "Leads que agendaram", key: "agendado" },
     ];
-  }, [metrics]);
+    return showLidas ? steps : steps.filter((s) => s.key !== "lida");
+  }, [metrics, showLidas]);
 
   // Losses
   const losses = useMemo(() => {
