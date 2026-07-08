@@ -571,6 +571,11 @@ export const DashboardWhatsAppTab = ({
         hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
+        tooltip: {
+          title: "Taxa sobre a base",
+          value: pctFmt(m.taxaAgendBase),
+          detail: `${numFmt(m.agendado)} agendados de ${numFmt(m.total_base)} na base`,
+        },
       },
       {
         label: `Gasto total (${showBRL ? "BRL" : "USD"})`,
