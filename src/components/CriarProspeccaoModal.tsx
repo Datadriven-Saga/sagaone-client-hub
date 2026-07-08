@@ -4689,15 +4689,12 @@ ${localEvento}`;
           <div className="flex items-center justify-between gap-4 px-4">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-3 text-lg">
-                <span>{editingProspeccao ? 'Editar Evento' : 'Novo Evento'}</span>
-                <span className="text-sm font-normal text-muted-foreground">
-                  Etapa {currentStep + 1} de {steps.length}
-                </span>
+                <span>{currentStepName}</span>
               </DialogTitle>
             </DialogHeader>
-            
+
             {/* Step indicator */}
-            <div className="flex items-center gap-1">
+            <div className="flex-1 flex items-center justify-center gap-1">
               {steps.map((step, index) => (
                 <div key={step} className="flex items-center">
                   <TooltipProvider>
@@ -4709,7 +4706,7 @@ ${localEvento}`;
                               ? 'bg-primary text-primary-foreground' 
                               : index < currentStep 
                                 ? 'bg-primary/20 text-primary' 
-                                : 'bg-muted text-muted-foreground'
+                                : 'bg-transparent border border-dashed border-muted-foreground/40 text-muted-foreground/50'
                           }`}
                         >
                           {index < currentStep ? <Check className="h-3.5 w-3.5" /> : index + 1}
@@ -4721,13 +4718,16 @@ ${localEvento}`;
                     </Tooltip>
                   </TooltipProvider>
                   {index < steps.length - 1 && (
-                    <div className={`w-5 h-0.5 mx-1 ${index < currentStep ? 'bg-primary/50' : 'bg-muted'}`} />
+                    index < currentStep ? (
+                      <div className="w-5 h-0.5 mx-1 bg-primary/50" />
+                    ) : (
+                      <div className="w-5 mx-1 border-t border-dashed border-muted-foreground/40" />
+                    )
                   )}
                 </div>
               ))}
             </div>
           </div>
-          <p className="text-sm font-medium text-primary mt-1 px-4">{currentStepName}</p>
         </div>
         
         {/* Conteúdo com scroll */}
