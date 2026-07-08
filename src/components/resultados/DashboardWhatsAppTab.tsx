@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -34,6 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
+import { DashboardWhatsAppSkeleton } from "./DashboardWhatsAppSkeleton";
 
 interface DashboardWhatsAppTabProps {
   selectedEventId: string;
@@ -121,6 +122,37 @@ export const DashboardWhatsAppTab = ({
   const [agent, setAgent] = useState<AgentWhatsApp | null>(null);
   const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
   const [showBRL, setShowBRL] = useState(false);
+  const [webhookProgress, setWebhookProgress] = useState(0);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startWebhookProgress = useCallback(() => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    const start = Date.now();
+    setWebhookProgress(1);
+    progressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min(100, (elapsed / 15000) * 100);
+      setWebhookProgress(pct);
+      if (pct >= 100 && progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    }, 100);
+  }, []);
+
+  const stopWebhookProgress = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setWebhookProgress(0);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, []);
 
   // Currency formatter based on toggle
   const fmtMoney = useCallback((usdVal: number, brlVal: number) => {
@@ -259,6 +291,7 @@ export const DashboardWhatsAppTab = ({
 
     try {
       setLoading(true);
+      startWebhookProgress();
 
       console.log("📊 Fetching WhatsApp dashboard for events:", selectedEventIds);
 
@@ -424,8 +457,9 @@ export const DashboardWhatsAppTab = ({
       toast.error("Erro ao carregar dados do dashboard");
     } finally {
       setLoading(false);
+      stopWebhookProgress();
     }
-  }, [selectedEventIds, activeCompany?.id, agent?.telefone, events]);
+  }, [selectedEventIds, activeCompany?.id, agent?.telefone, events, startWebhookProgress, stopWebhookProgress]);
 
   const toggleEventSelection = (eventId: number) => {
     setSelectedEventIds((prev) => {
@@ -599,8 +633,12 @@ export const DashboardWhatsAppTab = ({
 
   if (loading && !dashboardData && events.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Progress value={webhookProgress} className="h-1" />
+          <p className="text-xs text-muted-foreground">Consultando webhook…</p>
+        </div>
+        <DashboardWhatsAppSkeleton />
       </div>
     );
   }
@@ -752,11 +790,14 @@ export const DashboardWhatsAppTab = ({
         </div>
       </div>
 
-      {loading && !metrics && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {loading && (
+        <div className="space-y-1">
+          <Progress value={webhookProgress} className="h-1" />
+          <p className="text-xs text-muted-foreground">Consultando webhook…</p>
         </div>
       )}
+
+      {loading && !metrics && <DashboardWhatsAppSkeleton />}
 
       {metrics && (
         <>
