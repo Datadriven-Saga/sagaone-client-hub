@@ -123,7 +123,7 @@ export const DashboardWhatsAppTab = ({
   const [eventsPopoverOpen, setEventsPopoverOpen] = useState(false);
   const [showBRL, setShowBRL] = useState(false);
   const [webhookProgress, setWebhookProgress] = useState(0);
-  const [showLidas, setShowLidas] = useState(true);
+  const [showLidas, setShowLidas] = useState(false);
   const [baseCalc, setBaseCalc] = useState<"entregues" | "base">("entregues");
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -538,6 +538,7 @@ export const DashboardWhatsAppTab = ({
         label: "Total da base",
         value: numFmt(m.total_base),
         hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`,
+        subHint: `${numFmt(m.msg_enviada)} enviadas`,
         icon: <MessageSquare className="h-4 w-4" />,
       },
       {
@@ -827,6 +828,9 @@ export const DashboardWhatsAppTab = ({
                       </p>
                     )}
                     <p className="text-sm text-muted-foreground mt-1">{kpi.hint}</p>
+                    {kpi.subHint && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{kpi.subHint}</p>
+                    )}
                   </CardContent>
                 </Card>
               );
