@@ -463,21 +463,9 @@ export const DashboardWhatsAppTab = ({
     }
   }, [selectedEventIds, activeCompany?.id, agent?.telefone, events, startWebhookProgress, stopWebhookProgress]);
 
-  const toggleEventSelection = (eventId: number) => {
-    setSelectedEventIds((prev) => {
-      if (prev.includes(eventId)) {
-        return prev.filter((id) => id !== eventId);
-      }
-      return [...prev, eventId];
-    });
-  };
-
-  const selectAllEvents = () => {
-    setSelectedEventIds(events.map((e) => e.id_evento));
-  };
-
-  const selectNone = () => {
-    setSelectedEventIds([]);
+  const selectEvent = (eventId: number) => {
+    setSelectedEventIds([eventId]);
+    setEventsPopoverOpen(false);
   };
 
   // Computed metrics
