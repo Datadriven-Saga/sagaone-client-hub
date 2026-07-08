@@ -633,8 +633,12 @@ export const DashboardWhatsAppTab = ({
 
   if (loading && !dashboardData && events.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Progress value={webhookProgress} className="h-1" />
+          <p className="text-xs text-muted-foreground">Consultando webhook…</p>
+        </div>
+        <DashboardWhatsAppSkeleton />
       </div>
     );
   }
@@ -786,11 +790,14 @@ export const DashboardWhatsAppTab = ({
         </div>
       </div>
 
-      {loading && !metrics && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {loading && (
+        <div className="space-y-1">
+          <Progress value={webhookProgress} className="h-1" />
+          <p className="text-xs text-muted-foreground">Consultando webhook…</p>
         </div>
       )}
+
+      {loading && !metrics && <DashboardWhatsAppSkeleton />}
 
       {metrics && (
         <>
