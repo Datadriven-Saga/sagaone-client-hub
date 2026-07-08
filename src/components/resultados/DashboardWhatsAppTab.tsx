@@ -797,25 +797,22 @@ export const DashboardWhatsAppTab = ({
       {metrics && (
         <>
           {/* KPI Cards */}
-           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {kpiCards.map((kpi, idx) => {
-              let valueColor = "";
-              if (kpi.useValueColor && kpi.threshold !== undefined) {
-                const pv = kpi.pctVal ?? 0;
-                valueColor = pv > kpi.threshold ? "text-emerald-500" : "text-destructive";
-              }
-
-              return (
-                <Card key={idx} className="bg-gradient-to-b from-card/80 to-card border-border/50">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {kpiCards.map((kpi: any, idx) => {
+              const cardInner = (
+                <Card className="bg-gradient-to-b from-card/80 to-card border-border/50 h-full">
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                      {kpi.icon}
-                      <span className="text-xs font-medium">{kpi.label}</span>
+                    <div className="flex items-center justify-between gap-2 text-muted-foreground mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="[&_svg]:h-5 [&_svg]:w-5">{kpi.icon}</span>
+                        <span className="text-xs font-medium">{kpi.label}</span>
+                      </div>
+                      {kpi.tooltip && <Info className="h-3.5 w-3.5 opacity-60" />}
                     </div>
-                    <p className={`text-xl font-extrabold ${valueColor}`}>{kpi.value}</p>
-                    {kpi.pctVal !== undefined && !kpi.useValueColor && (
+                    <p className="text-2xl md:text-3xl font-extrabold">{kpi.value}</p>
+                    {kpi.pctVal !== undefined && (
                       <p
-                        className={`text-sm font-bold mt-1 ${
+                        className={`text-base md:text-lg font-bold mt-1 ${
                           kpi.threshold !== undefined
                             ? kpi.pctVal > kpi.threshold
                               ? "text-emerald-500"
@@ -825,14 +822,33 @@ export const DashboardWhatsAppTab = ({
                       >
                         {pctFmt(kpi.pctVal)}
                         {kpi.pctSuffix && (
-                          <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
+                          <span className="text-sm text-muted-foreground font-normal ml-1">{kpi.pctSuffix}</span>
                         )}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">{kpi.hint}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{kpi.hint}</p>
                   </CardContent>
                 </Card>
               );
+
+              if (kpi.tooltip) {
+                return (
+                  <TooltipProvider key={idx}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">{cardInner}</div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-xs font-bold">
+                          {kpi.tooltip.title}: {kpi.tooltip.value}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{kpi.tooltip.detail}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              }
+              return <div key={idx}>{cardInner}</div>;
             })}
           </div>
 
@@ -841,9 +857,20 @@ export const DashboardWhatsAppTab = ({
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-sm font-bold">Funil de leads</CardTitle>
-                <Badge variant="outline" className="text-xs">
-                  Base → Enviada → Entregue → Lida → Respondida → Agendado
-                </Badge>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Switch checked={showLidas} onCheckedChange={setShowLidas} />
+                    Mostrar etapa "Lidas"
+                  </label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <span className={baseCalc === "entregues" ? "font-bold text-primary" : "text-muted-foreground"}>Entregues</span>
+                    <Switch
+                      checked={baseCalc === "base"}
+                      onCheckedChange={(v) => setBaseCalc(v ? "base" : "entregues")}
+                    />
+                    <span className={baseCalc === "base" ? "font-bold text-primary" : "text-muted-foreground"}>Base</span>
+                  </label>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -852,6 +879,8 @@ export const DashboardWhatsAppTab = ({
                 const width = safeDiv(step.count, leadBase) * 100;
                 const prevText = prev === null ? "—" : pctFmt(safeDiv(step.count, prev));
                 const totalPct = safeDiv(step.count, leadBase);
+                const showDeliveredPct = step.key === "respondida" || step.key === "agendado";
+                const deliveredPct = metrics ? safeDiv(step.count, metrics.msg_entregue) : 0;
 
                 return (
                   <div key={step.key} className="border rounded-xl p-3 border-border/50 bg-background/30">
@@ -869,6 +898,11 @@ export const DashboardWhatsAppTab = ({
                         <Badge variant="outline" className="text-xs">
                           Δ ant: {prevText}
                         </Badge>
+                        {showDeliveredPct && (
+                          <Badge variant="outline" className="text-xs">
+                            {pctFmt(deliveredPct)} dos entregues
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-xs">
                           {pctFmt(totalPct)} da base
                         </Badge>
