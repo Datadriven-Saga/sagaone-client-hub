@@ -1,31 +1,25 @@
-## Atualizar documentação com as últimas mudanças
+## Diagnóstico
 
-Atualizar os docs de arquitetura e prospecção para refletir o que foi corrigido/registrado nesta thread sobre `user_can_access_empresa`, `user_empresas` como fonte de verdade e a nova tabela `prospeccao_cadencias`.
+Rodei `grep -rn "Para criar\|confirmação, use\|dentro da base" src/` — o texto "Para criar um evento de confirmação, use o botão 'Criar Confirmação'..." **não existe mais no código**. A remoção anterior foi de fato aplicada; o preview do usuário está com bundle antigo em cache. Um hard reload confirma.
 
-### Arquivos a atualizar
+Já o segundo pedido (mover o texto "O disparo inicial pode ser feito manualmente..." para tooltip do Template Prospecção) e o "subir/compactar as divs" **não foram feitos** no ramo `!cadCompleta` — só no ramo `cadCompleta` (linhas 3543-3552) já existe tooltip.
 
-1. **`docs/arquitetura/multi-tenant.md`**
-   - Reforçar bloco "⚠️ Overload intencional" adicionando a regra da **ordem dos argumentos**: `user_can_access_empresa(empresa_id, auth.uid())` — inverter faz RLS bloquear silenciosamente.
-   - Citar o incidente real em `prospeccao_cadencias` (policies com args invertidos → tabela ficou 0 linhas globalmente) como exemplo.
-   - Adicionar link para as memories `user-can-access-empresa-signature` e `vendor-company-link-source`.
+## Mudanças
 
-2. **`docs/arquitetura/permissoes-e-rbac.md`**
-   - Na seção "RLS Security Definer", incluir o padrão canônico para tabelas filhas (EXISTS + join no pai + `user_can_access_empresa(p.empresa_id, auth.uid())`).
+**Arquivo:** `src/components/CriarProspeccaoModal.tsx`
 
-3. **`docs/prospeccao/visao-geral.md`** (ler antes)
-   - Registrar que cadências extras (ordens 2 e 3) vivem em `prospeccao_cadencias` e são somadas ao payload do webhook em `cadencias: []`, mantendo os campos legacy da cadência #1 nas colunas de `prospeccoes`.
-   - Nota sobre RLS: acesso via join com `prospeccoes` usando `user_can_access_empresa(empresa_id, auth.uid())`.
+### 1. Mover texto para tooltip do Template Prospecção (ramo `!cadCompleta`, linhas 3306-3334)
+- Remover o `<p className="text-xs text-muted-foreground">O disparo inicial pode ser feito manualmente...</p>` (linhas 3331-3333).
+- Colapsar o grid `grid-cols-1 md:grid-cols-2` (que só existia para acomodar o parágrafo ao lado) — manter apenas a coluna do Select em largura natural.
+- No Label "Template Prospecção *" (linha 3310), adicionar `<Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />` dentro de `TooltipProvider/Tooltip/TooltipTrigger` com o mesmo texto, replicando exatamente o padrão do ramo `cadCompleta` (linhas 3543-3552).
 
-4. **`docs/prospeccao/dispatch-whatsapp.md`** (ler antes)
-   - Complementar payload do webhook com o novo campo `cadencias[]` e a ordem 1..3.
+### 2. Compactar bloco Configurações do Evento (linhas 3172-3276)
+- Reduzir espaçamento do container etapa 2: `space-y-2 px-4` → `space-y-1.5 px-4`.
+- Reduzir gap do grid Descrição+Config: `gap-3` → `gap-2`.
+- Dentro de "Configurações do Evento": `mb-2` do `<h4>` → `mb-1.5`; `gap-2` do grid interno → `gap-1.5`; `p-2` dos 4 cartões → `p-1.5`.
+- Reduzir `mt-2` dos parágrafos condicionais inferiores (linhas 3269 e 3272) → `mt-1.5`.
 
-5. **`docs/historico/breaking-changes.md`** (ler antes)
-   - Nova entrada datada 2026-07-07:
-     - Fix RLS `prospeccao_cadencias` (args de `user_can_access_empresa` corrigidos).
-     - Introdução da tabela `prospeccao_cadencias` para cadências 2 e 3.
-
-### Fora de escopo
-
-- Não mexer em código (FE/BE/edge functions/migrations).
-- Não recriar as memories já salvas — apenas referenciá-las nos docs.
-- Não tocar em docs não relacionados a esses temas.
+### 3. Escopo
+- Apenas espaçamento visual + reposicionamento do texto em tooltip.
+- Nenhuma mudança de lógica, estado, validação ou de outros ramos do modal.
+- Após aplicar, pedir ao usuário para dar **hard reload (Ctrl+Shift+R)** para descartar o bundle em cache que ainda mostra o texto de confirmação já removido.
