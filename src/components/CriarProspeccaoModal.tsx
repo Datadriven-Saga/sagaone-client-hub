@@ -3169,9 +3169,9 @@ ${localEvento}`;
         if (tipoEvento === 'IA Whatsapp') {
           const cadCompleta = cadenciaCompleta || editingProspeccao?.cadencia_completa;
           return (
-            <div className="space-y-2 px-4">
+            <div className="space-y-1.5 px-4">
               {/* Descrição + Configurações do Evento lado a lado */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-stretch">
               {/* Descrição compacta com botão para abrir editor em modal */}
               <div className="rounded-lg border border-border p-3 bg-card">
                 <div className="flex items-center justify-between mb-2">
@@ -3199,10 +3199,10 @@ ${localEvento}`;
 
               {/* Configurações do Evento (topo, ao lado da Descrição) */}
               <div className="rounded-lg border border-border p-3 bg-card">
-                <h4 className="text-sm font-medium mb-2">Configurações do Evento</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <h4 className="text-sm font-medium mb-1.5">Configurações do Evento</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {/* Tipo de Lead */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                  <div className="p-1.5 rounded-lg border bg-card flex items-center justify-between gap-2">
                     <div className="flex items-start gap-1.5 flex-1 min-w-0">
                       <Label htmlFor="tipo_lead" className="font-medium text-xs leading-tight break-words">Tipo de Lead</Label>
                       <TooltipProvider><Tooltip>
@@ -3225,7 +3225,7 @@ ${localEvento}`;
                   </div>
 
                   {/* Qualificar Lead */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                  <div className="p-1.5 rounded-lg border bg-card flex items-center justify-between gap-2">
                     <div className="flex items-start gap-1.5 flex-1 min-w-0">
                       <Label htmlFor="qualificar_lead" className="font-medium text-xs leading-tight break-words cursor-pointer">Qualificar após Confirmação</Label>
                       <TooltipProvider><Tooltip>
@@ -3237,7 +3237,7 @@ ${localEvento}`;
                   </div>
 
                   {/* Evento Principal */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                  <div className="p-1.5 rounded-lg border bg-card flex items-center justify-between gap-2">
                     <div className="flex items-start gap-1.5 flex-1 min-w-0">
                       <Label htmlFor="evento_principal" className="font-medium text-xs leading-tight break-words cursor-pointer">Evento Principal</Label>
                       <TooltipProvider><Tooltip>
@@ -3249,7 +3249,7 @@ ${localEvento}`;
                   </div>
 
                   {/* Evento de Confirmação */}
-                  <div className="p-2 rounded-lg border bg-card flex items-center justify-between gap-2">
+                  <div className="p-1.5 rounded-lg border bg-card flex items-center justify-between gap-2">
                     <div className="flex items-start gap-1.5 flex-1 min-w-0">
                       <Label htmlFor="evento_confirmacao" className="font-medium text-xs leading-tight break-words cursor-pointer">Evento de Confirmação</Label>
                       <TooltipProvider><Tooltip>
@@ -3266,10 +3266,10 @@ ${localEvento}`;
                   </div>
                 </div>
                 {editingProspeccao && (
-                  <p className="text-xs text-muted-foreground mt-2">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
+                  <p className="text-xs text-muted-foreground mt-1.5">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
                 )}
                 {isConfirmacaoFlow && parentEvento && (
-                  <p className="text-xs text-primary mt-2">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
+                  <p className="text-xs text-primary mt-1.5">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
                 )}
 
               </div>
@@ -3304,11 +3304,22 @@ ${localEvento}`;
               {!cadCompleta ? (
                  <div className="space-y-4">
                    {/* Template Prospecção — enviado uma única vez em "Ver base", fora das cadências */}
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                     <div className="space-y-2">
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-1">
                        <Label htmlFor="template_prospeccao" className="text-sm">
                          Template Prospecção <span className="text-destructive">*</span>
                        </Label>
+                       <TooltipProvider>
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                           </TooltipTrigger>
+                           <TooltipContent className="max-w-xs">
+                             <p>O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.</p>
+                           </TooltipContent>
+                         </Tooltip>
+                       </TooltipProvider>
+                     </div>
                        <div className="flex gap-1">
                          <Select value={templateProspeccaoId} onValueChange={setTemplateProspeccaoId}>
                            <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -3327,10 +3338,6 @@ ${localEvento}`;
                          )}
                        </div>
                        {!templateProspeccaoId && <p className="text-xs text-destructive">Obrigatório</p>}
-                     </div>
-                     <p className="text-xs text-muted-foreground">
-                       O disparo inicial pode ser feito manualmente ou agendado na tela da base do evento. Aqui você configura apenas as cadências automáticas.
-                     </p>
                    </div>
 
                   {/* Tabela de cadências (até 3) */}
