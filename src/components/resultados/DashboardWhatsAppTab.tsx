@@ -538,6 +538,7 @@ export const DashboardWhatsAppTab = ({
         label: "Total da base",
         value: numFmt(m.total_base),
         hint: `Enviadas: ${pctFmt(safeDiv(m.msg_enviada, m.total_base))}`,
+        subHint: `${numFmt(m.msg_enviada)} enviadas`,
         icon: <MessageSquare className="h-4 w-4" />,
       },
       {
