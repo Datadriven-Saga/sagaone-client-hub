@@ -26,7 +26,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
@@ -463,21 +462,9 @@ export const DashboardWhatsAppTab = ({
     }
   }, [selectedEventIds, activeCompany?.id, agent?.telefone, events, startWebhookProgress, stopWebhookProgress]);
 
-  const toggleEventSelection = (eventId: number) => {
-    setSelectedEventIds((prev) => {
-      if (prev.includes(eventId)) {
-        return prev.filter((id) => id !== eventId);
-      }
-      return [...prev, eventId];
-    });
-  };
-
-  const selectAllEvents = () => {
-    setSelectedEventIds(events.map((e) => e.id_evento));
-  };
-
-  const selectNone = () => {
-    setSelectedEventIds([]);
+  const selectEvent = (eventId: number) => {
+    setSelectedEventIds([eventId]);
+    setEventsPopoverOpen(false);
   };
 
   // Computed metrics
@@ -701,7 +688,7 @@ export const DashboardWhatsAppTab = ({
             </div>
           </TooltipProvider>
 
-          {/* Multi-select Events Popover */}
+          {/* Event selector (single-select) */}
           <Popover open={eventsPopoverOpen} onOpenChange={setEventsPopoverOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -713,27 +700,15 @@ export const DashboardWhatsAppTab = ({
                   {loadingEvents
                     ? "Carregando..."
                     : selectedEventIds.length === 0
-                      ? "Selecione eventos"
-                      : selectedEventIds.length === 1
-                        ? events.find((e) => e.id_evento === selectedEventIds[0])?.nome || "Evento"
-                        : `${selectedEventIds.length} eventos selecionados`}
+                      ? "Selecione um evento"
+                      : events.find((e) => e.id_evento === selectedEventIds[0])?.nome || "Evento"}
                 </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[320px] p-0" align="end">
               <div className="p-3 border-b">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Eventos da PRI</span>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectAllEvents}>
-                      Todos
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={selectNone}>
-                      Limpar
-                    </Button>
-                  </div>
-                </div>
+                <span className="text-sm font-medium">Eventos da PRI</span>
               </div>
               <ScrollArea className="h-[300px]">
                 <div className="p-2 space-y-1">
@@ -743,9 +718,8 @@ export const DashboardWhatsAppTab = ({
                       <div
                         key={event.id_evento}
                         className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted/50 ${isSelected ? "bg-primary/10" : ""}`}
-                        onClick={() => toggleEventSelection(event.id_evento)}
+                        onClick={() => selectEvent(event.id_evento)}
                       >
-                        <Checkbox checked={isSelected} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{event.nome}</p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -765,11 +739,6 @@ export const DashboardWhatsAppTab = ({
                   })}
                 </div>
               </ScrollArea>
-              <div className="p-3 border-t bg-muted/30">
-                <p className="text-xs text-muted-foreground">
-                  {selectedEventIds.length} de {events.length} evento(s) selecionado(s)
-                </p>
-              </div>
             </PopoverContent>
           </Popover>
 
