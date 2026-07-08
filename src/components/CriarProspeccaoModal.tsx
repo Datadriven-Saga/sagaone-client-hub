@@ -3265,9 +3265,6 @@ ${localEvento}`;
                     />
                   </div>
                 </div>
-                {editingProspeccao && (
-                  <p className="text-xs text-muted-foreground mt-1.5">Tipo de Lead e Evento de Confirmação não podem ser alterados após a criação.</p>
-                )}
                 {isConfirmacaoFlow && parentEvento && (
                   <p className="text-xs text-primary mt-1.5">Confirmação vinculada ao evento: <strong>{parentEvento.titulo}</strong></p>
                 )}
