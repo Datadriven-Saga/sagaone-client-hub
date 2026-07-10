@@ -559,7 +559,7 @@ function TurnoRow({
     >
       <div className="text-sm font-medium">{label}</div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">Início</Label>
+        <FieldLabel text="Início" tooltip="Horário em que a loja começa a atender neste turno." />
         <Input
           type="time"
           className="h-8 w-28"
@@ -569,7 +569,7 @@ function TurnoRow({
         />
       </div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">Fim</Label>
+        <FieldLabel text="Fim" tooltip="Horário em que a loja encerra o atendimento neste turno." />
         <Input
           type="time"
           className={`h-8 w-28 ${invalid ? "border-destructive" : ""}`}
@@ -578,12 +578,12 @@ function TurnoRow({
         />
       </div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">Slots</Label>
+        <FieldLabel text="Qtd. opções" tooltip="Quantidade de opções de horário oferecidas ao cliente dentro deste turno (ex.: 3 = 3 horários disponíveis)." />
         <Input
           type="number"
           min={1}
           max={10}
-          className="h-8 w-20"
+          className="h-8 w-24"
           value={turno.slots}
           onChange={(e) => onChange({ slots: Math.max(1, Math.min(10, Number(e.target.value))) })}
         />
@@ -598,16 +598,22 @@ function NumField({
   min,
   max,
   onChange,
+  tooltip,
 }: {
   label: string;
   value: number;
   min: number;
   max: number;
   onChange: (v: number) => void;
+  tooltip?: string;
 }) {
   return (
     <div>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {tooltip ? (
+        <FieldLabel text={label} tooltip={tooltip} className="text-xs" />
+      ) : (
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+      )}
       <Input
         type="number"
         min={min}
@@ -617,5 +623,23 @@ function NumField({
         onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
       />
     </div>
+  );
+}
+
+function FieldLabel({ text, tooltip, className }: { text: string; tooltip: string; className?: string }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Label className={`${className ?? "text-[11px]"} text-muted-foreground inline-flex items-center gap-1 cursor-help`}>
+            {text}
+            <Info className="h-3 w-3 opacity-70" />
+          </Label>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
