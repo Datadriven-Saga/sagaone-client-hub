@@ -134,6 +134,7 @@ const AppRoutes = () => {
         <Route path="/pos-vendas/entregas/gatilhos" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><EntregasGatilhos /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/entregas/lojas" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><EntregasLojas /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/agendamentos" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendasAgendamentos /></PermissionProtectedRoute>} />
+        <Route path="/pos-vendas/configuracoes" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PosVendasAgendamentos /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/paty/templates" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PatyTemplates /></PermissionProtectedRoute>} />
         <Route path="/pos-vendas/paty/cadencia" element={<PermissionProtectedRoute permissionKey="canAccessPosVendas"><PatyCadencia /></PermissionProtectedRoute>} />
         {/* Compat: rotas antigas /pos-vendas/:tab */}
