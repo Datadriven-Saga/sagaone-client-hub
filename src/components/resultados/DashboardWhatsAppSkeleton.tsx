@@ -18,8 +18,10 @@ export function DashboardWhatsAppSkeleton() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {[...Array(8)].map((_, i) => (
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-24" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {[...Array(5)].map((_, i) => (
           <Card key={i}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-2">
@@ -31,6 +33,7 @@ export function DashboardWhatsAppSkeleton() {
             </CardContent>
           </Card>
         ))}
+        </div>
       </div>
 
       {/* Templates card */}
