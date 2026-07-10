@@ -420,7 +420,8 @@ export function ConfiguracoesPosVendasTab() {
                   value={config.revisao_maxima}
                   min={1}
                   max={99}
-                  onChange={(v) => updateConfig({ revisao_maxima: v })}
+                  onChange={setRevisaoMaxima}
+                  tooltip="Número máximo de revisões que o sistema pode agendar. Uma faixa de KM é obrigatória para cada revisão."
                 />
                 <NumField
                   label="Meses p/ sobreposição (tempo > KM)"
@@ -428,6 +429,7 @@ export function ConfiguracoesPosVendasTab() {
                   min={1}
                   max={60}
                   onChange={(v) => updateConfig({ meses_sobreposicao: v })}
+                  tooltip="A partir de quantos meses sem revisão o tempo passa a valer mais que a quilometragem."
                 />
                 <NumField
                   label="Antecedência p/ agendar (dias)"
@@ -435,10 +437,11 @@ export function ConfiguracoesPosVendasTab() {
                   min={0}
                   max={90}
                   onChange={(v) => updateConfig({ antecedencia_dias: v })}
+                  tooltip="Quantos dias antes da data prevista o cliente pode agendar."
                 />
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Quando um cliente está há {config.meses_sobreposicao}+ meses sem fazer revisão, o tempo passa a valer mais que a quilometragem — o sistema agenda a próxima revisão sequencial. O cliente pode agendar com até {config.antecedencia_dias} dias de antecedência. A revisão mais alta que o sistema agenda é a {config.revisao_maxima}ª.
+                O sistema agenda até a <strong className="text-foreground">{config.revisao_maxima}ª revisão</strong> (definido em "Revisão Máxima"). Para cada uma dessas {config.revisao_maxima} revisões é <strong className="text-foreground">obrigatória</strong> uma faixa de KM correspondente no bloco abaixo. Quando o cliente está há {config.meses_sobreposicao}+ meses sem revisar, o tempo passa a valer mais que a quilometragem e o sistema agenda a próxima revisão sequencial. O cliente pode agendar com até {config.antecedencia_dias} dias de antecedência.
               </p>
               <div className="flex justify-end pt-1">
                 <Button
