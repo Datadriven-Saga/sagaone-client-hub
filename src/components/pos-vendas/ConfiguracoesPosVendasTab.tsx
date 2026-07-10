@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, Check, Loader2, Store, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -55,6 +56,72 @@ const DEFAULT_CONFIG: ConfigState = {
 };
 
 const WEBHOOK_BASE = "https://automatemaiawh.sagadatadriven.com.br/webhook";
+const WEBHOOK_BUSCA = `${WEBHOOK_BASE}/busca_config_pos`;
+const WEBHOOK_CONFIG_GERAIS = `${WEBHOOK_BASE}/config_gerais`;
+const WEBHOOK_UPSERT_RANGES = `${WEBHOOK_BASE}/upsert_ranges`;
+const WEBHOOK_ALTERA_STATUS = `${WEBHOOK_BASE}/altera_status_pos_vendas`;
+
+function parseBuscaResponse(raw: any): { config: ConfigState; ativo: boolean } | null {
+  if (!raw) return null;
+  // Aceita tanto objeto direto quanto array [{...}] ou { data: {...} }
+  const src = Array.isArray(raw) ? raw[0] : raw?.data ?? raw;
+  if (!src || typeof src !== "object") return null;
+
+  const base = cloneConfig(DEFAULT_CONFIG);
+  const bool = (v: any, d: boolean) => (typeof v === "boolean" ? v : d);
+  const str = (v: any, d: string) => (typeof v === "string" && v ? v : d);
+  const num = (v: any, d: number) => (v === null || v === undefined || v === "" || isNaN(Number(v)) ? d : Number(v));
+
+  const config: ConfigState = {
+    dias: {
+      seg: bool(src.faz_segunda, base.dias.seg),
+      ter: bool(src.faz_terca, base.dias.ter),
+      qua: bool(src.faz_quarta, base.dias.qua),
+      qui: bool(src.faz_quinta, base.dias.qui),
+      sex: bool(src.faz_sexta, base.dias.sex),
+      sab: bool(src.faz_sabado, base.dias.sab),
+      dom: bool(src.faz_domingo, base.dias.dom),
+    },
+    manha: {
+      inicio: str(src.manha_inicio, base.manha.inicio),
+      fim: str(src.manha_fim, base.manha.fim),
+      slots: num(src.manha_slots, base.manha.slots),
+    },
+    tarde: {
+      inicio: str(src.tarde_inicio, base.tarde.inicio),
+      fim: str(src.tarde_fim, base.tarde.fim),
+      slots: num(src.tarde_slots, base.tarde.slots),
+    },
+    sabado: {
+      inicio: str(src.sabado_inicio, base.sabado.inicio),
+      fim: str(src.sabado_fim, base.sabado.fim),
+      slots: num(src.sabado_slots, base.sabado.slots),
+    },
+    revisao_maxima: num(src.revisao_maxima, base.revisao_maxima),
+    meses_sobreposicao: num(src.meses_sobreposicao, base.meses_sobreposicao),
+    antecedencia_dias: num(src.antecedencia_dias, base.antecedencia_dias),
+    faixas: base.faixas,
+  };
+
+  const rangesRaw = src.ranges ?? src.faixas ?? [];
+  if (Array.isArray(rangesRaw) && rangesRaw.length > 0) {
+    config.faixas = rangesRaw
+      .map((f: any, i: number) => ({
+        revisao_numero: num(f.revisao_numero, i + 1),
+        km_min: num(f.km_min, 0),
+        km_max: num(f.km_max, 0),
+      }))
+      .sort((a, b) => a.revisao_numero - b.revisao_numero)
+      .map((f, i) => ({ ...f, revisao_numero: i + 1 }));
+    // Garante consistência com revisao_maxima
+    if (config.faixas.length !== config.revisao_maxima) {
+      config.revisao_maxima = config.faixas.length;
+    }
+  }
+
+  const ativo = bool(src.ativo ?? src.pos_vendas_ativo ?? src.status, false);
+  return { config, ativo };
+}
 
 function cloneConfig(c: ConfigState): ConfigState {
   return {
@@ -90,6 +157,8 @@ export function ConfiguracoesPosVendasTab() {
   const [savingRanges, setSavingRanges] = useState(false);
   const [flashConfig, setFlashConfig] = useState(false);
   const [flashRanges, setFlashRanges] = useState(false);
+  const [posVendasAtivo, setPosVendasAtivo] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   // Load loja automatically from active company (crm_id = dealer_id)
   useEffect(() => {
@@ -130,14 +199,47 @@ export function ConfiguracoesPosVendasTab() {
   useEffect(() => {
     if (!loja) return;
     setLoading(true);
-    const t = setTimeout(() => {
-      const base = cloneConfig(DEFAULT_CONFIG);
-      setConfig(base);
-      setOriginal(cloneConfig(base));
-      setUsouDefault(true);
-      setLoading(false);
-    }, 350);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token ?? "";
+        const r = await fetch(WEBHOOK_BUSCA, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", saga_one_supabase: token },
+          body: JSON.stringify({ dealer_id: loja.dealer_id }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const json = await r.json().catch(() => null);
+        const parsed = parseBuscaResponse(json);
+        if (cancelled) return;
+        if (parsed) {
+          setConfig(parsed.config);
+          setOriginal(cloneConfig(parsed.config));
+          setPosVendasAtivo(parsed.ativo);
+          setUsouDefault(false);
+        } else {
+          const base = cloneConfig(DEFAULT_CONFIG);
+          setConfig(base);
+          setOriginal(cloneConfig(base));
+          setPosVendasAtivo(false);
+          setUsouDefault(true);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        const base = cloneConfig(DEFAULT_CONFIG);
+        setConfig(base);
+        setOriginal(cloneConfig(base));
+        setPosVendasAtivo(false);
+        setUsouDefault(true);
+        toast.error("Não foi possível carregar as configurações da loja. Usando valores padrão.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loja?.dealer_id]);
 
   const configDirty = !!(config && original && isConfigDirty(config, original));
@@ -248,7 +350,7 @@ export function ConfiguracoesPosVendasTab() {
         meses_sobreposicao: config.meses_sobreposicao,
         antecedencia_dias: config.antecedencia_dias,
       };
-      const r = await fetch(`${WEBHOOK_BASE}/upsert-paty-posvendas-config`, {
+      const r = await fetch(WEBHOOK_CONFIG_GERAIS, {
         method: "POST",
         headers,
         body: JSON.stringify(payloadConfig),
@@ -286,7 +388,7 @@ export function ConfiguracoesPosVendasTab() {
           km_max: f.km_max,
         })),
       };
-      const r = await fetch(`${WEBHOOK_BASE}/upsert-paty-revision-range`, {
+      const r = await fetch(WEBHOOK_UPSERT_RANGES, {
         method: "POST",
         headers,
         body: JSON.stringify(payloadRanges),
