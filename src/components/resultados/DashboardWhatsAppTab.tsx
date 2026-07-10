@@ -534,7 +534,6 @@ export const DashboardWhatsAppTab = ({
         value: numFmt(m.msg_entregue),
         pctVal: m.taxaEntrega,
         pctSuffix: "das enviadas",
-        hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
         icon: <CheckCircle2 className="h-4 w-4" />,
         tooltip: {
           title: "Taxa de leitura",
@@ -547,7 +546,6 @@ export const DashboardWhatsAppTab = ({
         value: numFmt(m.msg_respondida),
         pctVal: taxaRespostaShow,
         pctSuffix: taxaRespostaSuffix,
-        hint: `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
         icon: <MessageCircle className="h-4 w-4" />,
       },
       {
@@ -555,7 +553,6 @@ export const DashboardWhatsAppTab = ({
         value: numFmt(m.agendado),
         pctVal: taxaAgendShow,
         pctSuffix: taxaAgendSuffix,
-        hint: `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
         tooltip: {
@@ -567,7 +564,11 @@ export const DashboardWhatsAppTab = ({
       {
         label: `Gasto total (${showBRL ? "BRL" : "USD"})`,
         value: money(m.gasto_total_dolar, m.gasto_total_real),
-        hint: `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
+        hintLines: [
+          `Custo/entregue: ${moneyVal(m.cpoEntregue)}`,
+          `Custo/respondido: ${moneyVal(m.cpoRespondido)}`,
+          `CPL agendado: ${moneyVal(m.cpoAgendado)}`,
+        ],
         icon: <DollarSign className="h-4 w-4" />,
       },
     ];
