@@ -107,6 +107,11 @@ const posVendasPatyItems = [
   { title: "Cadência Conversacional", url: "/pos-vendas/paty/cadencia", icon: MessageSquare },
 ];
 
+const posVendasSubItems = [
+  { title: "Agendamentos", url: "/pos-vendas/agendamentos", icon: Calendar },
+  { title: "Configurações", url: "/pos-vendas/configuracoes", icon: Settings },
+];
+
 // Items apenas para Administrador
 const afterProspeccaoItemsAdmin = [
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
@@ -147,6 +152,9 @@ export function AppSidebar() {
   const [isPosPecasOpen, setIsPosPecasOpen] = useState(currentPath.startsWith('/pos-vendas/pecas'));
   const [isPosEntregasOpen, setIsPosEntregasOpen] = useState(currentPath.startsWith('/pos-vendas/entregas'));
   const [isPosPatyOpen, setIsPosPatyOpen] = useState(currentPath.startsWith('/pos-vendas/paty'));
+  const [isPosSubOpen, setIsPosSubOpen] = useState(
+    currentPath.startsWith('/pos-vendas/agendamentos') || currentPath.startsWith('/pos-vendas/configuracoes')
+  );
   const [isEntraDadosOpen, setIsEntraDadosOpen] = useState(
     currentPath.startsWith('/de-para') || currentPath.startsWith('/entra-dados')
   );
@@ -373,22 +381,7 @@ export function AppSidebar() {
                       <CollapsibleContent className="pl-4 mt-1 space-y-1">
                         {renderAlgGroup("Peças", PackageOpen, isPosPecasOpen, setIsPosPecasOpen, posVendasPecasItems)}
                         {renderAlgGroup("Entregas", PackageCheck, isPosEntregasOpen, setIsPosEntregasOpen, posVendasEntregasItems)}
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to="/pos-vendas/agendamentos"
-                            onClick={closeMobileSidebar}
-                            className={({ isActive }) =>
-                              `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
-                                isActive
-                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                  : "hover:scale-105 hover:opacity-80 text-sidebar-foreground"
-                              }`
-                            }
-                          >
-                            <Calendar className="h-4 w-4 flex-shrink-0" />
-                            <span>Agendamentos</span>
-                          </NavLink>
-                        </SidebarMenuButton>
+                        {renderAlgGroup("Pós-Vendas", Calendar, isPosSubOpen, setIsPosSubOpen, posVendasSubItems)}
                         {renderAlgGroup("Paty Geral", Bot, isPosPatyOpen, setIsPosPatyOpen, posVendasPatyItems)}
                       </CollapsibleContent>
                     )}
