@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Plus, Trash2, Check, Loader2, Store } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Store, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -159,9 +160,8 @@ export function ConfiguracoesPosVendasTab() {
   }
 
   function validarRanges(c: ConfigState): string | null {
-    if (c.faixas.length < 3) return "Mínimo de 3 faixas de KM.";
-    if (c.faixas.length > c.revisao_maxima)
-      return `Número de faixas (${c.faixas.length}) maior que a Revisão Máxima (${c.revisao_maxima}).`;
+    if (c.faixas.length !== c.revisao_maxima)
+      return `É obrigatória uma faixa de KM para cada revisão (${c.revisao_maxima} configurada${c.revisao_maxima > 1 ? "s" : ""}).`;
     for (let i = 0; i < c.faixas.length; i++) {
       const f = c.faixas[i];
       if (f.revisao_numero !== i + 1) return `Numeração de revisão deve ser sequencial (linha ${i + 1}).`;
@@ -190,32 +190,19 @@ export function ConfiguracoesPosVendasTab() {
     setConfig((c) => (c ? { ...c, dias: { ...c.dias, [k]: v } } : c));
   }
 
-  function addFaixa() {
+  function setRevisaoMaxima(v: number) {
     setConfig((c) => {
       if (!c) return c;
-      if (c.faixas.length >= c.revisao_maxima) {
-        toast.error(`Máximo de ${c.revisao_maxima} faixas atingido.`);
-        return c;
+      const target = Math.max(1, Math.min(99, v));
+      let faixas = c.faixas.slice(0, target);
+      while (faixas.length < target) {
+        const last = faixas[faixas.length - 1];
+        const km_min = last ? last.km_max + 1 : 0;
+        const km_max = km_min + 10000;
+        faixas.push({ revisao_numero: faixas.length + 1, km_min, km_max });
       }
-      const last = c.faixas[c.faixas.length - 1];
-      const km_min = last.km_max + 1;
-      const km_max = km_min + 10000;
-      return {
-        ...c,
-        faixas: [...c.faixas, { revisao_numero: last.revisao_numero + 1, km_min, km_max }],
-      };
-    });
-  }
-
-  function removeFaixa(idx: number) {
-    setConfig((c) => {
-      if (!c) return c;
-      if (c.faixas.length <= 3) {
-        toast.error("Mínimo de 3 faixas.");
-        return c;
-      }
-      const next = c.faixas.filter((_, i) => i !== idx).map((f, i) => ({ ...f, revisao_numero: i + 1 }));
-      return { ...c, faixas: next };
+      faixas = faixas.map((f, i) => ({ ...f, revisao_numero: i + 1 }));
+      return { ...c, revisao_maxima: target, faixas };
     });
   }
 
@@ -433,7 +420,8 @@ export function ConfiguracoesPosVendasTab() {
                   value={config.revisao_maxima}
                   min={1}
                   max={99}
-                  onChange={(v) => updateConfig({ revisao_maxima: v })}
+                  onChange={setRevisaoMaxima}
+                  tooltip="Número máximo de revisões que o sistema pode agendar. Uma faixa de KM é obrigatória para cada revisão."
                 />
                 <NumField
                   label="Meses p/ sobreposição (tempo > KM)"
@@ -441,6 +429,7 @@ export function ConfiguracoesPosVendasTab() {
                   min={1}
                   max={60}
                   onChange={(v) => updateConfig({ meses_sobreposicao: v })}
+                  tooltip="A partir de quantos meses sem revisão o tempo passa a valer mais que a quilometragem."
                 />
                 <NumField
                   label="Antecedência p/ agendar (dias)"
@@ -448,10 +437,11 @@ export function ConfiguracoesPosVendasTab() {
                   min={0}
                   max={90}
                   onChange={(v) => updateConfig({ antecedencia_dias: v })}
+                  tooltip="Quantos dias antes da data prevista o cliente pode agendar."
                 />
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Quando um cliente está há {config.meses_sobreposicao}+ meses sem fazer revisão, o tempo passa a valer mais que a quilometragem — o sistema agenda a próxima revisão sequencial. O cliente pode agendar com até {config.antecedencia_dias} dias de antecedência. A revisão mais alta que o sistema agenda é a {config.revisao_maxima}ª.
+                O sistema agenda até a <strong className="text-foreground">{config.revisao_maxima}ª revisão</strong> (definido em "Revisão Máxima"). Para cada uma dessas {config.revisao_maxima} revisões é <strong className="text-foreground">obrigatória</strong> uma faixa de KM correspondente no bloco abaixo. Quando o cliente está há {config.meses_sobreposicao}+ meses sem revisar, o tempo passa a valer mais que a quilometragem e o sistema agenda a próxima revisão sequencial. O cliente pode agendar com até {config.antecedencia_dias} dias de antecedência.
               </p>
               <div className="flex justify-end pt-1">
                 <Button
@@ -483,7 +473,6 @@ export function ConfiguracoesPosVendasTab() {
                     <TableHead className="w-24">Nº Revisão</TableHead>
                     <TableHead>KM Mínimo</TableHead>
                     <TableHead>KM Máximo</TableHead>
-                    <TableHead className="w-16 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -513,35 +502,14 @@ export function ConfiguracoesPosVendasTab() {
                             onChange={(e) => updateFaixa(i, { km_max: Number(e.target.value) })}
                           />
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            disabled={config.faixas.length <= 3}
-                            onClick={() => removeFaixa(i)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
-              <div className="flex justify-between items-center">
-                <p className="text-[11px] text-muted-foreground">
-                  {config.faixas.length} de no máx. {config.revisao_maxima} faixas • mínimo 3
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addFaixa}
-                  disabled={config.faixas.length >= config.revisao_maxima}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar faixa
-                </Button>
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {config.faixas.length} faixa{config.faixas.length > 1 ? "s" : ""} — uma para cada uma das {config.revisao_maxima} revisões definidas em "Revisão Máxima". Ajuste "Revisão Máxima" para adicionar ou remover faixas.
+              </p>
               {gaps.length > 0 && (
                 <p className="text-xs text-yellow-400">Aviso: existem gaps nas faixas {gaps.join(", ")}.</p>
               )}
@@ -591,7 +559,7 @@ function TurnoRow({
     >
       <div className="text-sm font-medium">{label}</div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">Início</Label>
+        <FieldLabel text="Início" tooltip="Horário em que a loja começa a atender neste turno." />
         <Input
           type="time"
           className="h-8 w-28"
@@ -601,7 +569,7 @@ function TurnoRow({
         />
       </div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">Fim</Label>
+        <FieldLabel text="Fim" tooltip="Horário em que a loja encerra o atendimento neste turno." />
         <Input
           type="time"
           className={`h-8 w-28 ${invalid ? "border-destructive" : ""}`}
@@ -610,12 +578,12 @@ function TurnoRow({
         />
       </div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">Slots</Label>
+        <FieldLabel text="Qtd. opções" tooltip="Quantidade de opções de horário oferecidas ao cliente dentro deste turno (ex.: 3 = 3 horários disponíveis)." />
         <Input
           type="number"
           min={1}
           max={10}
-          className="h-8 w-20"
+          className="h-8 w-24"
           value={turno.slots}
           onChange={(e) => onChange({ slots: Math.max(1, Math.min(10, Number(e.target.value))) })}
         />
@@ -630,16 +598,22 @@ function NumField({
   min,
   max,
   onChange,
+  tooltip,
 }: {
   label: string;
   value: number;
   min: number;
   max: number;
   onChange: (v: number) => void;
+  tooltip?: string;
 }) {
   return (
     <div>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {tooltip ? (
+        <FieldLabel text={label} tooltip={tooltip} className="text-xs" />
+      ) : (
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+      )}
       <Input
         type="number"
         min={min}
@@ -649,5 +623,23 @@ function NumField({
         onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
       />
     </div>
+  );
+}
+
+function FieldLabel({ text, tooltip, className }: { text: string; tooltip: string; className?: string }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Label className={`${className ?? "text-[11px]"} text-muted-foreground inline-flex items-center gap-1 cursor-help`}>
+            {text}
+            <Info className="h-3 w-3 opacity-70" />
+          </Label>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
