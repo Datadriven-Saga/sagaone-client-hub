@@ -1,31 +1,18 @@
-# Plano: Reorganizar KPIs do Dashboard WhatsApp
+Consolidar todos os custos no card "Gasto total"
 
-## Objetivo
-Agrupar os 4 KPIs de leads sob uma seção **"Leads"** com cards renomeados: **Total**, **Impactos**, **Respostas**, **Agendamentos**. Manter o card **Gasto total** como está hoje.
+## Alterações em `src/components/resultados/DashboardWhatsAppTab.tsx`
 
-## Alterações
+1. **Remover `hint` de custo dos cards de Leads**:
+   - Impactos: remover `Custo/entregue: ...`
+   - Respostas: remover `Custo/respondido: ...`
+   - Agendamentos: remover `CPL agendado: ...`
 
-### `src/components/resultados/DashboardWhatsAppTab.tsx`
-1. Adicionar título de seção **"Leads"** acima da grid de KPIs.
-2. Renomear os labels no array `kpiCards`:
-   - "Total da base" → **Total**
-   - "Mensagens entregues" → **Impactos**
-   - "Leads responderam" → **Respostas**
-   - "Leads agendados" → **Agendamentos**
-3. Manter o card **Gasto total** inalterado (mesma posição, mesmo conteúdo).
-4. Manter toda a lógica de cálculo, tooltips, hints, ícones, threshold e toggles existentes.
+2. **Consolidar tudo no card "Gasto total"**:
+   - Manter valor principal (gasto total na moeda ativa)
+   - Adicionar como linhas abaixo:
+     - Custo/entregue: `moneyVal(cpoEntregue)`
+     - Custo/respondido: `moneyVal(cpoRespondido)`
+     - CPL agendado: `moneyVal(cpoAgendado)`
+   - Usar `subHint`/lista compacta para caber no card (texto pequeno, uma linha por métrica)
 
-### `src/components/resultados/DashboardWhatsAppSkeleton.tsx`
-- Adicionar skeleton de título de seção (h-6 w-24) acima dos cards KPI para representar "Leads". Manter os 5 skeleton cards (4 leads + gasto).
-
-## Não alterar
-- Card **Gasto total** (permanece como está).
-- Lógica de fetch, agregação e cálculo de métricas.
-- Seletor de evento, funil de leads, tabela de gastos por template.
-- Cores, gradientes e tipografia.
-
-## Critérios de aceitação
-- Título "Leads" aparece acima dos 4 primeiros KPIs.
-- Labels renomeados exatamente para Total, Impactos, Respostas, Agendamentos.
-- Card Gasto total intocado.
-- Build passa sem erros.
+Nenhuma alteração em lógica de cálculo — só reorganização visual.
