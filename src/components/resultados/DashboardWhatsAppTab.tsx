@@ -831,6 +831,7 @@ export const DashboardWhatsAppTab = ({
               }
               return <div key={idx}>{cardInner}</div>;
             })}
+            </div>
           </div>
 
           {/* Funnel de Leads */}
