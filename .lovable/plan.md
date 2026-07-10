@@ -1,26 +1,31 @@
-Desabilitar o multiselect de eventos no dashboard WhatsApp e voltar para single-select, preservando a lógica existente de arrays para reativação futura.
+# Plano: Reorganizar KPIs do Dashboard WhatsApp
 
-Escopo: `src/components/resultados/DashboardWhatsAppTab.tsx` — seletor de eventos no cabeçalho do dashboard.
+## Objetivo
+Agrupar os 4 KPIs de leads sob uma seção **"Leads"** com cards renomeados: **Total**, **Impactos**, **Respostas**, **Agendamentos**. Manter o card **Gasto total** como está hoje.
 
-Alterações:
-1. Substituir a lógica de toggle por seleção única.
-   - `toggleEventSelection` passa a substituir `selectedEventIds` pelo ID clicado, garantindo apenas um evento selecionado.
-2. Remover controles de multi-seleção do popover.
-   - Remover os botões "Todos" e "Limpar" do header.
-   - Remover o `<Checkbox>` e o ícone de `<Check>` de cada item da lista.
-   - Remover o footer "X de Y evento(s) selecionado(s)".
-3. Simplificar o texto do trigger.
-   - Remover a ramificação para "N eventos selecionados".
-   - Texto padrão: "Selecione um evento".
-4. Manter `selectedEventIds` como array internamente.
-   - Não reescrever estados para evitar regressões; apenas garantir que o array nunca tenha mais de um elemento.
+## Alterações
 
-Critérios de aceite:
-- Ao clicar em um evento, apenas ele fica selecionado.
-- O popover não exibe mais checkboxes, botões "Todos"/"Limpar" ou footer de contagem.
-- O botão trigger mostra o nome do evento selecionado ou "Selecione um evento".
-- Fetch de dashboard continua lendo `selectedEventIds[0]` (já usa o primeiro ID).
+### `src/components/resultados/DashboardWhatsAppTab.tsx`
+1. Adicionar título de seção **"Leads"** acima da grid de KPIs.
+2. Renomear os labels no array `kpiCards`:
+   - "Total da base" → **Total**
+   - "Mensagens entregues" → **Impactos**
+   - "Leads responderam" → **Respostas**
+   - "Leads agendados" → **Agendamentos**
+3. Manter o card **Gasto total** inalterado (mesma posição, mesmo conteúdo).
+4. Manter toda a lógica de cálculo, tooltips, hints, ícones, threshold e toggles existentes.
 
-Fora do escopo:
-- Investigar por que o multiselect não funcionava (será tratado em momento posterior).
-- Alterar chamadas ao webhook, agregação de métricas ou estrutura de dados.
+### `src/components/resultados/DashboardWhatsAppSkeleton.tsx`
+- Adicionar skeleton de título de seção (h-6 w-24) acima dos cards KPI para representar "Leads". Manter os 5 skeleton cards (4 leads + gasto).
+
+## Não alterar
+- Card **Gasto total** (permanece como está).
+- Lógica de fetch, agregação e cálculo de métricas.
+- Seletor de evento, funil de leads, tabela de gastos por template.
+- Cores, gradientes e tipografia.
+
+## Critérios de aceitação
+- Título "Leads" aparece acima dos 4 primeiros KPIs.
+- Labels renomeados exatamente para Total, Impactos, Respostas, Agendamentos.
+- Card Gasto total intocado.
+- Build passa sem erros.
