@@ -447,11 +447,24 @@ export function ConfiguracoesPosVendasTab() {
           ) : !loja ? (
             <Skeleton className="h-5 w-64" />
           ) : (
-            <p className="text-sm">
-              Configurando: <span className="font-medium">{loja.marca} - {loja.uf}</span>{" "}
-              <span className="text-muted-foreground">({loja.nome})</span>
-              <span className="text-xs text-muted-foreground ml-2">dealer_id: {loja.dealer_id}</span>
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm">
+                Configurando: <span className="font-medium">{loja.marca} - {loja.uf}</span>{" "}
+                <span className="text-muted-foreground">({loja.nome})</span>
+                <span className="text-xs text-muted-foreground ml-2">dealer_id: {loja.dealer_id}</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="pos-vendas-toggle" className="text-xs text-muted-foreground">
+                  Pós-vendas {posVendasAtivo ? "ativo" : "inativo"}
+                </Label>
+                <Switch
+                  id="pos-vendas-toggle"
+                  checked={posVendasAtivo}
+                  disabled={togglingStatus || loading}
+                  onCheckedChange={handleTogglePosVendas}
+                />
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
