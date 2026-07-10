@@ -405,6 +405,29 @@ export function ConfiguracoesPosVendasTab() {
     }
   }
 
+  async function handleTogglePosVendas(next: boolean) {
+    if (!loja || togglingStatus) return;
+    const prev = posVendasAtivo;
+    setPosVendasAtivo(next);
+    setTogglingStatus(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? "";
+      const r = await fetch(WEBHOOK_ALTERA_STATUS, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", saga_one_supabase: token },
+        body: JSON.stringify({ dealer_id: loja.dealer_id, ativo: next }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      toast.success(next ? "Pós-vendas ativado para esta loja." : "Pós-vendas desativado para esta loja.");
+    } catch (e: any) {
+      setPosVendasAtivo(prev);
+      toast.error("Não foi possível alterar o status do pós-vendas.");
+    } finally {
+      setTogglingStatus(false);
+    }
+  }
+
   // ---------- Render ----------
   return (
     <div className="space-y-4">
