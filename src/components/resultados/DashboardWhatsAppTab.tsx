@@ -534,6 +534,8 @@ export const DashboardWhatsAppTab = ({
         pctVal: m.taxaEntrega,
         pctSuffix: "das enviadas",
         icon: <CheckCircle2 className="h-4 w-4" />,
+        goal: 0.95,
+        goalBaseVal: safeDiv(m.msg_entregue, m.total_base),
         tooltip: {
           title: "Taxa de leitura",
           value: pctFmt(m.taxaLeituraBase),
@@ -546,6 +548,8 @@ export const DashboardWhatsAppTab = ({
         pctVal: taxaRespostaShow,
         pctSuffix: taxaRespostaSuffix,
         icon: <MessageCircle className="h-4 w-4" />,
+        goal: 0.30,
+        goalBaseVal: safeDiv(m.msg_respondida, m.total_base),
       },
       {
         label: "Agendamentos",
@@ -554,6 +558,8 @@ export const DashboardWhatsAppTab = ({
         pctSuffix: taxaAgendSuffix,
         threshold: 0.03,
         icon: <CalendarCheck className="h-4 w-4" />,
+        goal: 0.03,
+        goalBaseVal: safeDiv(m.agendado, m.total_base),
         tooltip: {
           title: "Taxa sobre a base",
           value: pctFmt(m.taxaAgendBase),
@@ -813,6 +819,19 @@ export const DashboardWhatsAppTab = ({
                         {kpi.hintLines.map((line: string, i: number) => (
                           <p key={i} className="text-xs text-muted-foreground">{line}</p>
                         ))}
+                      </div>
+                    )}
+                    {kpi.goal !== undefined && (
+                      <div className="mt-2">
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
+                            style={{ width: `${Math.min(100, (kpi.goalBaseVal / kpi.goal) * 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {pctFmt(kpi.goalBaseVal)} da meta de {pctFmt(kpi.goal)}
+                        </p>
                       </div>
                     )}
                   </CardContent>
