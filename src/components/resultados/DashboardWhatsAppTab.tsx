@@ -851,14 +851,6 @@ export const DashboardWhatsAppTab = ({
                     <Switch checked={showLidas} onCheckedChange={setShowLidas} />
                     Mostrar etapa "Lidas"
                   </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <span className={baseCalc === "entregues" ? "font-bold text-primary" : "text-muted-foreground"}>Entregues</span>
-                    <Switch
-                      checked={baseCalc === "base"}
-                      onCheckedChange={(v) => setBaseCalc(v ? "base" : "entregues")}
-                    />
-                    <span className={baseCalc === "base" ? "font-bold text-primary" : "text-muted-foreground"}>Base</span>
-                  </label>
                 </div>
               </div>
             </CardHeader>
