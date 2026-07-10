@@ -107,6 +107,11 @@ const posVendasPatyItems = [
   { title: "Cadência Conversacional", url: "/pos-vendas/paty/cadencia", icon: MessageSquare },
 ];
 
+const posVendasSubItems = [
+  { title: "Agendamentos", url: "/pos-vendas/agendamentos", icon: Calendar },
+  { title: "Configurações", url: "/pos-vendas/configuracoes", icon: Settings },
+];
+
 // Items apenas para Administrador
 const afterProspeccaoItemsAdmin = [
   { title: "Carteira de Clientes", url: "/clientes", icon: Users },
