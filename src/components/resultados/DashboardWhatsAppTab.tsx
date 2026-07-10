@@ -123,7 +123,6 @@ export const DashboardWhatsAppTab = ({
   const [showBRL, setShowBRL] = useState(false);
   const [webhookProgress, setWebhookProgress] = useState(0);
   const [showLidas, setShowLidas] = useState(false);
-  const [baseCalc, setBaseCalc] = useState<"entregues" | "base">("entregues");
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startWebhookProgress = useCallback(() => {
@@ -515,10 +514,10 @@ export const DashboardWhatsAppTab = ({
   const kpiCards = useMemo(() => {
     if (!metrics) return [];
     const m = metrics;
-    const taxaRespostaShow = baseCalc === "entregues" ? m.taxaRespostaEntregue : m.taxaResposta;
-    const taxaRespostaSuffix = baseCalc === "entregues" ? "das entregues" : "das lidas";
-    const taxaAgendShow = baseCalc === "entregues" ? m.taxaAgendEntregue : m.taxaAgendBase;
-    const taxaAgendSuffix = baseCalc === "entregues" ? "das entregues" : "da base";
+    const taxaRespostaShow = m.taxaRespostaEntregue;
+    const taxaRespostaSuffix = "das entregues";
+    const taxaAgendShow = m.taxaAgendEntregue;
+    const taxaAgendSuffix = "das entregues";
 
     return [
       {
@@ -572,7 +571,7 @@ export const DashboardWhatsAppTab = ({
         icon: <DollarSign className="h-4 w-4" />,
       },
     ];
-  }, [metrics, showBRL, money, moneyVal, baseCalc]);
+  }, [metrics, showBRL, money, moneyVal]);
 
   // Funnel steps
   const funnelSteps = useMemo(() => {
@@ -851,14 +850,6 @@ export const DashboardWhatsAppTab = ({
                   <label className="flex items-center gap-2 text-xs cursor-pointer">
                     <Switch checked={showLidas} onCheckedChange={setShowLidas} />
                     Mostrar etapa "Lidas"
-                  </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <span className={baseCalc === "entregues" ? "font-bold text-primary" : "text-muted-foreground"}>Entregues</span>
-                    <Switch
-                      checked={baseCalc === "base"}
-                      onCheckedChange={(v) => setBaseCalc(v ? "base" : "entregues")}
-                    />
-                    <span className={baseCalc === "base" ? "font-bold text-primary" : "text-muted-foreground"}>Base</span>
                   </label>
                 </div>
               </div>
