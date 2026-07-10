@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Plus, Trash2, Check, Loader2, Store } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Store, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -159,9 +160,8 @@ export function ConfiguracoesPosVendasTab() {
   }
 
   function validarRanges(c: ConfigState): string | null {
-    if (c.faixas.length < 3) return "Mínimo de 3 faixas de KM.";
-    if (c.faixas.length > c.revisao_maxima)
-      return `Número de faixas (${c.faixas.length}) maior que a Revisão Máxima (${c.revisao_maxima}).`;
+    if (c.faixas.length !== c.revisao_maxima)
+      return `É obrigatória uma faixa de KM para cada revisão (${c.revisao_maxima} configurada${c.revisao_maxima > 1 ? "s" : ""}).`;
     for (let i = 0; i < c.faixas.length; i++) {
       const f = c.faixas[i];
       if (f.revisao_numero !== i + 1) return `Numeração de revisão deve ser sequencial (linha ${i + 1}).`;
@@ -190,32 +190,19 @@ export function ConfiguracoesPosVendasTab() {
     setConfig((c) => (c ? { ...c, dias: { ...c.dias, [k]: v } } : c));
   }
 
-  function addFaixa() {
+  function setRevisaoMaxima(v: number) {
     setConfig((c) => {
       if (!c) return c;
-      if (c.faixas.length >= c.revisao_maxima) {
-        toast.error(`Máximo de ${c.revisao_maxima} faixas atingido.`);
-        return c;
+      const target = Math.max(1, Math.min(99, v));
+      let faixas = c.faixas.slice(0, target);
+      while (faixas.length < target) {
+        const last = faixas[faixas.length - 1];
+        const km_min = last ? last.km_max + 1 : 0;
+        const km_max = km_min + 10000;
+        faixas.push({ revisao_numero: faixas.length + 1, km_min, km_max });
       }
-      const last = c.faixas[c.faixas.length - 1];
-      const km_min = last.km_max + 1;
-      const km_max = km_min + 10000;
-      return {
-        ...c,
-        faixas: [...c.faixas, { revisao_numero: last.revisao_numero + 1, km_min, km_max }],
-      };
-    });
-  }
-
-  function removeFaixa(idx: number) {
-    setConfig((c) => {
-      if (!c) return c;
-      if (c.faixas.length <= 3) {
-        toast.error("Mínimo de 3 faixas.");
-        return c;
-      }
-      const next = c.faixas.filter((_, i) => i !== idx).map((f, i) => ({ ...f, revisao_numero: i + 1 }));
-      return { ...c, faixas: next };
+      faixas = faixas.map((f, i) => ({ ...f, revisao_numero: i + 1 }));
+      return { ...c, revisao_maxima: target, faixas };
     });
   }
 
