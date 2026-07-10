@@ -152,6 +152,9 @@ export function AppSidebar() {
   const [isPosPecasOpen, setIsPosPecasOpen] = useState(currentPath.startsWith('/pos-vendas/pecas'));
   const [isPosEntregasOpen, setIsPosEntregasOpen] = useState(currentPath.startsWith('/pos-vendas/entregas'));
   const [isPosPatyOpen, setIsPosPatyOpen] = useState(currentPath.startsWith('/pos-vendas/paty'));
+  const [isPosSubOpen, setIsPosSubOpen] = useState(
+    currentPath.startsWith('/pos-vendas/agendamentos') || currentPath.startsWith('/pos-vendas/configuracoes')
+  );
   const [isEntraDadosOpen, setIsEntraDadosOpen] = useState(
     currentPath.startsWith('/de-para') || currentPath.startsWith('/entra-dados')
   );
