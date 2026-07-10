@@ -317,8 +317,6 @@ export function ConfiguracoesPosVendasTab() {
   }
 
   // ---------- Render ----------
-  const blocksDisabled = !config || loading;
-
   return (
     <div className="space-y-4">
       {/* Bloco 1 - Loja */}
