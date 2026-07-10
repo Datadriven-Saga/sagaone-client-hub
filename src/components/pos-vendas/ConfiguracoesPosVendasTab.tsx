@@ -473,7 +473,6 @@ export function ConfiguracoesPosVendasTab() {
                     <TableHead className="w-24">Nº Revisão</TableHead>
                     <TableHead>KM Mínimo</TableHead>
                     <TableHead>KM Máximo</TableHead>
-                    <TableHead className="w-16 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -503,35 +502,14 @@ export function ConfiguracoesPosVendasTab() {
                             onChange={(e) => updateFaixa(i, { km_max: Number(e.target.value) })}
                           />
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            disabled={config.faixas.length <= 3}
-                            onClick={() => removeFaixa(i)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
-              <div className="flex justify-between items-center">
-                <p className="text-[11px] text-muted-foreground">
-                  {config.faixas.length} de no máx. {config.revisao_maxima} faixas • mínimo 3
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addFaixa}
-                  disabled={config.faixas.length >= config.revisao_maxima}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar faixa
-                </Button>
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {config.faixas.length} faixa{config.faixas.length > 1 ? "s" : ""} — uma para cada uma das {config.revisao_maxima} revisões definidas em "Revisão Máxima". Ajuste "Revisão Máxima" para adicionar ou remover faixas.
+              </p>
               {gaps.length > 0 && (
                 <p className="text-xs text-yellow-400">Aviso: existem gaps nas faixas {gaps.join(", ")}.</p>
               )}
