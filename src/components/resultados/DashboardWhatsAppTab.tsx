@@ -522,7 +522,7 @@ export const DashboardWhatsAppTab = ({
 
     return [
       {
-        label: "Total da base",
+        label: "Total",
         value: numFmt(m.total_base),
         pctVal: safeDiv(m.msg_enviada, m.total_base),
         pctSuffix: "enviadas",
@@ -530,7 +530,7 @@ export const DashboardWhatsAppTab = ({
         icon: <MessageSquare className="h-4 w-4" />,
       },
       {
-        label: "Mensagens entregues",
+        label: "Impactos",
         value: numFmt(m.msg_entregue),
         pctVal: m.taxaEntrega,
         pctSuffix: "das enviadas",
@@ -543,7 +543,7 @@ export const DashboardWhatsAppTab = ({
         },
       },
       {
-        label: "Leads responderam",
+        label: "Respostas",
         value: numFmt(m.msg_respondida),
         pctVal: taxaRespostaShow,
         pctSuffix: taxaRespostaSuffix,
@@ -551,7 +551,7 @@ export const DashboardWhatsAppTab = ({
         icon: <MessageCircle className="h-4 w-4" />,
       },
       {
-        label: "Leads agendados",
+        label: "Agendamentos",
         value: numFmt(m.agendado),
         pctVal: taxaAgendShow,
         pctSuffix: taxaAgendSuffix,
@@ -773,7 +773,9 @@ export const DashboardWhatsAppTab = ({
       {metrics && (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">Leads</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {kpiCards.map((kpi: any, idx) => {
               const cardInner = (
                 <Card className="bg-gradient-to-b from-card/80 to-card border-border/50 h-full">
