@@ -809,6 +809,13 @@ export const DashboardWhatsAppTab = ({
                     {kpi.subHint && (
                       <p className="text-xs text-muted-foreground mt-0.5">{kpi.subHint}</p>
                     )}
+                    {kpi.hintLines && (
+                      <div className="mt-1 space-y-0.5">
+                        {kpi.hintLines.map((line: string, i: number) => (
+                          <p key={i} className="text-xs text-muted-foreground">{line}</p>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
