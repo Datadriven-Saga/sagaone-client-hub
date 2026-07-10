@@ -123,7 +123,6 @@ export const DashboardWhatsAppTab = ({
   const [showBRL, setShowBRL] = useState(false);
   const [webhookProgress, setWebhookProgress] = useState(0);
   const [showLidas, setShowLidas] = useState(false);
-  const [baseCalc, setBaseCalc] = useState<"entregues" | "base">("entregues");
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startWebhookProgress = useCallback(() => {
