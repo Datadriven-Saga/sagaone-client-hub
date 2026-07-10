@@ -514,10 +514,10 @@ export const DashboardWhatsAppTab = ({
   const kpiCards = useMemo(() => {
     if (!metrics) return [];
     const m = metrics;
-    const taxaRespostaShow = baseCalc === "entregues" ? m.taxaRespostaEntregue : m.taxaResposta;
-    const taxaRespostaSuffix = baseCalc === "entregues" ? "das entregues" : "das lidas";
-    const taxaAgendShow = baseCalc === "entregues" ? m.taxaAgendEntregue : m.taxaAgendBase;
-    const taxaAgendSuffix = baseCalc === "entregues" ? "das entregues" : "da base";
+    const taxaRespostaShow = m.taxaRespostaEntregue;
+    const taxaRespostaSuffix = "das entregues";
+    const taxaAgendShow = m.taxaAgendEntregue;
+    const taxaAgendSuffix = "das entregues";
 
     return [
       {
@@ -571,7 +571,7 @@ export const DashboardWhatsAppTab = ({
         icon: <DollarSign className="h-4 w-4" />,
       },
     ];
-  }, [metrics, showBRL, money, moneyVal, baseCalc]);
+  }, [metrics, showBRL, money, moneyVal]);
 
   // Funnel steps
   const funnelSteps = useMemo(() => {
