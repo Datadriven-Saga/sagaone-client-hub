@@ -193,8 +193,8 @@ const WebhooksPage = () => {
         categoria: editing.categoria,
         agente: editing.agente,
       })
-      .select("id,url,metodo,ativo,categoria,agente,nome,descricao")
-      .eq("id", editing.id);
+      .eq("id", editing.id)
+      .select("id,url,metodo,ativo,categoria,agente,nome,descricao");
     setSaving(false);
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
