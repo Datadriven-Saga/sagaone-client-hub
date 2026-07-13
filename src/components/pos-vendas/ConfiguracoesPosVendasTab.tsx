@@ -98,25 +98,25 @@ function parseBuscaResponse(raw: any): { config: ConfigState; ativo: boolean } |
     manha: {
       inicio: str(src.manha_inicio, base.manha.inicio),
       fim: str(src.manha_fim, base.manha.fim),
-      slots: num(src.manha_slots, base.manha.slots),
+      slots: num(src.slots_manha ?? src.manha_slots, base.manha.slots),
     },
     tarde: {
       inicio: str(src.tarde_inicio, base.tarde.inicio),
       fim: str(src.tarde_fim, base.tarde.fim),
-      slots: num(src.tarde_slots, base.tarde.slots),
+      slots: num(src.slots_tarde ?? src.tarde_slots, base.tarde.slots),
     },
     sabado: {
       inicio: str(src.sabado_inicio, base.sabado.inicio),
-      fim: str(src.sabado_fim, base.sabado.fim),
-      slots: num(src.sabado_slots, base.sabado.slots),
+      fim: str(src.sabado_limite ?? src.sabado_fim, base.sabado.fim),
+      slots: num(src.slots_sabado ?? src.sabado_slots, base.sabado.slots),
     },
     revisao_maxima: num(src.revisao_maxima, base.revisao_maxima),
-    meses_sobreposicao: num(src.meses_sobreposicao, base.meses_sobreposicao),
-    antecedencia_dias: num(src.antecedencia_dias, base.antecedencia_dias),
+    meses_sobreposicao: num(src.tempo_meses_sobreposicao ?? src.meses_sobreposicao, base.meses_sobreposicao),
+    antecedencia_dias: num(src.janela_antecipacao_dias ?? src.antecedencia_dias, base.antecedencia_dias),
     faixas: base.faixas,
   };
 
-  const rangesRaw = src.ranges ?? src.faixas ?? [];
+  const rangesRaw = src.revision_ranges ?? src.ranges ?? src.faixas ?? [];
   if (Array.isArray(rangesRaw) && rangesRaw.length > 0) {
     config.faixas = rangesRaw
       .map((f: any, i: number) => ({
@@ -229,7 +229,7 @@ export function ConfiguracoesPosVendasTab() {
     (async () => {
       try {
         const json = await callExternalWebhook(WEBHOOK_BUSCA, {
-          dealer_id: loja.dealer_id,
+          dealer_id: Number(loja.dealer_id),
           agente_id: patyAgente.id,
           agente_telefone: patyAgente.telefone ?? null,
           agente_nome: patyAgente.nome ?? null,
@@ -354,7 +354,7 @@ export function ConfiguracoesPosVendasTab() {
     setSavingConfig(true);
     try {
       const payloadConfig = {
-        dealer_id: loja.dealer_id,
+        dealer_id: Number(loja.dealer_id),
         faz_segunda: config.dias.seg,
         faz_terca: config.dias.ter,
         faz_quarta: config.dias.qua,
@@ -364,16 +364,16 @@ export function ConfiguracoesPosVendasTab() {
         faz_domingo: config.dias.dom,
         manha_inicio: config.manha.inicio,
         manha_fim: config.manha.fim,
-        manha_slots: config.manha.slots,
         tarde_inicio: config.tarde.inicio,
         tarde_fim: config.tarde.fim,
-        tarde_slots: config.tarde.slots,
-        sabado_inicio: config.sabado.inicio,
-        sabado_fim: config.sabado.fim,
-        sabado_slots: config.sabado.slots,
+        sabado_limite: config.sabado.fim,
+        slots_manha: config.manha.slots,
+        slots_tarde: config.tarde.slots,
+        slots_sabado: config.sabado.slots,
         revisao_maxima: config.revisao_maxima,
-        meses_sobreposicao: config.meses_sobreposicao,
-        antecedencia_dias: config.antecedencia_dias,
+        tempo_meses_sobreposicao: config.meses_sobreposicao,
+        janela_antecipacao_dias: config.antecedencia_dias,
+        ativo: posVendasAtivo,
       };
       await callExternalWebhook(WEBHOOK_CONFIG_GERAIS, payloadConfig);
       setOriginal((prev) => (prev ? { ...prev, ...pickConfigSlice(config) } : cloneConfig(config)));
@@ -398,7 +398,7 @@ export function ConfiguracoesPosVendasTab() {
     setSavingRanges(true);
     try {
       const payloadRanges = {
-        dealer_id: loja.dealer_id,
+        dealer_id: Number(loja.dealer_id),
         ranges: config.faixas.map((f) => ({
           revisao_numero: f.revisao_numero,
           km_min: f.km_min,
@@ -423,7 +423,7 @@ export function ConfiguracoesPosVendasTab() {
     setPosVendasAtivo(next);
     setTogglingStatus(true);
     try {
-      await callExternalWebhook(WEBHOOK_ALTERA_STATUS, { dealer_id: loja.dealer_id, ativo: next });
+      await callExternalWebhook(WEBHOOK_ALTERA_STATUS, { dealer_id: Number(loja.dealer_id), ativo: next });
       toast.success(next ? "Pós-vendas ativado para esta loja." : "Pós-vendas desativado para esta loja.");
     } catch (e: any) {
       setPosVendasAtivo(prev);
