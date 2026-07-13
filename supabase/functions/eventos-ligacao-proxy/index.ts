@@ -4,8 +4,25 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
+
 // Timeout de 8 segundos para evitar travamento
 const FETCH_TIMEOUT = 8000;
+
+const ACTION_WEBHOOK_SLUGS: Record<string, string> = {
+  listar_todos: 'pri_voz.eventos.list_all',
+  listar: 'pri_voz.eventos.list',
+  deletar: 'pri_voz.eventos.deleta',
+  listar_geral: 'pri_voz.eventos.eventos_pri',
+  buscar_contatos: 'pri_voz.contatos.verifica',
+};
+
+async function getWebhook(slug: string): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(slug);
+  if (!cfg?.url) throw new Error(`Webhook "${slug}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${slug}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -29,11 +46,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-    
     const { action, ...params } = await req.json();
 
-    let webhookUrl: string;
+    let webhookSlug: string;
     let body: Record<string, any>;
 
     console.log(`🔄 Action recebida: ${action}`, params);
@@ -41,7 +56,7 @@ Deno.serve(async (req) => {
     switch (action) {
       case 'listar_todos':
         // Nova action para a tela de Eventos do Agente - apenas telefone_pri
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos-pri';
+        webhookSlug = ACTION_WEBHOOK_SLUGS.listar_todos;
         body = {
           telefone_pri: params.telefone_pri,
         };
@@ -50,7 +65,7 @@ Deno.serve(async (req) => {
 
       case 'listar':
         // Action original que usa telefone_pri e dealerid
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
+        webhookSlug = ACTION_WEBHOOK_SLUGS.listar;
         body = {
           telefone_pri: params.telefone_pri,
           dealer_id: params.dealer_id,
@@ -60,9 +75,9 @@ Deno.serve(async (req) => {
       case 'mudar_status':
         // Webhook diferente para ativar ou desativar
         if (params.evt_status === true) {
-          webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/ativa-evento';
+          webhookSlug = 'pri_voz.eventos.ativa';
         } else {
-          webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-evento';
+          webhookSlug = 'pri_voz.eventos.desativa';
         }
         body = {
           id_evento: params.id_evento,
@@ -71,21 +86,21 @@ Deno.serve(async (req) => {
         break;
 
       case 'deletar':
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
+        webhookSlug = ACTION_WEBHOOK_SLUGS.deletar;
         body = {
           id_evento: params.id_evento,
         };
         break;
 
       case 'listar_geral':
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/eventos-pri';
+        webhookSlug = ACTION_WEBHOOK_SLUGS.listar_geral;
         body = {
           telefone_pri: params.telefone_pri,
         };
         break;
 
       case 'buscar_contatos':
-        webhookUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos';
+        webhookSlug = ACTION_WEBHOOK_SLUGS.buscar_contatos;
         body = {
           telefone_pri: params.telefone_pri,
           id_evento: params.id_evento,
@@ -99,11 +114,14 @@ Deno.serve(async (req) => {
         );
     }
 
+    const webhookConfig = await getWebhook(webhookSlug);
+    const webhookUrl = webhookConfig.url;
+
     console.log(`Chamando webhook ${action}:`, webhookUrl, body);
 
     const webhookHeaders = {
       'Content-Type': 'application/json',
-      ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+      ...buildAuthHeaders(webhookConfig),
     };
 
     const buildGetUrl = (baseUrl: string, payload: Record<string, any>) => {
@@ -127,7 +145,7 @@ Deno.serve(async (req) => {
     const doGet = async () => {
       return await fetchWithTimeout(buildGetUrl(webhookUrl, body), {
         method: 'GET',
-        headers: SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {},
+        headers: buildAuthHeaders(webhookConfig),
       });
     };
 
@@ -136,6 +154,7 @@ Deno.serve(async (req) => {
 
     let response = await doPost();
     let responseText = await response.text();
+    void markWebhookUsed(webhookSlug);
 
     if (
       tryPostFirst &&
