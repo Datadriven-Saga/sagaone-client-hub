@@ -1,16 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Webhooks para diferentes operações
-const WEBHOOK_CRIAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao';
-const WEBHOOK_ATUALIZAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-evento-ligacao';
-const WEBHOOK_DELETAR = 'https://automatemaiawh.sagadatadriven.com.br/webhook/deleta-eventos-saga-one';
-const WEBHOOK_VERIFICA = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
-const VERIFICA_EVENTOS_ID_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica_eventos_id';
+const WEBHOOK_SLUGS = {
+  criar: 'pri_voz.eventos.cria_evento',
+  atualizar: 'pri_voz.eventos.atualiza_evento',
+  deletar: 'pri_voz.eventos.deleta',
+  verifica: 'pri_voz.eventos.list',
+  verificaById: 'pri_voz.eventos.verifica_by_id',
+} as const;
+
+async function getWebhook(slug: string): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(slug);
+  if (!cfg?.url) throw new Error(`Webhook "${slug}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${slug}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 interface EventoInput {
   id: string;
@@ -54,13 +63,15 @@ async function buscarProximoIdEvento(supabase: any): Promise<number> {
   const [webhookResult, dbResult] = await Promise.allSettled([
     (async () => {
       console.log('🔍 Consultando webhook verifica-eventos...');
-      const response = await fetch(WEBHOOK_VERIFICA, {
-        method: 'GET',
+      const verificaWebhook = await getWebhook(WEBHOOK_SLUGS.verifica);
+      const response = await fetch(verificaWebhook.url, {
+        method: verificaWebhook.metodo || 'GET',
         headers: { 
           'Content-Type': 'application/json',
-          ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+          ...buildAuthHeaders(verificaWebhook),
         },
       });
+      void markWebhookUsed(WEBHOOK_SLUGS.verifica);
       if (!response.ok) {
         const text = await response.text();
         throw new Error(`Webhook retornou status ${response.status}: ${text}`);
@@ -395,17 +406,19 @@ Deno.serve(async (req: Request) => {
 
     const payload = { evento: eventoPayload };
 
-    let webhookUrl: string;
+    let webhookSlug: string;
     switch (operacao) {
       case 'atualizar':
-        webhookUrl = WEBHOOK_ATUALIZAR;
+        webhookSlug = WEBHOOK_SLUGS.atualizar;
         break;
       case 'deletar':
-        webhookUrl = WEBHOOK_DELETAR;
+        webhookSlug = WEBHOOK_SLUGS.deletar;
         break;
       default:
-        webhookUrl = WEBHOOK_CRIAR;
+        webhookSlug = WEBHOOK_SLUGS.criar;
     }
+    const webhookConfig = await getWebhook(webhookSlug);
+    const webhookUrl = webhookConfig.url;
 
     console.log('📤 Enviando para:', webhookUrl);
     console.log('📦 Payload:', JSON.stringify(payload, null, 2));
@@ -424,13 +437,14 @@ Deno.serve(async (req: Request) => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+          ...buildAuthHeaders(webhookConfig),
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
+      void markWebhookUsed(webhookSlug);
 
       const responseText = await response.text();
       console.log('📥 Resposta webhook:', response.status, responseText.substring(0, 500));
@@ -452,17 +466,19 @@ Deno.serve(async (req: Request) => {
     if (idEvento && operacao === 'criar') {
       try {
         console.log('📡 Chamando verifica_eventos_id:', { telefone_pri: telefonePriLigacao, id_evento: idEvento });
-        const verificaResponse = await fetch(VERIFICA_EVENTOS_ID_URL, {
+        const verificaByIdWebhook = await getWebhook(WEBHOOK_SLUGS.verificaById);
+        const verificaResponse = await fetch(verificaByIdWebhook.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+            ...buildAuthHeaders(verificaByIdWebhook),
           },
           body: JSON.stringify({
             telefone_pri: telefonePriLigacao,
             id_evento: idEvento,
           }),
         });
+        void markWebhookUsed(WEBHOOK_SLUGS.verificaById);
         const verificaText = await verificaResponse.text();
         console.log(`✅ verifica_eventos_id (${verificaResponse.status}):`, verificaText.substring(0, 500));
       } catch (verificaError) {
