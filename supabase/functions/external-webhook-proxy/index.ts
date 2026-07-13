@@ -2,7 +2,7 @@
 // URLs are resolved dynamically from public.webhook_registry (managed via
 // Administração → Webhooks). No hard-coded endpoint map.
 
-import { resolveWebhookByPathSuffix, buildAuthHeaders, markWebhookUsed } from "../_shared/webhook-registry.ts";
+import { resolveWebhookByPathSuffix, resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,52 @@ const corsHeaders = {
 const ALLOWED_DOMAINS = [
   'automatemaiawh.sagadatadriven.com.br',
   'automatemaia.sagadatadriven.com.br',
+  'n8n-webhook.sagadatadriven.com.br',
+  'execute-api.us-east-1.amazonaws.com',
 ];
+
+const LEGACY_ENDPOINT_SLUGS: Record<string, string> = {
+  'busca_config_pos': 'paty.pos_vendas.busca_config',
+  'config_gerais': 'paty.pos_vendas.config_gerais',
+  'upsert_ranges': 'paty.pos_vendas.upsert_ranges',
+  'altera_status_pos_vendas': 'paty.pos_vendas.altera_status',
+  'verifica-eventos': 'pri_voz.eventos.list',
+  'verifica-todos-eventos-pri': 'pri_voz.eventos.list_all',
+  'eventos-pri': 'pri_voz.eventos.eventos_pri',
+  'verifica_eventos_id': 'pri_voz.eventos.verifica_by_id',
+  'cria-evento-ligacao': 'pri_voz.eventos.cria_evento',
+  'atualiza-evento-ligacao': 'pri_voz.eventos.atualiza_evento',
+  'deleta-eventos-saga-one': 'pri_voz.eventos.deleta',
+  'ativa-evento': 'pri_voz.eventos.ativa',
+  'desativa-evento': 'pri_voz.eventos.desativa',
+  'verifica-contatos': 'pri_voz.contatos.verifica',
+  'cria-base-ligacao': 'pri_voz.base.cria_base',
+  'dispara-ligacao': 'pri_voz.dispara_ligacao',
+  'sincroniza_sagaone': 'sistema.sincroniza_sagaone',
+  'recebe-status-sagaone': 'sistema.status.recebe_sagaone',
+  'cadencia_ligacao': 'pri_voz.cadencia',
+  'envia_mensagem': 'pri_wpp.envia_mensagem',
+  '8275b29e-b3b1-494d-a604-b285a8cc0d56': 'maia.chat.proxy',
+};
+
+function pathKeyFromUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value);
+    return parsed.pathname.split('/').filter(Boolean).pop() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveRegistryEntry(key: string): Promise<WebhookConfig | null> {
+  const trimmed = String(key || '').trim();
+  if (!trimmed) return null;
+  const directSlug = await resolveWebhookBySlug(trimmed);
+  if (directSlug) return directSlug;
+  const mappedSlug = LEGACY_ENDPOINT_SLUGS[trimmed];
+  if (mappedSlug) return await resolveWebhookBySlug(mappedSlug);
+  return await resolveWebhookByPathSuffix(trimmed);
+}
 
 function isAllowedGenericUrl(url: string): { valid: boolean; error?: string } {
   try {
@@ -48,16 +93,32 @@ Deno.serve(async (req: Request) => {
     }
 
     const endpoint = bodyData.endpoint;
+    const webhookSlug = bodyData.webhook_slug || bodyData.slug;
     const genericWebhookUrl = bodyData.webhook_url;
 
     // Auth vem do registry por webhook; fallback global mantém compat.
     const FALLBACK_SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
 
     // ============ MODO GENÉRICO (webhook_url dinâmico) ============
-    if (genericWebhookUrl) {
-      const urlCheck = isAllowedGenericUrl(genericWebhookUrl);
+    if (webhookSlug || genericWebhookUrl) {
+      const legacyKey = webhookSlug || pathKeyFromUrl(genericWebhookUrl);
+      const registryEntry = legacyKey ? await resolveRegistryEntry(String(legacyKey)) : null;
+      if (registryEntry && !registryEntry.ativo) {
+        return new Response(
+          JSON.stringify({ error: `Webhook "${registryEntry.slug || legacyKey}" está desativado em Administração → Webhooks.` }),
+          { status: 424, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const targetUrl = registryEntry?.url || genericWebhookUrl;
+      if (!targetUrl) {
+        return new Response(
+          JSON.stringify({ error: `Webhook "${legacyKey}" não cadastrado em Administração → Webhooks.` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const urlCheck = isAllowedGenericUrl(targetUrl);
       if (!urlCheck.valid) {
-        console.error(`❌ URL bloqueada no proxy genérico: ${urlCheck.error} - ${genericWebhookUrl}`);
+        console.error(`❌ URL bloqueada no proxy genérico: ${urlCheck.error} - ${targetUrl}`);
         return new Response(
           JSON.stringify({ error: urlCheck.error }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -65,26 +126,27 @@ Deno.serve(async (req: Request) => {
       }
 
       // Remover campos de controle do body
-      const { endpoint: _e, webhook_url: _w, webhook_method: method, ...payload } = bodyData;
-      const httpMethod = (method || 'POST').toUpperCase();
+      const { endpoint: _e, webhook_url: _w, webhook_slug: _s, slug: _sl, webhook_method: method, ...payload } = bodyData;
+      const httpMethod = (method || registryEntry?.metodo || 'POST').toUpperCase();
 
-      console.log(`🔗 Proxy genérico ${httpMethod} → ${genericWebhookUrl}`);
+      console.log(`🔗 Proxy genérico ${httpMethod} → ${targetUrl}`);
       console.log('📦 Body:', JSON.stringify(payload).substring(0, 500));
 
       const fetchOptions: RequestInit = {
         method: httpMethod,
         headers: {
           'Content-Type': 'application/json',
-          ...(FALLBACK_SAGA_ONE ? { 'saga_one_supabase': FALLBACK_SAGA_ONE } : {}),
+          ...(registryEntry ? buildAuthHeaders(registryEntry) : (FALLBACK_SAGA_ONE ? { 'saga_one_supabase': FALLBACK_SAGA_ONE } : {})),
         },
       };
       if (httpMethod === 'POST' || httpMethod === 'PUT') {
         fetchOptions.body = JSON.stringify(payload);
       }
 
-      const response = await fetch(genericWebhookUrl, fetchOptions);
+      const response = await fetch(targetUrl, fetchOptions);
       const responseText = await response.text();
       console.log(`✅ Proxy genérico resposta (${response.status}):`, responseText.substring(0, 500));
+      if (registryEntry?.slug) void markWebhookUsed(registryEntry.slug);
 
       let responseData: unknown;
       try {
@@ -109,7 +171,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Resolve URL dinâmica pelo registry (Administração → Webhooks)
-    const registryEntry = await resolveWebhookByPathSuffix(endpoint);
+    const registryEntry = await resolveRegistryEntry(endpoint);
     if (!registryEntry || !registryEntry.url) {
       return new Response(
         JSON.stringify({ error: `Endpoint "${endpoint}" não cadastrado em Administração → Webhooks.` }),
@@ -176,7 +238,7 @@ Deno.serve(async (req: Request) => {
         }
       };
       void backgroundTask();
-      void markWebhookUsed(endpoint);
+      void markWebhookUsed(registryEntry.slug || endpoint);
       return new Response(
         JSON.stringify({ success: true, message: 'Disparo iniciado com sucesso.', async: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -186,7 +248,7 @@ Deno.serve(async (req: Request) => {
     const response = await fetch(externalUrl.toString(), fetchOptions);
     const responseText = await response.text();
     console.log(`✅ Response (${response.status}):`, responseText.substring(0, 500));
-    void markWebhookUsed(endpoint);
+    void markWebhookUsed(registryEntry.slug || endpoint);
 
     let responseData: unknown;
     try {
