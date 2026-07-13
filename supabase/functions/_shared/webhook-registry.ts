@@ -5,15 +5,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
 
 export interface WebhookConfig {
+  slug?: string;
   url: string;
   metodo: string;
   ativo: boolean;
   credencial_secret_name: string | null;
   credencial_header: string | null;
 }
-
-const CACHE_TTL_MS = 60_000;
-const cache = new Map<string, { value: WebhookConfig | null; expiresAt: number }>();
 
 function getServiceClient() {
   const url = Deno.env.get("SUPABASE_URL") ?? "";
@@ -26,27 +24,26 @@ function getServiceClient() {
  * Returns null if unknown. Throws if slug is registered but inactive/URL missing.
  */
 export async function resolveWebhookBySlug(slug: string): Promise<WebhookConfig | null> {
-  const cached = cache.get(`slug:${slug}`);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-
   const supabase = getServiceClient();
-  const { data, error } = await supabase.rpc("get_webhook_url", { _slug: slug });
+  const { data, error } = await supabase
+    .from("webhook_registry")
+    .select("slug,url,metodo,ativo,credencial_secret_name,credencial_header")
+    .eq("slug", slug)
+    .maybeSingle();
   if (error) {
-    console.error(`[webhook-registry] rpc error for ${slug}:`, error.message);
+    console.error(`[webhook-registry] lookup error for ${slug}:`, error.message);
     return null;
   }
-  const row = Array.isArray(data) ? data[0] : data;
-  const value: WebhookConfig | null = row
+  return data
     ? {
-        url: row.url,
-        metodo: row.metodo,
-        ativo: row.ativo,
-        credencial_secret_name: row.credencial_secret_name,
-        credencial_header: row.credencial_header,
+        slug: data.slug,
+        url: data.url,
+        metodo: data.metodo,
+        ativo: data.ativo,
+        credencial_secret_name: data.credencial_secret_name,
+        credencial_header: data.credencial_header,
       }
     : null;
-  cache.set(`slug:${slug}`, { value, expiresAt: Date.now() + CACHE_TTL_MS });
-  return value;
 }
 
 /**
@@ -55,14 +52,10 @@ export async function resolveWebhookBySlug(slug: string): Promise<WebhookConfig 
  * so frontend keeps sending short endpoint keys without changes.
  */
 export async function resolveWebhookByPathSuffix(suffix: string): Promise<WebhookConfig | null> {
-  const key = `suffix:${suffix}`;
-  const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("webhook_registry")
-    .select("url,metodo,ativo,credencial_secret_name,credencial_header")
+    .select("slug,url,metodo,ativo,credencial_secret_name,credencial_header")
     .ilike("url", `%/webhook/${suffix}`)
     .limit(1);
   if (error) {
@@ -70,8 +63,9 @@ export async function resolveWebhookByPathSuffix(suffix: string): Promise<Webhoo
     return null;
   }
   const row = data?.[0];
-  const value: WebhookConfig | null = row
+  return row
     ? {
+        slug: row.slug,
         url: row.url,
         metodo: row.metodo,
         ativo: row.ativo,
@@ -79,8 +73,6 @@ export async function resolveWebhookByPathSuffix(suffix: string): Promise<Webhoo
         credencial_header: row.credencial_header,
       }
     : null;
-  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
-  return value;
 }
 
 /**
