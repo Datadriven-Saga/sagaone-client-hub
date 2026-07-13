@@ -3,6 +3,7 @@
 // Dashboard consulta dados localmente do Supabase após sincronização
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,9 +11,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Endpoint sincroniza_sagaone para sincronizar dados
-const SYNC_WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/sincroniza_sagaone';
-const SAGA_ONE = Deno.env.get('SAGA_ONE') ?? '';
+const SYNC_WEBHOOK_SLUG = 'sistema.sincroniza_sagaone';
+
+async function getSyncWebhook(): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(SYNC_WEBHOOK_SLUG);
+  if (!cfg?.url) throw new Error(`Webhook "${SYNC_WEBHOOK_SLUG}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${SYNC_WEBHOOK_SLUG}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 // Interface baseada no formato exato enviado pelo webhook dash-pri
 interface LeadSync {
@@ -81,15 +87,16 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const syncWebhook = await getSyncWebhook();
 
     // 1. Buscar TODOS os dados do webhook sincroniza_sagaone
-    console.log(`📡 Chamando webhook sincroniza_sagaone: ${SYNC_WEBHOOK_URL}`);
+    console.log(`📡 Chamando webhook sincroniza_sagaone: ${syncWebhook.url}`);
 
-    const webhookResponse = await fetch(SYNC_WEBHOOK_URL, {
+    const webhookResponse = await fetch(syncWebhook.url, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+        ...buildAuthHeaders(syncWebhook),
       },
       body: JSON.stringify({
         telefone_pri: telefonePriClean,
@@ -98,6 +105,7 @@ Deno.serve(async (req: Request) => {
     });
 
     const webhookText = await webhookResponse.text();
+    if (webhookResponse.ok) void markWebhookUsed(SYNC_WEBHOOK_SLUG);
     console.log(`📥 Resposta do dash-pri (status ${webhookResponse.status}): ${webhookText.length} caracteres`);
     console.log(`📥 Preview: ${webhookText.substring(0, 500)}...`);
 
