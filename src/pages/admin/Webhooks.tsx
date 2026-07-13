@@ -22,7 +22,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Loader2, Link2, Search, ShieldCheck, ShieldAlert, Edit, ExternalLink } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Link2, Search, ShieldCheck, ShieldAlert, Edit, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { toast } from "sonner";
@@ -45,6 +56,32 @@ type WebhookRow = {
   updated_at: string;
 };
 
+type NewWebhook = {
+  slug: string;
+  nome: string;
+  descricao: string;
+  categoria: string;
+  agente: string;
+  url: string;
+  metodo: string;
+  credencial_secret_name: string;
+  credencial_header: string;
+  ativo: boolean;
+};
+
+const emptyNew: NewWebhook = {
+  slug: "",
+  nome: "",
+  descricao: "",
+  categoria: "outros",
+  agente: "",
+  url: "",
+  metodo: "POST",
+  credencial_secret_name: "",
+  credencial_header: "",
+  ativo: true,
+};
+
 const WebhooksPage = () => {
   const { tipoAcesso, loading: accessLoading } = useUserAccessType();
   const [rows, setRows] = useState<WebhookRow[]>([]);
@@ -56,6 +93,11 @@ const WebhooksPage = () => {
   const [credentialsMap, setCredentialsMap] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<WebhookRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newRow, setNewRow] = useState<NewWebhook>(emptyNew);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<{ ids: string[]; single?: WebhookRow } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Master tem acesso total; Admin/TI mantidos para operar suporte quando necessário.
   const isMaster =
@@ -76,6 +118,7 @@ const WebhooksPage = () => {
     } else {
       setRows((data ?? []) as unknown as WebhookRow[]);
     }
+    setSelectedIds(new Set());
     setLoading(false);
   };
 
@@ -173,6 +216,75 @@ const WebhooksPage = () => {
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ativo: value } : r)));
   };
 
+  const handleCreate = async () => {
+    const slug = newRow.slug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    if (!slug || !newRow.nome.trim()) {
+      toast.error("Slug e nome são obrigatórios");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("webhook_registry" as any).insert({
+      slug,
+      nome: newRow.nome.trim(),
+      descricao: newRow.descricao.trim() || null,
+      categoria: newRow.categoria.trim() || "outros",
+      agente: newRow.agente.trim() || null,
+      url: newRow.url.trim() || null,
+      metodo: newRow.metodo,
+      ativo: newRow.ativo,
+      credencial_secret_name: newRow.credencial_secret_name.trim() || null,
+      credencial_header: newRow.credencial_header.trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao criar webhook", { description: error.message });
+      return;
+    }
+    toast.success("Webhook criado");
+    setCreating(false);
+    setNewRow(emptyNew);
+    load();
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from("webhook_registry" as any)
+      .delete()
+      .in("id", confirmDelete.ids);
+    setDeleting(false);
+    if (error) {
+      toast.error("Erro ao excluir", { description: error.message });
+      return;
+    }
+    toast.success(
+      confirmDelete.ids.length === 1 ? "Webhook excluído" : `${confirmDelete.ids.length} webhooks excluídos`,
+    );
+    setConfirmDelete(null);
+    load();
+  };
+
+  const toggleSelect = (id: string, value: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (value) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id));
+  const toggleSelectAll = (value: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (value) filtered.forEach((r) => next.add(r.id));
+      else filtered.forEach((r) => next.delete(r.id));
+      return next;
+    });
+  };
+
   if (accessLoading) {
     return (
       <DashboardLayout>
@@ -199,6 +311,23 @@ const WebhooksPage = () => {
               Credenciais continuam armazenadas em Supabase Secrets — a tela apenas
               indica presença.
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() =>
+                  setConfirmDelete({ ids: Array.from(selectedIds) })
+                }
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir ({selectedIds.size})
+              </Button>
+            )}
+            <Button size="sm" onClick={() => { setNewRow(emptyNew); setCreating(true); }}>
+              <Plus className="h-4 w-4 mr-1" /> Novo webhook
+            </Button>
           </div>
         </div>
 
@@ -261,6 +390,18 @@ const WebhooksPage = () => {
           </div>
         ) : (
           <div className="grid gap-3">
+            {filtered.length > 0 && (
+              <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+                <Checkbox
+                  checked={allFilteredSelected}
+                  onCheckedChange={(v) => toggleSelectAll(Boolean(v))}
+                />
+                <span>
+                  {allFilteredSelected ? "Desmarcar todos" : "Selecionar todos"}
+                  {selectedIds.size > 0 && ` (${selectedIds.size} selecionado${selectedIds.size > 1 ? "s" : ""})`}
+                </span>
+              </div>
+            )}
             {filtered.map((row) => {
               const credOk = row.credencial_secret_name
                 ? credentialsMap[row.credencial_secret_name]
@@ -269,7 +410,13 @@ const WebhooksPage = () => {
                 <Card key={row.id} className={row.ativo ? "" : "opacity-60"}>
                   <CardContent className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <Checkbox
+                          className="mt-1"
+                          checked={selectedIds.has(row.id)}
+                          onCheckedChange={(v) => toggleSelect(row.id, Boolean(v))}
+                        />
+                        <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold">{row.nome}</h3>
                           <Badge variant="outline">{row.categoria}</Badge>
@@ -309,11 +456,20 @@ const WebhooksPage = () => {
                             </>
                           )}
                         </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Switch checked={row.ativo} onCheckedChange={(v) => toggleActive(row, v)} />
                         <Button size="sm" variant="outline" onClick={() => setEditing({ ...row })}>
                           <Edit className="h-3.5 w-3.5 mr-1" /> Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setConfirmDelete({ ids: [row.id], single: row })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -324,6 +480,152 @@ const WebhooksPage = () => {
           </div>
         )}
       </div>
+
+      <Sheet open={creating} onOpenChange={(o) => !o && setCreating(false)}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Novo webhook</SheetTitle>
+            <SheetDescription>
+              Cadastre um novo endpoint externo. O slug é o identificador usado nas
+              edge functions para resolver a URL dinamicamente.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs">Slug *</Label>
+              <Input
+                value={newRow.slug}
+                onChange={(e) => setNewRow({ ...newRow, slug: e.target.value })}
+                placeholder="meu_webhook_novo"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Somente letras minúsculas, números, _ e -.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Nome *</Label>
+              <Input
+                value={newRow.nome}
+                onChange={(e) => setNewRow({ ...newRow, nome: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Descrição</Label>
+              <Textarea
+                value={newRow.descricao}
+                onChange={(e) => setNewRow({ ...newRow, descricao: e.target.value })}
+                rows={3}
+                placeholder="Para que serve e o que envia/recebe"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">URL</Label>
+              <Input
+                value={newRow.url}
+                onChange={(e) => setNewRow({ ...newRow, url: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Método</Label>
+                <Select
+                  value={newRow.metodo}
+                  onValueChange={(v) => setNewRow({ ...newRow, metodo: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Categoria</Label>
+                <Input
+                  value={newRow.categoria}
+                  onChange={(e) => setNewRow({ ...newRow, categoria: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Agente</Label>
+                <Input
+                  value={newRow.agente}
+                  onChange={(e) => setNewRow({ ...newRow, agente: e.target.value })}
+                  placeholder="paty, maia, ..."
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Switch
+                  checked={newRow.ativo}
+                  onCheckedChange={(v) => setNewRow({ ...newRow, ativo: v })}
+                />
+                <span className="text-sm">{newRow.ativo ? "Ativo" : "Inativo"}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Secret da credencial</Label>
+                <Input
+                  value={newRow.credencial_secret_name}
+                  onChange={(e) => setNewRow({ ...newRow, credencial_secret_name: e.target.value })}
+                  placeholder="SAGA_ONE"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Header da credencial</Label>
+                <Input
+                  value={newRow.credencial_header}
+                  onChange={(e) => setNewRow({ ...newRow, credencial_header: e.target.value })}
+                  placeholder="saga_one_supabase"
+                />
+              </div>
+            </div>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setCreating(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Criar
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir {confirmDelete?.ids.length === 1 ? "webhook" : `${confirmDelete?.ids.length} webhooks`}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDelete?.single ? (
+                <>
+                  Isso removerá permanentemente <b>{confirmDelete.single.nome}</b>{" "}
+                  (<code>{confirmDelete.single.slug}</code>). Edge functions que
+                  resolvem esse slug passarão a falhar com 400.
+                </>
+              ) : (
+                "Ação irreversível. Edge functions que resolvem estes slugs passarão a falhar."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">
