@@ -1,13 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Webhooks externos para sincronização
-const WEBHOOK_CRIA_EVENTO = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-evento-ligacao';
-const WEBHOOK_CRIA_BASE = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao';
+const WEBHOOK_CRIA_EVENTO_SLUG = 'pri_voz.eventos.cria_evento';
+const WEBHOOK_CRIA_BASE_SLUG = 'pri_voz.base.cria_base';
+
+async function getWebhook(slug: string): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(slug);
+  if (!cfg?.url) throw new Error(`Webhook "${slug}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${slug}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 interface ContatoInput {
   nome: string;
@@ -379,8 +386,8 @@ Deno.serve(async (req: Request) => {
       console.log(`\n📞 [${requestId}] ETAPA 2.5: Chamando cria-evento-ligacao para garantir evento externo...`);
       
       try {
-        const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-        
+        const criaEventoWebhook = await getWebhook(WEBHOOK_CRIA_EVENTO_SLUG);
+
         // Buscar dados do evento em eventos_pri_voz
         const { data: evtData } = await supabase
           .from('eventos_pri_voz')
@@ -449,11 +456,11 @@ Deno.serve(async (req: Request) => {
         
         console.log(`📤 [${requestId}] Payload cria-evento-ligacao: id_evento=${id_evento}, nome="${eventoPayload.nome}", dealer="${dealerId}"`);
         
-        const evtResponse = await fetch(WEBHOOK_CRIA_EVENTO, {
+        const evtResponse = await fetch(criaEventoWebhook.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+            ...buildAuthHeaders(criaEventoWebhook),
           },
           body: JSON.stringify({ evento: eventoPayload }),
         });
@@ -461,6 +468,7 @@ Deno.serve(async (req: Request) => {
         const evtResponseText = await evtResponse.text();
         
         if (evtResponse.ok) {
+          void markWebhookUsed(WEBHOOK_CRIA_EVENTO_SLUG);
           console.log(`✅ [${requestId}] cria-evento-ligacao OK (status ${evtResponse.status})`);
         } else {
           console.warn(`⚠️ [${requestId}] cria-evento-ligacao falhou (status ${evtResponse.status}): ${evtResponseText.substring(0, 300)}`);
@@ -492,7 +500,7 @@ Deno.serve(async (req: Request) => {
       console.log(`📤 [${requestId}] Total contatos para webhook externo: ${externalContatos.length} (com lead_id: ${contatosComLeadId}, sem lead_id: ${contatosSemLeadId})`);
 
       try {
-        const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+        const criaBaseWebhook = await getWebhook(WEBHOOK_CRIA_BASE_SLUG);
         const EXTERNAL_BATCH = 500;
         let externalSuccessCount = 0;
         let externalErrorCount = 0;
@@ -512,11 +520,11 @@ Deno.serve(async (req: Request) => {
 
           console.log(`📤 [${requestId}] Webhook externo lote ${batchNum}/${totalBatches} (${batch.length} contatos)`);
 
-          const response = await fetch(WEBHOOK_CRIA_BASE, {
+          const response = await fetch(criaBaseWebhook.url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+              ...buildAuthHeaders(criaBaseWebhook),
             },
             body: JSON.stringify(externalPayload),
           });
@@ -524,6 +532,7 @@ Deno.serve(async (req: Request) => {
           const responseText = await response.text();
 
           if (response.ok) {
+            void markWebhookUsed(WEBHOOK_CRIA_BASE_SLUG);
             externalSuccessCount += batch.length;
             console.log(`✅ [${requestId}] Lote externo ${batchNum} OK (status ${response.status})`);
           } else {
