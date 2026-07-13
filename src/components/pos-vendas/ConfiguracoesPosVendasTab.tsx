@@ -56,16 +56,15 @@ const DEFAULT_CONFIG: ConfigState = {
   ],
 };
 
-const WEBHOOK_BASE = "https://automatemaiawh.sagadatadriven.com.br/webhook";
-const WEBHOOK_BUSCA = `${WEBHOOK_BASE}/busca_config_pos`;
-const WEBHOOK_CONFIG_GERAIS = `${WEBHOOK_BASE}/config_gerais`;
-const WEBHOOK_UPSERT_RANGES = `${WEBHOOK_BASE}/upsert_ranges`;
-const WEBHOOK_ALTERA_STATUS = `${WEBHOOK_BASE}/altera_status_pos_vendas`;
+const WEBHOOK_BUSCA = "paty.pos_vendas.busca_config";
+const WEBHOOK_CONFIG_GERAIS = "paty.pos_vendas.config_gerais";
+const WEBHOOK_UPSERT_RANGES = "paty.pos_vendas.upsert_ranges";
+const WEBHOOK_ALTERA_STATUS = "paty.pos_vendas.altera_status";
 
 // Chama o webhook externo através do edge function proxy para respeitar a CSP.
-async function callExternalWebhook(webhook_url: string, payload: Record<string, any>) {
+async function callExternalWebhook(webhook_slug: string, payload: Record<string, any>) {
   const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-    body: { webhook_url, webhook_method: "POST", ...payload },
+    body: { webhook_slug, webhook_method: "POST", ...payload },
   });
   if (error) throw new Error(error.message ?? "Falha na chamada do webhook");
   if (data && typeof data === "object" && "error" in (data as any) && (data as any).error) {
