@@ -1,0 +1,1 @@
+ALTER FUNCTION public.webhook_registry_audit_trg() SECURITY DEFINER SET search_path = public;
