@@ -18,7 +18,8 @@ import {
   ShieldBan,
   Plug
   ,
-  Armchair
+  Armchair,
+  Link2
 } from "lucide-react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -202,6 +203,13 @@ const Administracao = () => {
       icon: KeyRound,
       route: "/administracao/mfa-master",
       permissionKey: "_always_", // Controlled by isMaster check above
+    },
+    {
+      title: "Webhooks",
+      description: "Central de webhooks externos consumidos pelo sistema (URLs, credenciais, status)",
+      icon: Link2,
+      route: "/administracao/webhooks",
+      permissionKey: "_always_",
     }
   ] : [];
 
