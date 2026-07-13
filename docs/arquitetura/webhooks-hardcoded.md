@@ -1,8 +1,15 @@
 # Webhooks hard-coded — inventário e plano de migração
 
 **Área:** Arquitetura / Webhooks
-**Última revisão:** 2026-07-13
+**Última revisão:** 2026-07-13 (segunda atualização)
 **Objetivo:** listar TODAS as URLs de webhook externas ainda hard-coded no código e o caminho de migração para o `webhook_registry` (tela `/administracao/webhooks`).
+
+## Status desta rodada
+
+- Todos os slugs referenciados pelo código já estavam cadastrados em `webhook_registry`, exceto **`pri_wpp.disparo`** (disparo em massa WhatsApp via Lambda AWS).
+- Nesta rodada o slug `pri_wpp.disparo` foi inserido apontando para a mesma URL que já rodava em produção (`https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/prd/disparo`), sem alterar comportamento.
+- Efeito prático: `dispatch-leads-webhook` e `process-campaign-job` agora resolvem a URL do disparo WhatsApp via `webhook_registry`. Qualquer troca de URL passa a ser feita pela tela `/administracao/webhooks` — nenhum deploy necessário.
+- Nada mais foi alterado nesta rodada; as URLs listadas abaixo continuam hard-coded e seguem o plano de migração original.
 
 ## Regra alvo
 
