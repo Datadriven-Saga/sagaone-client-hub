@@ -182,7 +182,7 @@ const WebhooksPage = () => {
   const handleSave = async () => {
     if (!editing) return;
     setSaving(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("webhook_registry" as any)
       .update({
         nome: editing.nome,
@@ -193,10 +193,16 @@ const WebhooksPage = () => {
         categoria: editing.categoria,
         agente: editing.agente,
       })
+      .select("id,url,metodo,ativo,categoria,agente,nome,descricao")
       .eq("id", editing.id);
     setSaving(false);
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
+      return;
+    }
+    const updated = Array.isArray(data) ? data[0] : null;
+    if (!updated) {
+      toast.error("Webhook não foi alterado", { description: "Nenhuma linha foi atualizada no banco." });
       return;
     }
     toast.success("Webhook atualizado");
