@@ -57,8 +57,6 @@ interface EmpresaData {
 
 // Busca o próximo id_evento via webhook externo + banco local (para evitar colisão)
 async function buscarProximoIdEvento(supabase: any): Promise<number> {
-  const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-  
   // Buscar em paralelo: webhook externo + banco local
   const [webhookResult, dbResult] = await Promise.allSettled([
     (async () => {
@@ -423,7 +421,6 @@ Deno.serve(async (req: Request) => {
     console.log('📤 Enviando para:', webhookUrl);
     console.log('📦 Payload:', JSON.stringify(payload, null, 2));
 
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
     const WEBHOOK_TIMEOUT = 15000; // 15 seconds timeout for external webhooks
 
     let responseData: unknown = null;
