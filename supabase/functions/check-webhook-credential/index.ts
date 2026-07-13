@@ -54,20 +54,12 @@ Deno.serve(async (req: Request) => {
     const svc = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
-    const { data: accessType } = await svc.rpc(
-      "get_user_access_type_for_user",
-      { p_user_id: userData.user.id },
-    ).maybeSingle?.() ?? { data: null };
-    // Fallback: check via profiles/access if RPC absent
-    let isMaster = accessType === "Master";
-    if (!isMaster) {
-      const { data: prof } = await svc
-        .from("profiles")
-        .select("access_type")
-        .eq("id", userData.user.id)
-        .maybeSingle();
-      isMaster = prof?.access_type === "Master";
-    }
+    const { data: prof } = await svc
+      .from("profiles")
+      .select("tipo_acesso")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    const isMaster = prof?.tipo_acesso === "Master";
     if (!isMaster) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
