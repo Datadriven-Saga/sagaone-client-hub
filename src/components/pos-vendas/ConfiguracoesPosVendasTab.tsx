@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
+import { usePatyAgentes } from "@/hooks/pos-vendas/usePosVendasData";
 
 // ---------- Types ----------
 type Loja = { dealer_id: string; marca: string; uf: string; nome: string };
@@ -159,6 +160,11 @@ function isRangesDirty(a: ConfigState, b: ConfigState) {
 
 export function ConfiguracoesPosVendasTab() {
   const { activeCompany } = useCompany();
+  const { agentes: patyAgentes, loading: loadingAgentes } = usePatyAgentes();
+  const patyAgente = useMemo(() => {
+    if (!patyAgentes || patyAgentes.length === 0) return null;
+    return patyAgentes.find((a) => a.ativo) ?? patyAgentes[0];
+  }, [patyAgentes]);
   const [loja, setLoja] = useState<Loja | null>(null);
   const [lojaError, setLojaError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -210,11 +216,29 @@ export function ConfiguracoesPosVendasTab() {
 
   useEffect(() => {
     if (!loja) return;
+    if (loadingAgentes) return;
+    if (!patyAgente) {
+      setLoading(false);
+      setConfig(null);
+      setOriginal(null);
+      setLojaError("Nenhum agente Paty vinculado a esta loja. Configure em Administração › Agentes.");
+      return;
+    }
     setLoading(true);
     let cancelled = false;
     (async () => {
       try {
-        const json = await callExternalWebhook(WEBHOOK_BUSCA, { dealer_id: loja.dealer_id });
+        const json = await callExternalWebhook(WEBHOOK_BUSCA, {
+          dealer_id: loja.dealer_id,
+          agente_id: patyAgente.id,
+          agente_telefone: patyAgente.telefone ?? null,
+          agente_nome: patyAgente.nome ?? null,
+          agente: {
+            id: patyAgente.id,
+            nome: patyAgente.nome ?? null,
+            telefone: patyAgente.telefone ?? null,
+          },
+        });
         const parsed = parseBuscaResponse(json);
         if (cancelled) return;
         if (parsed) {
@@ -244,7 +268,7 @@ export function ConfiguracoesPosVendasTab() {
     return () => {
       cancelled = true;
     };
-  }, [loja?.dealer_id]);
+  }, [loja?.dealer_id, patyAgente?.id, loadingAgentes]);
 
   const configDirty = !!(config && original && isConfigDirty(config, original));
   const rangesDirty = !!(config && original && isRangesDirty(config, original));
