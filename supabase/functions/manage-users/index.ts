@@ -766,9 +766,9 @@ Deno.serve(async (req: Request) => {
           .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'terceiro';
         const shortId = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
         const email = `${slug}.${shortId}@one.sagadatadriven.com.br`;
-        const passwordBytes = new Uint8Array(18);
+        const passwordBytes = new Uint8Array(8);
         crypto.getRandomValues(passwordBytes);
-        const senha = Array.from(passwordBytes).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 16) + 'A9!';
+        const senha = Array.from(passwordBytes).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 7) + 'A9!';
 
         // 1) Cria no auth com app_metadata.is_external=true
         const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
@@ -992,9 +992,9 @@ Deno.serve(async (req: Request) => {
         // Reativa profile + gera senha nova
         await supabaseAdmin.from('profiles').update({ is_active: true, status: 'Ativo' }).eq('id', profile_id);
 
-        const passwordBytes = new Uint8Array(18);
+        const passwordBytes = new Uint8Array(8);
         crypto.getRandomValues(passwordBytes);
-        const senha = Array.from(passwordBytes).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 16) + 'A9!';
+        const senha = Array.from(passwordBytes).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 7) + 'A9!';
 
         const { data: updated, error: updErr } = await supabaseAdmin.auth.admin.updateUserById(
           profile_id,
