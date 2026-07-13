@@ -57,7 +57,11 @@ const WebhooksPage = () => {
   const [editing, setEditing] = useState<WebhookRow | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const isMaster = tipoAcesso === "Master";
+  // Master tem acesso total; Admin/TI mantidos para operar suporte quando necessário.
+  const isMaster =
+    tipoAcesso === "Master" ||
+    tipoAcesso === "Administrador" ||
+    tipoAcesso === "TI";
 
   const load = async () => {
     setLoading(true);
