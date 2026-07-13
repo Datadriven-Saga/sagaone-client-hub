@@ -1,50 +1,12 @@
 // External Webhook Proxy - Routes requests to external n8n/PRI endpoints
+// URLs are resolved dynamically from public.webhook_registry (managed via
+// Administração → Webhooks). No hard-coded endpoint map.
+
+import { resolveWebhookByPathSuffix, buildAuthHeaders, markWebhookUsed } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-// Mapeamento de endpoints permitidos para URLs externas
-const ALLOWED_ENDPOINTS: Record<string, { url: string; method: 'GET' | 'POST' }> = {
-  'verifica-eventos': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos', method: 'POST' },
-  'verifica-todos-eventos-pri': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos-pri', method: 'POST' },
-  'sincroniza_sagaone': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/sincroniza_sagaone', method: 'POST' },
-  'metricas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/metricas', method: 'POST' },
-  'busca-dados-agentes': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-dados-agentes', method: 'GET' },
-  'dashboard-evento-pri-whats': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dashboard-evento-pri-whats', method: 'POST' },
-  'verifica-instancias_evo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-instancias_evo', method: 'POST' },
-  'atualiza-instancias_evo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-instancias_evo', method: 'POST' },
-  'atualiza-agente': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-agente', method: 'POST' },
-  'cria-agente': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-agente', method: 'POST' },
-  'cria-base-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', method: 'POST' },
-  'dispara-ligacao': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao', method: 'POST' },
-  'apaga-template-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/apaga-template-meta', method: 'POST' },
-  'verifica-templates': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-templates', method: 'POST' },
-  'pri-config': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/pri-config', method: 'POST' },
-  'insere-loja': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-loja', method: 'POST' },
-  'verifca-lojas': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifca-lojas', method: 'GET' },
-  'update-lojas-gaia': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/update-lojas-gaia', method: 'POST' },
-  'busca-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-lojas-ids', method: 'GET' },
-  'atualiza-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/atualiza-paty-lojas-ids', method: 'POST' },
-  'insere-paty-lojas-ids': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/insere-paty-lojas-ids', method: 'POST' },
-  'upload-media-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upload-media-meta', method: 'POST' },
-  'criar-template-pri-from-meta': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/criar-template-pri-from-meta', method: 'POST' },
-  'verifica_eventos_id': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica_eventos_id', method: 'POST' },
-  'busca-paty-cadencia-config-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-cadencia-config-template', method: 'POST' },
-  'upsert-paty-cadencia-config-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-cadencia-config-template', method: 'POST' },
-  'busca-paty-cadencia-steps': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-cadencia-steps', method: 'POST' },
-  'upsert-paty-cadencia-steps': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-cadencia-steps', method: 'POST' },
-  'delete-paty-cadencia-step': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/delete-paty-cadencia-step', method: 'POST' },
-  'busca-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-template', method: 'POST' },
-  'upsert-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-template', method: 'POST' },
-  'desativa-paty-pecas-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-paty-pecas-template', method: 'POST' },
-  'busca-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-pecas-prazo', method: 'GET' },
-  'upsert-paty-pecas-prazo': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-pecas-prazo', method: 'POST' },
-  'busca-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/busca-paty-entrega-template', method: 'POST' },
-  'upsert-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/upsert-paty-entrega-template', method: 'POST' },
-  'desativa-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/desativa-paty-entrega-template', method: 'POST' },
-  'remove-paty-entrega-template': { url: 'https://automatemaiawh.sagadatadriven.com.br/webhook/remove-paty-entrega-template', method: 'POST' },
 };
 
 // Domínios permitidos para webhook genérico (passthrough)
@@ -88,8 +50,8 @@ Deno.serve(async (req: Request) => {
     const endpoint = bodyData.endpoint;
     const genericWebhookUrl = bodyData.webhook_url;
 
-    // Obter token SAGA_ONE para autenticação
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+    // Auth vem do registry por webhook; fallback global mantém compat.
+    const FALLBACK_SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
 
     // ============ MODO GENÉRICO (webhook_url dinâmico) ============
     if (genericWebhookUrl) {
@@ -113,7 +75,7 @@ Deno.serve(async (req: Request) => {
         method: httpMethod,
         headers: {
           'Content-Type': 'application/json',
-          ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+          ...(FALLBACK_SAGA_ONE ? { 'saga_one_supabase': FALLBACK_SAGA_ONE } : {}),
         },
       };
       if (httpMethod === 'POST' || httpMethod === 'PUT') {
@@ -146,13 +108,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const endpointConfig = ALLOWED_ENDPOINTS[endpoint];
-    if (!endpointConfig) {
+    // Resolve URL dinâmica pelo registry (Administração → Webhooks)
+    const registryEntry = await resolveWebhookByPathSuffix(endpoint);
+    if (!registryEntry || !registryEntry.url) {
       return new Response(
-        JSON.stringify({ error: `Endpoint "${endpoint}" não permitido. Endpoints válidos: ${Object.keys(ALLOWED_ENDPOINTS).join(', ')}` }),
+        JSON.stringify({ error: `Endpoint "${endpoint}" não cadastrado em Administração → Webhooks.` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    if (!registryEntry.ativo) {
+      return new Response(
+        JSON.stringify({ error: `Endpoint "${endpoint}" está desativado em Administração → Webhooks.` }),
+        { status: 424, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const endpointConfig = { url: registryEntry.url, method: (registryEntry.metodo || 'POST') as 'GET' | 'POST' };
 
     const externalUrl = new URL(endpointConfig.url);
     const postBody: Record<string, any> = {};
@@ -182,7 +152,7 @@ Deno.serve(async (req: Request) => {
       method: endpointConfig.method,
       headers: {
         'Content-Type': 'application/json',
-        ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+        ...buildAuthHeaders(registryEntry),
       },
     };
 
@@ -206,6 +176,7 @@ Deno.serve(async (req: Request) => {
         }
       };
       void backgroundTask();
+      void markWebhookUsed(endpoint);
       return new Response(
         JSON.stringify({ success: true, message: 'Disparo iniciado com sucesso.', async: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -215,6 +186,7 @@ Deno.serve(async (req: Request) => {
     const response = await fetch(externalUrl.toString(), fetchOptions);
     const responseText = await response.text();
     console.log(`✅ Response (${response.status}):`, responseText.substring(0, 500));
+    void markWebhookUsed(endpoint);
 
     let responseData: unknown;
     try {

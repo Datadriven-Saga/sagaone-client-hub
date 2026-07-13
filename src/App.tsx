@@ -65,6 +65,7 @@ const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
 const OptOutGlobal = lazy(() => import("./pages/admin/OptOutGlobal"));
 const MFAGeral = lazy(() => import("./pages/admin/MFAGeral"));
 const LogsCadeiras = lazy(() => import("./pages/admin/LogsCadeiras"));
+const Webhooks = lazy(() => import("./pages/admin/Webhooks"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 const ConfirmarPresenca = lazy(() => import("./pages/ConfirmarPresenca"));
 
@@ -179,6 +180,7 @@ const AppRoutes = () => {
         <Route path="/administracao/mfa" element={<PermissionProtectedRoute permissionKey={["canAccessAgentesIA", "canViewAuthenticator"]}><MFAGeral /></PermissionProtectedRoute>} />
         <Route path="/administracao/opt-out-global" element={<PermissionProtectedRoute permissionKey="canAccessOptOutGlobal"><OptOutGlobal /></PermissionProtectedRoute>} />
         <Route path="/administracao/logs-cadeiras" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><LogsCadeiras /></PermissionProtectedRoute>} />
+        <Route path="/administracao/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
