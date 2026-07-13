@@ -192,9 +192,11 @@ const WebhooksPage = () => {
         ativo: editing.ativo,
         categoria: editing.categoria,
         agente: editing.agente,
+        credencial_secret_name: editing.credencial_secret_name?.trim() || null,
+        credencial_header: editing.credencial_header?.trim() || null,
       })
       .eq("id", editing.id)
-      .select("id,url,metodo,ativo,categoria,agente,nome,descricao");
+      .select("id,url,metodo,ativo,categoria,agente,nome,descricao,credencial_secret_name,credencial_header");
     setSaving(false);
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
