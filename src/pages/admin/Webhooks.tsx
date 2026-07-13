@@ -46,7 +46,7 @@ type WebhookRow = {
 };
 
 const WebhooksPage = () => {
-  const { accessType, loading: accessLoading } = useUserAccessType();
+  const { tipoAcesso, loading: accessLoading } = useUserAccessType();
   const [rows, setRows] = useState<WebhookRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -57,7 +57,7 @@ const WebhooksPage = () => {
   const [editing, setEditing] = useState<WebhookRow | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const isMaster = accessType === "Master";
+  const isMaster = tipoAcesso === "Master";
 
   const load = async () => {
     setLoading(true);
