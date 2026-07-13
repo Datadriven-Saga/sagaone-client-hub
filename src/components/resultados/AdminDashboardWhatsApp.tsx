@@ -293,7 +293,7 @@ export const AdminDashboardWhatsApp = () => {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
         body: {
           ...payload,
-          webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/dashboard-evento-pri-whats-adm",
+          webhook_slug: "sistema.dashboard.evento_pri_whats_adm",
         },
       });
 

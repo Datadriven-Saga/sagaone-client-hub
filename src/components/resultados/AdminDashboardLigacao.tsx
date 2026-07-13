@@ -62,8 +62,8 @@ const pctFmt = (n: number) => (n * 100).toLocaleString("pt-BR", { maximumFractio
 const numFmt = (n: number) => n.toLocaleString("pt-BR");
 const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
 
-const WEBHOOK_EVENTS = "https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-todos-eventos";
-const WEBHOOK_SEARCH = "https://automatemaiawh.sagadatadriven.com.br/webhook/visao_administrativa";
+const WEBHOOK_EVENTS = "sistema.dashboard.verifica_todos_eventos";
+const WEBHOOK_SEARCH = "sistema.dashboard.visao_admin_ligacao";
 
 const sortByStartDateDesc = (a: LigacaoEvent, b: LigacaoEvent) => {
   if (!a.data_inicio && !b.data_inicio) return 0;
@@ -159,7 +159,7 @@ export const AdminDashboardLigacao = () => {
         setLoadingEvents(true);
 
         const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-          body: { webhook_url: WEBHOOK_EVENTS },
+          body: { webhook_slug: WEBHOOK_EVENTS },
         });
 
         if (error) throw error;
@@ -214,7 +214,7 @@ export const AdminDashboardLigacao = () => {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
         body: {
           ...payload,
-          webhook_url: WEBHOOK_SEARCH,
+          webhook_slug: WEBHOOK_SEARCH,
         },
       });
 
@@ -287,7 +287,7 @@ export const AdminDashboardLigacao = () => {
     const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
       body: {
         keyword: trimmedKeyword,
-        webhook_url: WEBHOOK_SEARCH,
+        webhook_slug: WEBHOOK_SEARCH,
       },
     });
 

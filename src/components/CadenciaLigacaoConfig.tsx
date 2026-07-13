@@ -424,7 +424,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         } : null,
       };
       const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
-        body: { ...payload, _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/cadencia_ligacao" },
+        body: { ...payload, _webhook_slug: "pri_voz.cadencia" },
       });
       if (error) throw error;
       toast({ title: "Cadência configurada com sucesso!" });
@@ -532,7 +532,7 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
         dealerid: msgDealerId.trim(),
       };
       const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
-        body: { ...payload, _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/envia_mensagem" },
+        body: { ...payload, _webhook_slug: "pri_wpp.envia_mensagem" },
       });
       if (error) throw error;
       toast({ title: "Mensagens disparadas com sucesso!", description: "O processo de envio foi iniciado." });

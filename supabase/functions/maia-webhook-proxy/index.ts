@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { resolveWebhookBySlug, resolveWebhookByPathSuffix, buildAuthHeaders, markWebhookUsed } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,24 +13,31 @@ serve(async (req) => {
   }
 
   try {
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-    
-    if (!SAGA_ONE) {
-      console.error('SAGA_ONE not configured');
-      return new Response(
-        JSON.stringify({ error: 'Webhook token not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const payload = await req.json();
     
-    // Support custom webhook URL override via _webhook_url
-    const defaultUrl = 'https://automatemaiawh.sagadatadriven.com.br/webhook/8275b29e-b3b1-494d-a604-b285a8cc0d56';
-    const targetUrl = payload._webhook_url || defaultUrl;
+    const legacyPath = payload._webhook_url ? String(payload._webhook_url).split('/').pop() : null;
+    const webhookConfig = payload._webhook_slug
+      ? await resolveWebhookBySlug(String(payload._webhook_slug))
+      : legacyPath
+        ? await resolveWebhookByPathSuffix(legacyPath)
+        : await resolveWebhookBySlug('maia.chat.proxy');
+
+    if (!webhookConfig?.url) {
+      return new Response(
+        JSON.stringify({ error: 'Webhook não cadastrado em Administração → Webhooks.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!webhookConfig.ativo) {
+      return new Response(
+        JSON.stringify({ error: `Webhook "${webhookConfig.slug || legacyPath}" está desativado em Administração → Webhooks.` }),
+        { status: 424, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const targetUrl = webhookConfig.url;
     
     // Remove internal field before forwarding
-    const { _webhook_url, ...forwardPayload } = payload;
+    const { _webhook_url, _webhook_slug, ...forwardPayload } = payload;
     
     console.log('Proxying webhook request to:', targetUrl);
 
@@ -39,7 +47,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'saga_one_supabase': SAGA_ONE,
+          ...buildAuthHeaders(webhookConfig),
         },
         body: JSON.stringify(forwardPayload),
       }
@@ -48,6 +56,7 @@ serve(async (req) => {
     const responseText = await response.text();
     console.log('Webhook response status:', response.status);
     console.log('Webhook response:', responseText);
+    if (response.ok && webhookConfig.slug) void markWebhookUsed(webhookConfig.slug);
 
     let responseData;
     try {

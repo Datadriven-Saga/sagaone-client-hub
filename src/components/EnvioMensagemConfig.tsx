@@ -50,7 +50,7 @@ export function EnvioMensagemConfig({ className }: EnvioMensagemConfigProps) {
       const { error } = await supabase.functions.invoke("maia-webhook-proxy", {
         body: {
           ...payload,
-          _webhook_url: "https://automatemaiawh.sagadatadriven.com.br/webhook/envia_mensagem",
+          _webhook_slug: "pri_wpp.envia_mensagem",
         },
       });
 

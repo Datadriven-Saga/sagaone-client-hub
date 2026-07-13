@@ -5,6 +5,7 @@ import {
   type ExternalOptOutIndex,
   getCachedOptOutIndex,
 } from '../_shared/external-optout.ts';
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed } from '../_shared/webhook-registry.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1114,7 +1115,9 @@ Deno.serve(async (req: Request) => {
 
               // Fallback: call the external webhook directly so the calling system still receives the base
               try {
-                const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+                const criaBaseWebhook = await resolveWebhookBySlug('pri_voz.base.cria_base');
+                if (!criaBaseWebhook?.url) throw new Error('Webhook pri_voz.base.cria_base não cadastrado em Administração → Webhooks.');
+                if (!criaBaseWebhook.ativo) throw new Error('Webhook pri_voz.base.cria_base está desativado em Administração → Webhooks.');
                 const externalPayload = {
                   id_evento: parseInt(prospeccao.event_id_pri, 10),
                   telefone_pri: telefonePri,
@@ -1135,14 +1138,15 @@ Deno.serve(async (req: Request) => {
                   .single();
                 externalPayload.loja = empresaRow?.nome_empresa || '';
 
-                const directResp = await fetch('https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao', {
+                const directResp = await fetch(criaBaseWebhook.url, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+                    ...buildAuthHeaders(criaBaseWebhook),
                   },
                   body: JSON.stringify(externalPayload),
                 });
+                if (directResp.ok) void markWebhookUsed('pri_voz.base.cria_base');
                 console.log(`📡 Direct webhook fallback status: ${directResp.status}`);
               } catch (directErr) {
                 console.error('❌ Direct webhook fallback failed:', directErr);
