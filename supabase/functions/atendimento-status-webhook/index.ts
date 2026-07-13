@@ -1,12 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/recebe-status-sagaone';
+const WEBHOOK_SLUG = 'sistema.status.recebe_sagaone';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -108,19 +109,22 @@ serve(async (req) => {
 
     console.log('📤 Enviando payload para webhook:', webhookPayload);
 
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+    const webhookConfig = await resolveWebhookBySlug(WEBHOOK_SLUG);
+    if (!webhookConfig?.url) throw new Error(`Webhook "${WEBHOOK_SLUG}" não cadastrado em Administração → Webhooks.`);
+    if (!webhookConfig.ativo) throw new Error(`Webhook "${WEBHOOK_SLUG}" está desativado em Administração → Webhooks.`);
 
     // Disparar webhook
-    const webhookResponse = await fetch(WEBHOOK_URL, {
+    const webhookResponse = await fetch(webhookConfig.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+        ...buildAuthHeaders(webhookConfig),
       },
       body: JSON.stringify(webhookPayload)
     });
 
     const responseText = await webhookResponse.text();
+    if (webhookResponse.ok) void markWebhookUsed(WEBHOOK_SLUG);
     console.log('📥 Resposta do webhook:', webhookResponse.status, responseText);
 
     let responseData;
