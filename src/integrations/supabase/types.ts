@@ -6500,6 +6500,101 @@ export type Database = {
           },
         ]
       }
+      webhook_registry: {
+        Row: {
+          agente: string | null
+          ativo: boolean
+          categoria: string
+          created_at: string
+          credencial_header: string | null
+          credencial_secret_name: string | null
+          descricao: string | null
+          id: string
+          last_used_at: string | null
+          metodo: string
+          nome: string
+          owner_edge_function: string | null
+          slug: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          agente?: string | null
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          credencial_header?: string | null
+          credencial_secret_name?: string | null
+          descricao?: string | null
+          id?: string
+          last_used_at?: string | null
+          metodo?: string
+          nome: string
+          owner_edge_function?: string | null
+          slug: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          agente?: string | null
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          credencial_header?: string | null
+          credencial_secret_name?: string | null
+          descricao?: string | null
+          id?: string
+          last_used_at?: string | null
+          metodo?: string
+          nome?: string
+          owner_edge_function?: string | null
+          slug?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      webhook_registry_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          slug: string
+          webhook_id: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          slug: string
+          webhook_id?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          slug?: string
+          webhook_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_registry_audit_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_templates: {
         Row: {
           agente_id: string | null
@@ -7339,6 +7434,16 @@ export type Database = {
           nome: string
         }[]
       }
+      get_webhook_url: {
+        Args: { _slug: string }
+        Returns: {
+          ativo: boolean
+          credencial_header: string
+          credencial_secret_name: string
+          metodo: string
+          url: string
+        }[]
+      }
       heartbeat_import_processing: {
         Args: { p_import_id: string; p_worker_id: string }
         Returns: boolean
@@ -7385,6 +7490,16 @@ export type Database = {
         Returns: boolean
       }
       is_mfa_master: { Args: { check_user_id?: string }; Returns: boolean }
+      list_active_webhooks: {
+        Args: never
+        Returns: {
+          credencial_header: string
+          credencial_secret_name: string
+          metodo: string
+          slug: string
+          url: string
+        }[]
+      }
       list_seat_usage: {
         Args: never
         Returns: {
@@ -7395,6 +7510,7 @@ export type Database = {
         }[]
       }
       mark_stale_imports_as_error: { Args: never; Returns: number }
+      mark_webhook_used: { Args: { _slug: string }; Returns: undefined }
       mask_sensitive_data: {
         Args: {
           data_type: string
