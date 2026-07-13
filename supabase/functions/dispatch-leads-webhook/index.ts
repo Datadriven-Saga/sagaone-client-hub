@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+async function getWebhook(slug: string): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(slug);
+  if (!cfg?.url) throw new Error(`Webhook "${slug}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${slug}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 // Normaliza telefone para apenas dígitos
 const normalizePhone = (phone: string | null): string => {
@@ -337,15 +345,16 @@ serve(async (req) => {
       }
     }
 
-    // Determinar webhook - IA Ligação usa dispara-ligacao, IA Whatsapp usa recebe-leads-pri
-    const webhookUrl = isIALigacao 
-      ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao'
-      : 'https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/prd/disparo';
+    // Determinar webhook via registry - IA Ligação usa dispara-ligacao, IA Whatsapp usa Lambda de disparo
+    const webhookSlug = isIALigacao ? 'pri_voz.dispara_ligacao' : 'pri_wpp.disparo';
+    const webhookConfig = await getWebhook(webhookSlug);
+    const webhookUrl = webhookConfig.url;
+    const webhookHeaders = {
+      'Content-Type': 'application/json',
+      ...buildAuthHeaders(webhookConfig),
+    };
 
     console.log(`\n🌐 [${requestId}] Webhook URL: ${webhookUrl}`);
-
-    // Obter token de autenticação
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
 
     // Para IA Ligação, o disparo é feito em batch com id_evento e telefone_pri apenas
     // O evento e a base já foram criados anteriormente pelos webhooks cria-evento-ligacao e cria-base-ligacao
@@ -481,10 +490,7 @@ serve(async (req) => {
           // no gateway. Como já temos o token SAGA_ONE aqui, podemos chamar o n8n direto.
           response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
-            },
+            headers: webhookHeaders,
             body: JSON.stringify(payloadLigacao),
             signal: controller.signal,
           });
@@ -508,6 +514,7 @@ serve(async (req) => {
         const dataDisparoIA = new Date().toISOString();
         
         if (response.ok) {
+          void markWebhookUsed(webhookSlug);
           console.log(`\n✅ [${requestId}] Webhook Ligação ENVIADO com sucesso - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
           console.log(`   └─ Resposta: ${responseBody.substring(0, 200)}${responseBody.length > 200 ? '...' : ''}`);
           
@@ -705,10 +712,7 @@ serve(async (req) => {
           
           const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'x-api-key': Deno.env.get('MAIP_MSG_Wpp_Send_Dev_X_api_key') ?? '',
-            },
+            headers: webhookHeaders,
             body: JSON.stringify(payload)
           });
           
@@ -723,6 +727,7 @@ serve(async (req) => {
           }
           
           if (response.ok) {
+            void markWebhookUsed(webhookSlug);
             console.log(`   ✅ [${requestId}] Lead #${leadNum} ENVIADO - Status: ${response.status} - Tempo: ${fetchDuration}ms`);
             console.log(`      └─ Resposta: ${responseBody.substring(0, 100)}${responseBody.length > 100 ? '...' : ''}`);
             batchResultados.push({ 
