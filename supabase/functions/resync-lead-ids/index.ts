@@ -180,7 +180,6 @@ Deno.serve(async (req: Request) => {
     }
 
     // 5) Reenviar TODOS para o webhook externo com lead_id
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
     const telefonePri = allProspects[0]?.telefone_pri || '';
     const loja = allProspects[0]?.loja || '';
 
