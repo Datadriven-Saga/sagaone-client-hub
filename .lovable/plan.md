@@ -1,42 +1,34 @@
-## Objetivo
+## Problema
 
-Adicionar barra de progresso de meta nos 3 cards de KPI (Impactos, Respostas, Agendamentos) preenchendo o espaço em branco atual.
+O navegador bloqueia (CSP `connect-src`) chamadas diretas do frontend para `https://automatemaiawh.sagadatadriven.com.br`. Por isso o toggle de ativar/desativar pós-vendas falha, e os 3 outros webhooks (`busca_config_pos`, `config_gerais`, `upsert_ranges`) só funcionam por acidente/cache — todos violam a CSP igual.
 
-## Metas (calculadas sobre a base total)
+Regra do projeto: chamadas externas devem passar pelo edge function proxy `external-webhook-proxy` (padrão já usado no restante do sistema, ex.: `CadenciaLigacaoConfig`, `EnvioMensagemConfig`).
 
-- **Impactos** (msgs entregues): meta 95% da base
-- **Respostas**: meta 30% da base
-- **Agendamentos**: meta 3% da base
+## Correção
 
-O card **Total** não recebe barra (é a base).
+Arquivo único: `src/components/pos-vendas/ConfiguracoesPosVendasTab.tsx`.
 
-## Comportamento da barra
+Substituir os 4 `fetch(...)` diretos por chamadas ao proxy no modo genérico (`webhook_url`), via `supabase.functions.invoke('external-webhook-proxy', { body: { webhook_url, webhook_method, ...payload } })`. O proxy já:
+- valida o domínio (`automatemaiawh.sagadatadriven.com.br` está no allowlist),
+- injeta o header `saga_one_supabase` (SAGA_ONE) automaticamente — logo o código deixa de manipular token manualmente,
+- retorna JSON parseado.
 
-- Trilho cinza (`bg-muted`)
-- Preenchimento com gradiente do funil: `from-blue-500 to-emerald-500`
-- Largura = `min(100%, valor_atual / meta * 100)`
-- Rótulo pequeno abaixo: `X% da meta` (ex: `72% da meta de 95%`)
+Mapeamento:
 
-## Alterações em `src/components/resultados/DashboardWhatsAppTab.tsx`
+| Ação | URL atual (mantida) | Método |
+|---|---|---|
+| Buscar config | `.../webhook/busca_config_pos` | POST |
+| Salvar config geral | `.../webhook/config_gerais` | POST |
+| Salvar faixas de KM | `.../webhook/upsert_ranges` | POST |
+| Alterar status pós-vendas | `.../webhook/altera_status_pos_vendas` | POST |
 
-1. No `useMemo` de `kpiCards`, adicionar em cada um dos 3 cards os campos:
-   - `goal`: fração da meta (0.95, 0.30, 0.03)
-   - `goalBaseVal`: valor atual comparado à base (`m.msg_entregue / m.total_base`, etc.)
+Comportamento visível para o usuário permanece igual: mesmos payloads, mesmos toasts, mesmo optimistic update do toggle com rollback em erro. Só muda o transporte (proxy em vez de fetch direto), o que remove o erro de CSP e destrava o toggle.
 
-2. No render do card (após o bloco `pctVal`), renderizar condicionalmente (se `kpi.goal` existir):
+## Validação
 
-   ```tsx
-   <div className="mt-2">
-     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-       <div
-         className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
-         style={{ width: `${Math.min(100, (kpi.goalBaseVal / kpi.goal) * 100)}%` }}
-       />
-     </div>
-     <p className="text-[10px] text-muted-foreground mt-1">
-       {pctFmt(kpi.goalBaseVal)} da meta de {pctFmt(kpi.goal)}
-     </p>
-   </div>
-   ```
+1. Recarregar a tela `/pos-vendas/configuracoes` — buscar config deve popular sem erro de CSP no console.
+2. Alternar o Switch "Pós-vendas ativo/inativo" — sem erro de CSP; toast de sucesso ou rollback com toast de erro se o n8n devolver falha (esperado enquanto os workflows n8n ainda estiverem quebrados, como diagnosticado antes).
+3. Botões "Salvar configurações" e "Salvar faixas de KM" — mesmo comportamento via proxy.
+4. Conferir no console que não há mais `Refused to connect ... automatemaiawh`.
 
-Nenhuma alteração em lógica de negócio — apenas apresentação.
+Observação: se algum webhook continuar respondendo `Error in workflow`, isso é problema do n8n (já documentado em testes anteriores), não deste fix. O objetivo aqui é apenas remover o bloqueio de CSP e uniformizar o transporte.
