@@ -61,6 +61,18 @@ const WEBHOOK_CONFIG_GERAIS = `${WEBHOOK_BASE}/config_gerais`;
 const WEBHOOK_UPSERT_RANGES = `${WEBHOOK_BASE}/upsert_ranges`;
 const WEBHOOK_ALTERA_STATUS = `${WEBHOOK_BASE}/altera_status_pos_vendas`;
 
+// Chama o webhook externo através do edge function proxy para respeitar a CSP.
+async function callExternalWebhook(webhook_url: string, payload: Record<string, any>) {
+  const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
+    body: { webhook_url, webhook_method: "POST", ...payload },
+  });
+  if (error) throw new Error(error.message ?? "Falha na chamada do webhook");
+  if (data && typeof data === "object" && "error" in (data as any) && (data as any).error) {
+    throw new Error(String((data as any).error));
+  }
+  return data;
+}
+
 function parseBuscaResponse(raw: any): { config: ConfigState; ativo: boolean } | null {
   if (!raw) return null;
   // Aceita tanto objeto direto quanto array [{...}] ou { data: {...} }
@@ -202,15 +214,7 @@ export function ConfiguracoesPosVendasTab() {
     let cancelled = false;
     (async () => {
       try {
-        const { data: sess } = await supabase.auth.getSession();
-        const token = sess.session?.access_token ?? "";
-        const r = await fetch(WEBHOOK_BUSCA, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", saga_one_supabase: token },
-          body: JSON.stringify({ dealer_id: loja.dealer_id }),
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const json = await r.json().catch(() => null);
+        const json = await callExternalWebhook(WEBHOOK_BUSCA, { dealer_id: loja.dealer_id });
         const parsed = parseBuscaResponse(json);
         if (cancelled) return;
         if (parsed) {
@@ -325,9 +329,6 @@ export function ConfiguracoesPosVendasTab() {
     }
     setSavingConfig(true);
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess.session?.access_token ?? "";
-      const headers = { "Content-Type": "application/json", saga_one_supabase: token };
       const payloadConfig = {
         dealer_id: loja.dealer_id,
         faz_segunda: config.dias.seg,
@@ -350,12 +351,7 @@ export function ConfiguracoesPosVendasTab() {
         meses_sobreposicao: config.meses_sobreposicao,
         antecedencia_dias: config.antecedencia_dias,
       };
-      const r = await fetch(WEBHOOK_CONFIG_GERAIS, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payloadConfig),
-      });
-      if (!r.ok) throw new Error(`Falha ao salvar configurações (${r.status})`);
+      await callExternalWebhook(WEBHOOK_CONFIG_GERAIS, payloadConfig);
       setOriginal((prev) => (prev ? { ...prev, ...pickConfigSlice(config) } : cloneConfig(config)));
       setUsouDefault(false);
       setFlashConfig(true);
@@ -377,9 +373,6 @@ export function ConfiguracoesPosVendasTab() {
     }
     setSavingRanges(true);
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess.session?.access_token ?? "";
-      const headers = { "Content-Type": "application/json", saga_one_supabase: token };
       const payloadRanges = {
         dealer_id: loja.dealer_id,
         ranges: config.faixas.map((f) => ({
@@ -388,12 +381,7 @@ export function ConfiguracoesPosVendasTab() {
           km_max: f.km_max,
         })),
       };
-      const r = await fetch(WEBHOOK_UPSERT_RANGES, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payloadRanges),
-      });
-      if (!r.ok) throw new Error(`Falha ao salvar faixas (${r.status})`);
+      await callExternalWebhook(WEBHOOK_UPSERT_RANGES, payloadRanges);
       setOriginal((prev) => (prev ? { ...prev, faixas: config.faixas.map((f) => ({ ...f })) } : cloneConfig(config)));
       setFlashRanges(true);
       toast.success("Faixas de KM salvas com sucesso.");
@@ -411,14 +399,7 @@ export function ConfiguracoesPosVendasTab() {
     setPosVendasAtivo(next);
     setTogglingStatus(true);
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess.session?.access_token ?? "";
-      const r = await fetch(WEBHOOK_ALTERA_STATUS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", saga_one_supabase: token },
-        body: JSON.stringify({ dealer_id: loja.dealer_id, ativo: next }),
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await callExternalWebhook(WEBHOOK_ALTERA_STATUS, { dealer_id: loja.dealer_id, ativo: next });
       toast.success(next ? "Pós-vendas ativado para esta loja." : "Pós-vendas desativado para esta loja.");
     } catch (e: any) {
       setPosVendasAtivo(prev);
