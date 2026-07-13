@@ -65,6 +65,7 @@ const Integracoes = lazy(() => import("./pages/admin/Integracoes"));
 const OptOutGlobal = lazy(() => import("./pages/admin/OptOutGlobal"));
 const MFAGeral = lazy(() => import("./pages/admin/MFAGeral"));
 const LogsCadeiras = lazy(() => import("./pages/admin/LogsCadeiras"));
+const Webhooks = lazy(() => import("./pages/admin/Webhooks"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 const ConfirmarPresenca = lazy(() => import("./pages/ConfirmarPresenca"));
 
