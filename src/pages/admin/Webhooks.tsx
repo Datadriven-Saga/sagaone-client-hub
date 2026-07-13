@@ -192,9 +192,11 @@ const WebhooksPage = () => {
         ativo: editing.ativo,
         categoria: editing.categoria,
         agente: editing.agente,
+        credencial_secret_name: editing.credencial_secret_name?.trim() || null,
+        credencial_header: editing.credencial_header?.trim() || null,
       })
       .eq("id", editing.id)
-      .select("id,url,metodo,ativo,categoria,agente,nome,descricao");
+      .select("id,url,metodo,ativo,categoria,agente,nome,descricao,credencial_secret_name,credencial_header");
     setSaving(false);
     if (error) {
       toast.error("Erro ao salvar", { description: error.message });
@@ -711,16 +713,37 @@ const WebhooksPage = () => {
                     <span className="text-sm">{editing.ativo ? "Ativo" : "Inativo"}</span>
                   </div>
                 </div>
-                <div className="rounded border p-3 text-xs bg-muted/40 space-y-1">
+                <div className="rounded border p-3 text-xs bg-muted/40 space-y-2">
                   <div className="flex items-center gap-2 font-medium">
                     <ShieldCheck className="h-3.5 w-3.5" /> Credencial exigida
                   </div>
-                  <div>
-                    Secret: <code>{editing.credencial_secret_name || "—"}</code>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Nome do secret</Label>
+                      <Input
+                        placeholder="ex.: SAGA_ONE"
+                        value={editing.credencial_secret_name ?? ""}
+                        onChange={(e) =>
+                          setEditing({ ...editing, credencial_secret_name: e.target.value || null })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nome do header</Label>
+                      <Input
+                        placeholder="ex.: x-api-key"
+                        value={editing.credencial_header ?? ""}
+                        onChange={(e) =>
+                          setEditing({ ...editing, credencial_header: e.target.value || null })
+                        }
+                      />
+                    </div>
                   </div>
-                  <div>
-                    Header: <code>{editing.credencial_header || "—"}</code>
-                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Deixe vazio para webhook sem autenticação. Use <code>authorization</code> para receber
+                    prefixo <code>Bearer</code> automático; qualquer outro nome (ex.: <code>x-api-key</code>,
+                    <code>saga_one_supabase</code>) é enviado como está.
+                  </p>
                   {editing.credencial_secret_name && (
                     <a
                       href={`https://supabase.com/dashboard/project/${import.meta.env.VITE_SUPABASE_PROJECT_ID}/settings/functions`}
