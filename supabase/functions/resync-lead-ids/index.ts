@@ -1,11 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WEBHOOK_CRIA_BASE = 'https://automatemaiawh.sagadatadriven.com.br/webhook/cria-base-ligacao';
+const WEBHOOK_CRIA_BASE_SLUG = 'pri_voz.base.cria_base';
+
+async function getWebhook(): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(WEBHOOK_CRIA_BASE_SLUG);
+  if (!cfg?.url) throw new Error(`Webhook "${WEBHOOK_CRIA_BASE_SLUG}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${WEBHOOK_CRIA_BASE_SLUG}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 const normalizePhoneTo10Digits = (phone: string | null): string => {
   if (!phone) return '';
@@ -172,7 +180,6 @@ Deno.serve(async (req: Request) => {
     }
 
     // 5) Reenviar TODOS para o webhook externo com lead_id
-    const SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
     const telefonePri = allProspects[0]?.telefone_pri || '';
     const loja = allProspects[0]?.loja || '';
 
@@ -191,6 +198,7 @@ Deno.serve(async (req: Request) => {
 
     let externalSuccess = 0;
     let externalFail = 0;
+    const criaBaseWebhook = await getWebhook();
 
     for (let i = 0; i < externalContatos.length; i += BATCH) {
       const batch = externalContatos.slice(i, i + BATCH);
@@ -203,16 +211,17 @@ Deno.serve(async (req: Request) => {
       };
 
       try {
-        const resp = await fetch(WEBHOOK_CRIA_BASE, {
+        const resp = await fetch(criaBaseWebhook.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
+            ...buildAuthHeaders(criaBaseWebhook),
           },
           body: JSON.stringify(payload),
         });
 
         if (resp.ok) {
+          void markWebhookUsed(WEBHOOK_CRIA_BASE_SLUG);
           externalSuccess += batch.length;
           console.log(`✅ [${requestId}] Batch ${Math.floor(i / BATCH) + 1} OK`);
         } else {

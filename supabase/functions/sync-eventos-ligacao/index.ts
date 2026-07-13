@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,12 +8,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-eventos';
+const WEBHOOK_SLUG = 'pri_voz.eventos.list';
 
-const SAGA_ONE = Deno.env.get('SAGA_ONE') ?? '';
-const webhookAuthHeaders: Record<string, string> = SAGA_ONE
-  ? { 'saga_one_supabase': SAGA_ONE }
-  : {};
+async function getWebhook(): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(WEBHOOK_SLUG);
+  if (!cfg?.url) throw new Error(`Webhook "${WEBHOOK_SLUG}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${WEBHOOK_SLUG}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 interface WebhookEvento {
   id_evento?: string | number;
@@ -71,7 +74,8 @@ serve(async (req) => {
     }
 
     console.log(`🔄 Iniciando sincronização para pri_telefone: ${pri_telefone}, empresa: ${empresa_id}`);
-    console.log(`🔐 SAGA_ONE configurado: ${Boolean(SAGA_ONE)} (len: ${SAGA_ONE.length})`);
+    const webhookConfig = await getWebhook();
+    const webhookAuthHeaders = buildAuthHeaders(webhookConfig);
 
     // Inicializar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -92,7 +96,7 @@ serve(async (req) => {
     // ===============================================
     // ETAPA 1: Buscar eventos do webhook externo
     // ===============================================
-    console.log(`📡 Buscando eventos do webhook: ${WEBHOOK_URL}`);
+    console.log(`📡 Buscando eventos do webhook: ${webhookConfig.url}`);
     const telefoneFormatado = String(pri_telefone).replace(/\D/g, '');
 
     let eventosWebhook: WebhookEvento[] = [];
@@ -110,7 +114,7 @@ serve(async (req) => {
       console.log(`📤 Payload para webhook:`, JSON.stringify(postBody));
       console.log(`⚠️ dealer_id recebido: "${dealer_id}" (tipo: ${typeof dealer_id})`);
 
-      let webhookResponse = await fetch(WEBHOOK_URL, {
+      let webhookResponse = await fetch(webhookConfig.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...webhookAuthHeaders },
         body: JSON.stringify(postBody),
@@ -121,7 +125,7 @@ serve(async (req) => {
       // Se POST falhar com 404, tentar GET
       if (webhookResponse.status === 404 && webhookText.toLowerCase().includes('not registered for post')) {
         console.log('⚠️ Webhook exige GET, tentando novamente...');
-        const url = new URL(WEBHOOK_URL);
+        const url = new URL(webhookConfig.url);
         url.searchParams.set('telefone_pri', telefoneFormatado);
         if (dealer_id) {
           url.searchParams.set('dealer_id', dealer_id);
@@ -133,6 +137,8 @@ serve(async (req) => {
         });
         webhookText = await webhookResponse.text();
       }
+
+      if (webhookResponse.ok) void markWebhookUsed(WEBHOOK_SLUG);
 
       console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 500));
 

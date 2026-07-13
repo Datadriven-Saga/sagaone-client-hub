@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,12 +8,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-const WEBHOOK_URL = 'https://automatemaiawh.sagadatadriven.com.br/webhook/verifica-contatos';
+const WEBHOOK_SLUG = 'pri_voz.contatos.verifica';
 
-const SAGA_ONE = Deno.env.get('SAGA_ONE') ?? '';
-const webhookAuthHeaders: Record<string, string> = SAGA_ONE
-  ? { 'saga_one_supabase': SAGA_ONE }
-  : {};
+async function getWebhook(): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(WEBHOOK_SLUG);
+  if (!cfg?.url) throw new Error(`Webhook "${WEBHOOK_SLUG}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${WEBHOOK_SLUG}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 interface WebhookContato {
   id?: string;
@@ -82,20 +85,20 @@ serve(async (req) => {
     }
 
     console.log(`🔄 Sincronizando contatos para evento ${id_evento}, telefone_pri: ${telefone_pri}, empresa: ${empresa_id}`);
-    console.log(`🔐 SAGA_ONE configurado: ${Boolean(SAGA_ONE)} (len: ${SAGA_ONE.length})`);
-
     // Inicializar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const webhookConfig = await getWebhook();
+    const webhookAuthHeaders = buildAuthHeaders(webhookConfig);
 
     // 1. Buscar contatos do webhook externo
-    console.log(`📡 Buscando contatos do webhook: ${WEBHOOK_URL}`);
+    console.log(`📡 Buscando contatos do webhook: ${webhookConfig.url}`);
 
     const telefoneFormatado = String(telefone_pri).replace(/\D/g, '');
 
     // Fazer GET com os parâmetros na query (webhook exige GET)
-    const url = new URL(WEBHOOK_URL);
+    const url = new URL(webhookConfig.url);
     url.searchParams.set('telefone', telefoneFormatado);
     url.searchParams.set('id_evento', String(id_evento));
 
@@ -107,6 +110,7 @@ serve(async (req) => {
     });
 
     const webhookText = await webhookResponse.text();
+    if (webhookResponse.ok) void markWebhookUsed(WEBHOOK_SLUG);
 
     console.log(`📥 Resposta do webhook (status ${webhookResponse.status}):`, webhookText.substring(0, 1000));
 

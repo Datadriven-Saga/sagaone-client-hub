@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+async function getWebhook(slug: string): Promise<WebhookConfig> {
+  const cfg = await resolveWebhookBySlug(slug);
+  if (!cfg?.url) throw new Error(`Webhook "${slug}" não cadastrado em Administração → Webhooks.`);
+  if (!cfg.ativo) throw new Error(`Webhook "${slug}" está desativado em Administração → Webhooks.`);
+  return cfg;
+}
 
 const BATCH_SIZE = 1000;
 const MAX_RETRIES = 3;
@@ -240,9 +248,13 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
       }
     }
 
-    const webhookUrl = isIALigacao
-      ? 'https://automatemaiawh.sagadatadriven.com.br/webhook/dispara-ligacao'
-      : 'https://ccnv217nqk.execute-api.us-east-1.amazonaws.com/prd/disparo';
+    const webhookSlug = isIALigacao ? 'pri_voz.dispara_ligacao' : 'pri_wpp.disparo';
+    const webhookConfig = await getWebhook(webhookSlug);
+    const webhookUrl = webhookConfig.url;
+    const webhookHeaders = {
+      'Content-Type': 'application/json',
+      ...buildAuthHeaders(webhookConfig),
+    };
 
     const eventIdPri = prospeccao.event_id_pri || '';
 
@@ -623,16 +635,14 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
               // Motivo: chamadas internas entre edge functions estavam falhando com 401 no gateway
               const response = await fetch(webhookUrl, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(SAGA_ONE ? { 'saga_one_supabase': SAGA_ONE } : {}),
-                },
+                  headers: webhookHeaders,
                 body: JSON.stringify(payloadLigacao),
                 signal: controller.signal,
               });
               clearTimeout(timeout);
 
               const responseBody = await response.text().catch(() => '');
+              if (response.ok) void markWebhookUsed(webhookSlug);
               console.log(`📡 [BG] Batch ${batch.batch_index} sub ${Math.floor(i / LIGACAO_SUB_BATCH)}: HTTP ${response.status}, body: ${responseBody.substring(0, 300)}`);
 
               const bodyLow = responseBody.toLowerCase();
@@ -771,16 +781,14 @@ async function processJobInBackground(supabase: any, job_id: string, job: any, S
               try {
                 const response = await fetch(webhookUrl, {
                   method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': Deno.env.get('MAIP_MSG_Wpp_Send_Dev_X_api_key') ?? '',
-                  },
+                    headers: webhookHeaders,
                   body: JSON.stringify(payload),
                   signal: controller.signal,
                 });
                 clearTimeout(timeoutId);
 
                 const responseBody = await response.text().catch(() => '');
+                  if (response.ok) void markWebhookUsed(webhookSlug);
 
                 const bodyLow = (responseBody || '').toLowerCase();
                 const looksLikeError = bodyLow.includes('"error"') || bodyLow.includes('workflow not found') || bodyLow.includes('not active') || bodyLow.includes('disparo repetido');
