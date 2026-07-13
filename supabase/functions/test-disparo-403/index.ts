@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getWebhook, buildAuthHeaders } from "../_shared/webhook-registry.ts";
+import { resolveWebhookBySlug, buildAuthHeaders } from "../_shared/webhook-registry.ts";
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +9,8 @@ const cors = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const wh = await getWebhook('pri_wpp.disparo');
+    const wh = await resolveWebhookBySlug('pri_wpp.disparo');
+    if (!wh) return new Response(JSON.stringify({ error: 'slug not found' }), { status: 404, headers: cors });
     const headers = { 'Content-Type': 'application/json', ...buildAuthHeaders(wh) };
     const started = Date.now();
     const r = await fetch(wh.url, {
