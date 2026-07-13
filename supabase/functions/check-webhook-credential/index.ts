@@ -59,8 +59,8 @@ Deno.serve(async (req: Request) => {
       .select("tipo_acesso")
       .eq("id", userData.user.id)
       .maybeSingle();
-    const isMaster = prof?.tipo_acesso === "Master";
-    if (!isMaster) {
+    const allowed = ["Master", "Administrador", "TI"];
+    if (!prof?.tipo_acesso || !allowed.includes(prof.tipo_acesso)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
