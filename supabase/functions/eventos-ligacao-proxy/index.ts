@@ -1,10 +1,10 @@
+import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
-
-import { resolveWebhookBySlug, buildAuthHeaders, markWebhookUsed, type WebhookConfig } from "../_shared/webhook-registry.ts";
 
 // Timeout de 8 segundos para evitar travamento
 const FETCH_TIMEOUT = 8000;
