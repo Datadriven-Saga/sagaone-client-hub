@@ -427,7 +427,7 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
       />
 
       <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Sincronização de Cadência</DialogTitle>
             <DialogDescription>Payload enviado e resposta do webhook</DialogDescription>

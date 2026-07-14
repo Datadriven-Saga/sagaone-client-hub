@@ -138,7 +138,7 @@ export function CheckinConfirmModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-[95vw] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl max-h-[90dvh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CheckCircle2 className="w-5 h-5 text-primary" />

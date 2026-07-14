@@ -198,7 +198,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90dvh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Detalhes do Atendimento - {item.title}</DialogTitle>
         </DialogHeader>

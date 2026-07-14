@@ -76,7 +76,7 @@ export function RecepcaoMultiContatoPicker({ isOpen, onClose, sufixo, contatos, 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[55vh] overflow-y-auto space-y-2 py-2">
+        <div className="max-h-[55dvh] overflow-y-auto space-y-2 py-2">
           {items.map((c) => {
             const isEditing = editingId === c.id;
             const isSaving = savingId === c.id;

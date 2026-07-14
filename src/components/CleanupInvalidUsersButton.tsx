@@ -77,7 +77,7 @@ export function CleanupInvalidUsersButton() {
           Remover Usuários Inválidos
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="max-w-2xl max-h-[80dvh]">
         <DialogHeader>
           <DialogTitle>Remover Usuários com Domínio Inválido</DialogTitle>
           <DialogDescription>

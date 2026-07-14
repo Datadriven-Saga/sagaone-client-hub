@@ -427,7 +427,7 @@ const Clientes = () => {
 
         {/* Dialog */}
         <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {selectedClient ? `Editar Cliente - ${selectedClient.name}` : 'Novo Cliente'}

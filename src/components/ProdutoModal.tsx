@@ -185,7 +185,7 @@ export function ProdutoModal({ open, onOpenChange, produto, onSuccess }: Produto
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[90dvh] overflow-hidden flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{produto ? "Editar Produto" : "Novo Produto"}</DialogTitle>
         </DialogHeader>

@@ -100,7 +100,7 @@ export const UpdateCrmIdsButton = () => {
           Atualizar CRM IDs
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[80dvh]">
         <DialogHeader>
           <DialogTitle>Atualizar CRM IDs das Empresas</DialogTitle>
         </DialogHeader>

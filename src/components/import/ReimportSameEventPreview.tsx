@@ -163,7 +163,7 @@ export function ReimportSameEventPreview({ open, leads, onCancel, onConfirm }: P
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onCancel()}>
-      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[92dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {leads.length.toLocaleString('pt-BR')} leads já estão neste evento

@@ -171,7 +171,7 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                 Total: {detailJob?.total_records.toLocaleString()} contatos · {detailJob ? groupBatchesByLot(detailJob.batches).length : 0} lotes
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-auto">
+            <div className="max-h-[60dvh] overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
