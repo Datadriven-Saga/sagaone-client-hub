@@ -21,6 +21,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatPhoneForDisplay, normalizePhoneForComparison } from '@/lib/phoneUtils';
@@ -29,6 +38,9 @@ interface KanbanCardProps {
   item: KanbanItem;
   isDragging?: boolean;
   onCardClick?: (item: KanbanItem) => void;
+  currentColumnId?: string;
+  availableColumns?: { id: string; title: string }[];
+  onMoveItem?: (itemId: string, targetColumnId: string) => void | Promise<void>;
 }
 
 const ORIGIN_STYLES: Record<string, string> = {
@@ -44,8 +56,10 @@ const ORIGIN_STYLES: Record<string, string> = {
   'outros': 'bg-slate-50 text-slate-700 border-slate-200',
 };
 
-export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
+export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, availableColumns, onMoveItem }: KanbanCardProps) {
   const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const [showMovePicker, setShowMovePicker] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
 
   // Sync with prop when parent re-fetches
@@ -132,12 +146,29 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
       });
       if (error) throw error;
       toast.success('Tentativa de ligação registrada!');
+      // Offer to move the lead to another Kanban column right away.
+      if (onMoveItem && availableColumns && availableColumns.length > 1) {
+        setShowMovePicker(true);
+      }
     } catch (err) {
       console.error('Erro ao registrar tentativa:', err);
       setLocalTentativas(localTentativas); // Revert on error
       toast.error('Erro ao registrar tentativa de ligação');
     }
   };
+
+  const handlePickColumn = async (targetColumnId: string) => {
+    if (!onMoveItem) return;
+    setIsMoving(true);
+    try {
+      await onMoveItem(item.id, targetColumnId);
+      setShowMovePicker(false);
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
+  const moveTargets = (availableColumns ?? []).filter(c => c.id !== currentColumnId);
 
   return (
     <>
@@ -282,6 +313,36 @@ export function KanbanCard({ item, isDragging, onCardClick }: KanbanCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showMovePicker} onOpenChange={(open) => !isMoving && setShowMovePicker(open)}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Mover lead para outra etapa?</DialogTitle>
+            <DialogDescription>
+              Escolha a etapa do Kanban para onde <strong>{item.title}</strong> deve ir. Se preferir só registrar a ligação, feche sem mover.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 py-2">
+            {moveTargets.map(col => (
+              <Button
+                key={col.id}
+                variant="outline"
+                size="sm"
+                disabled={isMoving}
+                onClick={() => handlePickColumn(col.id)}
+                className="justify-start"
+              >
+                {col.title}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" disabled={isMoving} onClick={() => setShowMovePicker(false)}>
+              Fechar sem mover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
