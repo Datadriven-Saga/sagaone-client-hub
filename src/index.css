@@ -10,6 +10,59 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  /* Touch target expansion (Fase 1 — responsividade)
+     Expande a hitbox para 44x44 sem alterar o tamanho visual do ícone.
+     Uso: className="touch-target". Em desktop, use md:before:hidden se quiser
+     manter apenas em mobile. */
+  .touch-target {
+    position: relative;
+  }
+  .touch-target::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+  }
+
+  /* Afordância visual de scroll horizontal em Tabs/listas com overflow */
+  .scroll-fade-x {
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+            mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+  }
+}
+
+@layer components {
+  /* Escala tipográfica fluida (Fase 1 — responsividade)
+     Mínimos ancorados no pior caso (320px) para garantir legibilidade
+     sem hifenização forçada; máximos evitam quebras em ultra-wide. */
+  .h1 {
+    font-size: clamp(1.5rem, 1.2rem + 1.6vw, 2.25rem); /* 24 → 36px */
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .h2 {
+    font-size: clamp(1.25rem, 1.05rem + 1vw, 1.75rem); /* 20 → 28px */
+    line-height: 1.2;
+    font-weight: 600;
+  }
+  .h3 {
+    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem); /* 18 → 22px */
+    line-height: 1.25;
+    font-weight: 600;
+  }
+  .body-lg {
+    font-size: clamp(0.9375rem, 0.9rem + 0.25vw, 1.0625rem); /* 15 → 17px */
+    line-height: 1.5;
+  }
+  .body {
+    font-size: clamp(0.875rem, 0.85rem + 0.15vw, 0.9375rem); /* 14 → 15px */
+    line-height: 1.5;
+  }
 }
 
 /* Saga One Design System - All colors must be HSL */
