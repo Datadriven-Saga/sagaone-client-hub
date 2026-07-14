@@ -1,7 +1,19 @@
 # Diagnóstico de Responsividade — SagaOne
 
-> Documento de diagnóstico apenas. **Nenhuma alteração foi feita em código ou estilos.**
-> Data: 2026-07-14 · Escopo: Mobile (≤ 480px), Tablet (481–1024px), Desktop (≥ 1025px, incluindo ultra-wide ≥ 1920px).
+> Diagnóstico + **plano executável em fases**. Nenhuma alteração de código feita ainda.
+> Data: 2026-07-14 · Última revisão: 2026-07-14
+> Escopo: Mobile (≤ 480px), Tablet (481–1024px), Desktop (≥ 1025px, incluindo ultra-wide ≥ 1920px).
+> Escopo do trabalho: **apenas apresentação** (Tailwind, componentes UI, layout). Nenhuma mudança de RPC, RLS, edge function ou regra de negócio.
+
+---
+
+## Princípios de execução (leia antes de começar)
+
+1. **Mobile-first e não-destrutivo.** Nenhuma fase pode regredir desktop. Mudanças em primitivos compartilhados (`Button`, `Dialog`, `Input`) entram como **variantes novas** (ex.: `size="touch"`) ou wrappers — o default só migra depois que todas as telas estiverem prontas.
+2. **`overflow-x:hidden` global permanece até o fim da Fase 3.** Ele mascara bugs, mas removê-lo antes de corrigir tabelas/kanban expõe layout quebrado em produção.
+3. **QA por viewport fixo:** 360, 390, 768, 1024, 1440, 1920. Playwright captura screenshots antes/depois de cada fase — a suíte é o baseline (criada na Fase 1).
+4. **Ondas pequenas e mergeáveis.** Uma PR por sub-fase. Nunca abrir mais de uma onda em paralelo em Fase 3.
+5. **Se algo estiver dolorido hoje, prioriza-se.** A ordem abaixo é a padrão; hotfixes de UX pontuais podem furar fila desde que caibam no princípio 1.
 
 ---
 
@@ -107,19 +119,75 @@
 
 ## 4. Plano de reestruturação e recomendações
 
-### 4.1 Prioridades (ordem sugerida)
+### 4.1 Fases de execução
 
-| # | Alvo | Motivo | Esforço |
+A ordem foi montada para **destravar** as fases seguintes com o menor risco possível. Cada fase tem critério de pronto (DoD) e é mergeável sozinha.
+
+#### Fase 1 — Fundações (baixo risco · 0,5 dia · 1 PR)
+
+Prepara tokens e primitivos sem tocar em telas existentes.
+
+- [ ] `tailwind.config.ts`: `container.padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' }`.
+- [ ] `src/index.css` `@layer components`: criar `.h1`, `.h2`, `.h3`, `.body-lg`, `.body` com `clamp()` (não substituir usos ainda, apenas disponibilizar).
+- [ ] `button.tsx`: adicionar variante `size="touch"` (`h-11 w-11`). Default permanece.
+- [ ] Utilitário `.touch-target` (min 44×44) para ícones em tabelas.
+- [ ] Wrapper `ResponsiveDialogContent`: `w-[calc(100vw-1rem)] sm:max-w-[var(--size)] max-h-[90dvh] overflow-y-auto p-4 sm:p-6` — coexiste com `DialogContent`.
+- [ ] Utilitário `.scroll-fade-x` (mask-image) para `TabsList` com overflow.
+- [ ] **Baseline Playwright** em `/tmp/browser/responsivo/`: 10 rotas × 6 viewports (360/390/768/1024/1440/1920). Salvar como referência visual.
+
+**DoD:** build passa; nenhum comportamento visual muda; suíte de screenshots gerada.
+
+#### Fase 2 — Modais e hitboxes (risco baixo · 1 dia · 1 PR)
+
+- [ ] Migrar para `ResponsiveDialogContent`: `CriarProspeccaoModal`, `SimulacaoEventoModal`, `SimulacaoPriWhatsAppModal`, `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog`.
+- [ ] Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo (`p-3 sm:p-4`) para não colar nas bordas em mobile.
+- [ ] Botão fechar (X) do `Dialog`: `h-10 w-10` em mobile.
+- [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile.
+- [ ] Trocar `vh` → `dvh` em `max-h` de modais e telas full-screen.
+
+**DoD:** abrir cada modal em 360, 390 e 812×375 (landscape) sem cortes; screenshots comparativos aprovados.
+
+#### Fase 3 — Tabelas responsivas (risco médio · 3–5 dias · 4 PRs)
+
+Objetivo: eliminar overflow horizontal **real** para permitir remoção do `overflow-x:hidden` global.
+
+- [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
+- [ ] **Onda A — Admin** (uso interno, menor risco): `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena`, `Empresas`, `Acessos`, `ControleGastosLigacao`, `Webhooks`.
+- [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
+- [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
+- [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)".
+- [ ] **Só ao fim das ondas**: remover `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Rodar Playwright completo antes.
+
+**DoD:** nenhuma rota apresenta scroll horizontal em 360/390; suíte Playwright sem regressões desktop.
+
+#### Fase 4 — Kanban mobile e dashboards (risco médio · 2 dias · 2 PRs)
+
+- [ ] Kanban (`KanbanBoard`/`KanbanColumn`/`KanbanCard`) em `< md`:
+  - view "coluna única" com chips de status no topo (`snap-x snap-mandatory`);
+  - drag-and-drop só em desktop; em mobile, ação "Mover para →" no card via menu;
+  - `title` em textos truncados dos cards.
+- [ ] `DashboardWhatsAppTab`: `hintLines` do card de custo empilhados verticalmente em < 360px (`text-[11px]`).
+- [ ] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` (em vez de `p-6` fixo).
+- [ ] Grid de KPIs: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` consistente.
+
+**DoD:** fluxo SDR completo em 390px (Kanban → abrir card → mudar status → voltar) sem scroll horizontal e sem toques errados.
+
+#### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
+
+- [ ] Substituir `text-3xl` fixo dos H1 de landings de módulo pela classe `.h1` (fluida, Fase 1).
+- [ ] Varredura dos 212 `w-[Npx]` — priorizar os que causaram overflow real; converter para `min-w-0 flex-1` ou tokens.
+- [ ] Revisar `.dark [style*="background: linear-gradient"] { opacity: 0.9 }` (efeito colateral silencioso) — restringir ou remover.
+- [ ] Atualizar este documento marcando o que foi entregue.
+
+### 4.1.1 Resumo cronograma
+
+| Fase | Escopo | Duração | Bloqueia próxima? |
 |---|---|---|---|
-| 1 | Remover `overflow-x:hidden` global de `body`/`#root` **após** corrigir estouros reais | O hide global esconde bugs e impede diagnóstico. | M |
-| 2 | Padronizar tabelas via `responsive-table` (card em mobile) | 53 telas afetadas. Impacto direto na Recepção, Logs, Admin, Prospecção. | G |
-| 3 | Kanban mobile (view "coluna atual + swipe") | Kanban é fluxo principal e hoje é inutilizável em mobile. | G |
-| 4 | Aumentar hitboxes para 44px+ em Buttons `sm`, X de dialog, ações em tabela | WCAG. Correção transversal via variants do `button.tsx` e `dialog.tsx`. | P |
-| 5 | Modais: padrão `w-[calc(100vw-2rem)] sm:max-w-[Xpx] max-h-[90dvh] overflow-y-auto` + `p-4 sm:p-6` | Corrige colagem nas bordas e cortes em landscape. | P |
-| 6 | Escala tipográfica responsiva | Criar `.h1/.h2/.body` no `@layer components` com `clamp()`. | P |
-| 7 | `container` Tailwind: `padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' }` | Reduz sufocamento em mobile. | XS |
-| 8 | Migrar `w-[Npx]` → tokens Tailwind ou `min-w-0 flex-1` em contextos flex | 212 ocorrências. Fazer por página. | M |
-| 9 | Adicionar indicadores de scroll nas `TabsList overflow-x-auto` (fade lateral) | Afordância. | XS |
+| 1 | Fundações (tokens, wrappers, baseline) | 0,5 dia | Não |
+| 2 | Modais + hitboxes | 1 dia | Não |
+| 3 | Tabelas + remoção do overflow global | 3–5 dias | **Sim** (remoção só após ondas) |
+| 4 | Kanban mobile + dashboards | 2 dias | Não |
+| 5 | Tipografia + limpeza de `w-[Npx]` | 0,5 dia | Não |
 
 ### 4.2 Páginas/componentes críticos
 
@@ -162,7 +230,20 @@
 
 ## 6. Próximos passos sugeridos (sem executar)
 
-1. Aprovar priorização da seção 4.1.
-2. Criar branch `chore/responsividade-fase-1` para itens 1, 4, 5, 7, 9 (baixo risco, ganho imediato).
-3. Planejar migração de tabelas (item 2) e Kanban mobile (item 3) como épicos separados com QA visual dedicado por breakpoint.
-4. Ativar suíte Playwright multi-viewport antes de refatorar, para ter baseline visual.
+## 6. Ponto de partida
+
+**Começar pela Fase 1 completa em um único passe** — é reversível, não altera nenhuma tela e destrava todas as fases seguintes:
+
+1. Ajustar `tailwind.config.ts` (container padding).
+2. Adicionar tokens tipográficos `.h1/.h2/.body` em `src/index.css`.
+3. Adicionar variante `size="touch"` no `Button` e utilitário `.touch-target`.
+4. Criar wrapper `ResponsiveDialogContent`.
+5. Gerar suíte Playwright baseline (screenshots das 10 rotas × 6 viewports).
+
+Ao terminar, marcar os checkboxes da Fase 1 acima e abrir a Fase 2.
+
+### Checklist de aprovação antes de começar
+
+- [ ] Ordem das fases aprovada?
+- [ ] Alguma tela pontual precisa furar fila (hotfix)?
+- [ ] OK começar direto pela Fase 1 (sem tocar em telas)?
