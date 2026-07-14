@@ -181,6 +181,31 @@ export function KanbanBoard({
     setActiveItem(null);
   }, [columns, onUpdateColumns, onStatusChange]);
 
+  // Move an item programmatically (used by the "contato realizado" quick-move flow).
+  // Mirrors the drag-end logic: calls onStatusChange, respects its false return, then updates columns.
+  const moveItem = useCallback(async (itemId: string, targetColumnId: string) => {
+    const sourceColumn = columns.find(col => col.items.some(i => i.id === itemId));
+    const sourceItem = sourceColumn?.items.find(i => i.id === itemId);
+    const targetColumn = columns.find(col => col.id === targetColumnId);
+    if (!sourceColumn || !sourceItem || !targetColumn || sourceColumn.id === targetColumn.id) return;
+
+    const result = await onStatusChange?.(itemId, sourceColumn.id, targetColumn.id);
+    if (result === false) return;
+
+    const newColumns = columns.map(col => {
+      if (col.id === sourceColumn.id) {
+        return { ...col, items: col.items.filter(i => i.id !== itemId) };
+      }
+      if (col.id === targetColumn.id) {
+        return { ...col, items: [sourceItem, ...col.items] };
+      }
+      return col;
+    });
+    onUpdateColumns(newColumns);
+  }, [columns, onUpdateColumns, onStatusChange]);
+
+  const columnMeta = columns.map(c => ({ id: c.id, title: c.title }));
+
   return (
     <DndContext
       sensors={sensors}
@@ -206,6 +231,8 @@ export function KanbanBoard({
                 onLoadMore={() => onLoadMore?.(column.id)}
                 hasMore={columnHasMore?.[column.id]}
                 loadingMore={columnLoadingMore?.[column.id]}
+                availableColumns={columnMeta}
+                onMoveItem={moveItem}
               />
             </SortableContext>
           ))}
