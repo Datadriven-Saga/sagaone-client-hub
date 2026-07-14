@@ -7110,6 +7110,13 @@ export type Database = {
             }[]
           }
       encrypt_mfa_secret: { Args: { plain_secret: string }; Returns: string }
+      expirar_cadeiras_vencidas: {
+        Args: never
+        Returns: {
+          profiles_desativados: number
+          seats_expirados: number
+        }[]
+      }
       export_evento_base: {
         Args: {
           p_cursor?: string
