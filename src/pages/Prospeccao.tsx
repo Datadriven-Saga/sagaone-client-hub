@@ -3148,7 +3148,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         </TabsContent>
 
         <TabsContent value="kanban" className="mt-0 w-full min-w-0 overflow-hidden">
-          <div className="h-[calc(100vh-260px)] w-full min-w-0 overflow-hidden flex flex-col">
+          <div className="h-[calc(100dvh-260px)] w-full min-w-0 overflow-hidden flex flex-col">
             {!defaultFilterLoaded || loadingKanban ? (
               <div className="flex-1 flex gap-3 p-2 overflow-hidden">
                 {/* Skeleton Kanban columns */}
