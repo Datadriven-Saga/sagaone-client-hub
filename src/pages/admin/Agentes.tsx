@@ -478,40 +478,13 @@ export default function AdminAgentes() {
     }
   };
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    applyFilters(term, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterEmpresa = (empresaId: string) => {
-    setFilterEmpresa(empresaId);
-    applyFilters(searchTerm, empresaId, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterMarca = (marca: string) => {
-    setFilterMarca(marca);
-    applyFilters(searchTerm, filterEmpresa, marca, filterUF, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterUF = (uf: string) => {
-    setFilterUF(uf);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, uf, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterStatus = (status: string) => {
-    setFilterStatus(status);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, status, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterNumero = (numero: string) => {
-    setFilterNumero(numero);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, numero, filterNomeAgente);
-  };
-
-  const handleFilterNomeAgente = (nome: string) => {
-    setFilterNomeAgente(nome);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, nome);
-  };
+  const handleSearch = (term: string) => setSearchTerm(term);
+  const handleFilterEmpresa = (empresaId: string) => setFilterEmpresa(empresaId);
+  const handleFilterMarca = (marca: string) => setFilterMarca(marca);
+  const handleFilterUF = (uf: string) => setFilterUF(uf);
+  const handleFilterStatus = (status: string) => setFilterStatus(status);
+  const handleFilterNumero = (numero: string) => setFilterNumero(numero);
+  const handleFilterNomeAgente = (nome: string) => setFilterNomeAgente(nome);
 
   // Extrair opções únicas para os filtros - normalizado para case-insensitive
   // Para marcas: agrupa case-insensitive e usa a versão capitalizada
