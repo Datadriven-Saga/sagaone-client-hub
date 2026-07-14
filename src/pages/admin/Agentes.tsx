@@ -138,7 +138,6 @@ export default function AdminAgentes() {
 
   const [loading, setLoading] = useState(false);
   const [agentes, setAgentes] = useState<AgenteWebhook[]>([]);
-  const [filteredAgentes, setFilteredAgentes] = useState<AgenteWebhook[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEmpresa, setFilterEmpresa] = useState<string>("all");
