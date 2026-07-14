@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -138,7 +138,6 @@ export default function AdminAgentes() {
 
   const [loading, setLoading] = useState(false);
   const [agentes, setAgentes] = useState<AgenteWebhook[]>([]);
-  const [filteredAgentes, setFilteredAgentes] = useState<AgenteWebhook[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterEmpresa, setFilterEmpresa] = useState<string>("all");
@@ -288,7 +287,6 @@ export default function AdminAgentes() {
         (item): item is AgenteWebhook => item !== null && item !== undefined,
       );
       setAgentes(agentesArray);
-      setFilteredAgentes(agentesArray);
     } catch (error) {
       console.error("Erro ao carregar agentes:", error);
       toast({
@@ -480,40 +478,13 @@ export default function AdminAgentes() {
     }
   };
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    applyFilters(term, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterEmpresa = (empresaId: string) => {
-    setFilterEmpresa(empresaId);
-    applyFilters(searchTerm, empresaId, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterMarca = (marca: string) => {
-    setFilterMarca(marca);
-    applyFilters(searchTerm, filterEmpresa, marca, filterUF, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterUF = (uf: string) => {
-    setFilterUF(uf);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, uf, filterStatus, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterStatus = (status: string) => {
-    setFilterStatus(status);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, status, filterNumero, filterNomeAgente);
-  };
-
-  const handleFilterNumero = (numero: string) => {
-    setFilterNumero(numero);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, numero, filterNomeAgente);
-  };
-
-  const handleFilterNomeAgente = (nome: string) => {
-    setFilterNomeAgente(nome);
-    applyFilters(searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, nome);
-  };
+  const handleSearch = (term: string) => setSearchTerm(term);
+  const handleFilterEmpresa = (empresaId: string) => setFilterEmpresa(empresaId);
+  const handleFilterMarca = (marca: string) => setFilterMarca(marca);
+  const handleFilterUF = (uf: string) => setFilterUF(uf);
+  const handleFilterStatus = (status: string) => setFilterStatus(status);
+  const handleFilterNumero = (numero: string) => setFilterNumero(numero);
+  const handleFilterNomeAgente = (nome: string) => setFilterNomeAgente(nome);
 
   // Extrair opções únicas para os filtros - normalizado para case-insensitive
   // Para marcas: agrupa case-insensitive e usa a versão capitalizada
@@ -562,15 +533,14 @@ export default function AdminAgentes() {
     return [...nomesMap.values()].sort();
   })();
 
-  const applyFilters = (
-    term: string,
-    empresaId: string,
-    marca: string,
-    uf: string,
-    status: string,
-    numero: string,
-    nomeAgente: string,
-  ) => {
+  const filteredAgentes = useMemo(() => {
+    const term = searchTerm;
+    const empresaId = filterEmpresa;
+    const marca = filterMarca;
+    const uf = filterUF;
+    const status = filterStatus;
+    const numero = filterNumero;
+    const nomeAgente = filterNomeAgente;
     let filtered = [...agentes];
 
     // Filtro por termo de busca (busca livre em múltiplos campos)
@@ -638,9 +608,13 @@ export default function AdminAgentes() {
       });
     }
 
-    setFilteredAgentes(filtered);
+    return filtered;
+  }, [agentes, searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente]);
+
+  // Reset paginação ao mudar filtros
+  useEffect(() => {
     setCurrentPage(1);
-  };
+  }, [searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente]);
 
   const clearAllFilters = () => {
     setSearchTerm("");
@@ -650,8 +624,6 @@ export default function AdminAgentes() {
     setFilterStatus("all");
     setFilterNumero("");
     setFilterNomeAgente("all");
-    setFilteredAgentes(agentes);
-    setCurrentPage(1);
   };
 
   const totalPages = Math.ceil(filteredAgentes.length / itemsPerPage);
