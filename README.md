@@ -4,6 +4,18 @@
 
 **URL**: https://lovable.dev/projects/7bc578c3-4b3d-4f33-830e-6157c828c9e5
 
+## Audit de responsividade
+
+```sh
+bun run responsivo:audit                                   # todas as rotas padrão
+bun run responsivo:audit -- --routes=/,/administracao      # subset específico
+```
+
+Requer a app rodando em `http://localhost:8080`. Gera screenshots +
+`report.md` + `report.json` em `/tmp/browser/responsivo/<timestamp>/`.
+Detalhes: `docs/responsividade-diagnostico.md` (Fase 0).
+
+
 ## How can I edit this code?
 
 There are several ways of editing your application.
