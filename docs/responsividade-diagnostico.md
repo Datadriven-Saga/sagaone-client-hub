@@ -185,11 +185,11 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 #### Fase 2 — Modais e hitboxes (risco baixo · 1 dia · 1 PR)
 
 - [ ] Migrar para `ResponsiveDialogContent`: `CriarProspeccaoModal`, `SimulacaoEventoModal`, `SimulacaoPriWhatsAppModal`, `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog`.
-- [ ] Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo (`p-3 sm:p-4`) para não colar nas bordas em mobile.
+- [ ] ~~Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo~~ — **cancelado**: `!p-0` é requisito explícito do usuário (divs devem encostar nas bordas). Padding interno responsivo será resolvido dentro do body do modal, não no wrapper.
 - [ ] **Formulários densos em coluna única no mobile**: no `CriarProspeccaoModal` e nas etapas de cadência/config, todos os `grid grid-cols-2` / `grid-cols-3` de campos devem colapsar para `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`. Nada de dois inputs de datetime lado a lado em 360px — campos espremidos abaixo de ~150px viram inutilizáveis com o teclado aberto.
-- [ ] Botão fechar (X) do `Dialog`: `h-10 w-10` em mobile (mantém `h-8 w-8` em desktop via `sm:`).
+- [x] Botão fechar (X) do `Dialog`: `h-11 w-11` em mobile / `sm:h-8 sm:w-8` desktop (`src/components/ui/dialog.tsx`).
 - [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile (via classe condicional `md:before:hidden` para não alterar layout desktop).
-- [ ] Trocar `vh` → `dvh` em `max-h` de modais e telas full-screen (evita corte com URL bar no iOS/Android).
+- [x] Trocar `vh` → `dvh` em `max-h` de modais e `calc(100vh-...)` de telas full-screen (sweep em toda a `src/`).
 - [ ] **Prevenção de teclado virtual em modais longos**: qualquer input próximo ao final de um modal (últimos 30% do body) deve, ao receber foco em mobile (`window.matchMedia('(max-width: 768px)')`), executar `element.scrollIntoView({ block: 'center', behavior: 'smooth' })` **após** um `setTimeout(..., 300)` (aguardar o teclado virtual abrir). Adicionar hook utilitário `useScrollIntoViewOnFocus()` para padronizar. Também usar `visualViewport` API quando disponível para reagir a mudanças de altura do teclado. Regra: nenhum campo obrigatório pode ficar oculto atrás do teclado.
 
 **DoD:** métrica "modais com corte em 812×375" = 0; screenshots comparativos aprovados; nenhuma regressão desktop.
