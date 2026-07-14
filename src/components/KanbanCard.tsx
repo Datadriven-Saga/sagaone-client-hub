@@ -110,15 +110,12 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
     return name.slice(0, 2).toUpperCase();
   };
 
-  const handlePhoneClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Open native dialer (E.164 BR: +55 + DDD + 9 + 8 dígitos)
+  // E.164 BR: +55 + DDD + 9 + 8 dígitos — usado pelo <a href="tel:">
+  const telHref = (() => {
     const normalized = normalizePhoneForComparison(item.channel || '');
     const phone = normalized || (item.channel?.replace(/\D/g, '') || '');
-    window.open(`tel:+55${phone}`, '_self');
-    // Show confirmation dialog
-    setShowCallConfirm(true);
-  };
+    return `tel:+55${phone}`;
+  })();
 
   const formatPhoneForWhatsApp = (channel?: string | null): string | null => {
     const normalized = normalizePhoneForComparison(channel || '');
@@ -217,13 +214,18 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
             </p>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  onClick={handlePhoneClick}
+                <a
+                  href={telHref}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Deixa o SO abrir o discador via href; abre a confirmação por cima.
+                    setShowCallConfirm(true);
+                  }}
                   className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
                   aria-label="Ligar para o lead"
                 >
                   <Phone className="w-3.5 h-3.5" />
-                </button>
+                </a>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Ligar para o lead</p>
