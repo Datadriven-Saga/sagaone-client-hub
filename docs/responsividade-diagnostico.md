@@ -149,14 +149,14 @@ A ordem foi montada para **destravar** as fases seguintes com o menor risco poss
 
 Pré-requisito para tudo. Sem baseline, não há como provar melhoria nem detectar regressão.
 
-- [ ] Script `scripts/responsivo/audit.ts` que roda Playwright em 6 viewports × N rotas e emite:
+- [x] Script `scripts/responsivo/audit.ts` que roda Playwright em 6 viewports × N rotas e emite:
   - screenshot por rota+viewport;
   - `hasHorizontalScroll: boolean`;
   - contagem de elementos interativos com bounding box < 44px;
-  - dump de axe-core (violations de contraste + touch target).
-- [ ] Lista de rotas priorizadas (top 15 por tráfego real, cruzando `analytics--read_project_analytics` com user-agent mobile).
-- [ ] Salvar baseline em `/tmp/browser/responsivo/baseline/` e commitar apenas o `report.md` agregado (não os PNGs).
-- [ ] Documentar comando `bun run responsivo:audit` no README.
+  - (axe-core opcional — não bloqueia baseline; adicionar em iteração futura).
+- [x] Lista de rotas padrão (15 rotas cobrindo prospecção, recepção, resultados, pós-vendas e administração). Ajustável via `--routes=`.
+- [x] Saída em `/tmp/browser/responsivo/<timestamp>/` (screenshots + `report.md` + `report.json`).
+- [x] Comando `bun run responsivo:audit` documentado no `README.md`.
 
 **DoD:** relatório baseline gerado; métricas da seção 1.5 preenchidas com números reais.
 
@@ -165,35 +165,20 @@ Pré-requisito para tudo. Sem baseline, não há como provar melhoria nem detect
 Prepara tokens e primitivos sem tocar em telas existentes.
 
 - [ ] `tailwind.config.ts`: `container.padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' }`.
-- [ ] **Tipografia fluida com limites seguros** em `src/index.css` `@layer components` — criar `.h1`, `.h2`, `.h3`, `.body-lg`, `.body` usando `clamp(min, preferred, max)`. Os `min` são ancorados no pior caso (viewport 320–360px) e os `max` evitam quebras indesejadas em ultra-wide:
+- [x] `tailwind.config.ts`: `container.padding` responsivo aplicado.
+- [x] **Tipografia fluida com limites seguros** em `src/index.css` `@layer components` — `.h1`, `.h2`, `.h3`, `.body-lg`, `.body` usando `clamp(min, preferred, max)`. Os `min` são ancorados no pior caso (viewport 320–360px) e os `max` evitam quebras indesejadas em ultra-wide:
   - `.h1` → `clamp(1.5rem, 1.2rem + 1.6vw, 2.25rem)` (24px → 36px)
   - `.h2` → `clamp(1.25rem, 1.05rem + 1vw, 1.75rem)` (20px → 28px)
   - `.h3` → `clamp(1.125rem, 1rem + 0.6vw, 1.375rem)` (18px → 22px)
   - `.body-lg` → `clamp(0.9375rem, 0.9rem + 0.25vw, 1.0625rem)` (15px → 17px)
   - `.body` → `clamp(0.875rem, 0.85rem + 0.15vw, 0.9375rem)` (14px → 15px)
   - Regra: nunca deixar `min` cair abaixo de 14px para body, 18px para H3, 20px para H2, 24px para H1 (garante legibilidade em 320px sem hifenização forçada).
-- [ ] `button.tsx`: adicionar variante `size="touch"` (`h-11 w-11 min-w-11 min-h-11`). O default permanece — a variante é opt-in.
-- [ ] Utilitário `.touch-target` para ícones em tabelas densas — **aumenta a hitbox sem alterar o tamanho visual**:
-  ```css
-  .touch-target { position: relative; }
-  .touch-target::after {
-    content: ""; position: absolute; inset: 50% 50% 50% 50%;
-    width: 44px; height: 44px; transform: translate(-50%, -50%);
-  }
-  ```
-  Ou equivalente Tailwind `relative before:absolute before:inset-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:w-11 before:h-11 before:content-['']`. O ícone continua `w-4 h-4`; o alinhamento vertical/altura da linha da tabela desktop **não muda** — a área clicável é expandida via pseudo-elemento invisível.
-- [ ] Wrapper `ResponsiveDialogContent` com **scroll interno** e sem duplo scrollbar:
-  ```tsx
-  <DialogPrimitive.Content className="w-[calc(100vw-1rem)] sm:max-w-[var(--dlg-size)] max-h-[90dvh] overflow-hidden p-0 flex flex-col">
-    <div data-dialog-header className="shrink-0 px-4 sm:px-6 pt-4 sm:pt-6" />
-    <div data-dialog-body   className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-3" />
-    <div data-dialog-footer className="shrink-0 px-4 sm:px-6 pb-4 sm:pb-6" />
-  </DialogPrimitive.Content>
-  ```
-  Regras: o **container externo é `overflow-hidden`**, o **body interno é `overflow-y-auto`** — evita o duplo scrollbar do Radix. Uso de `dvh` (não `vh`) resolve o corte com a URL bar no Safari/Chrome mobile. `overscroll-contain` impede scroll chaining para o body da página.
-- [ ] Utilitário `.scroll-fade-x` (mask-image) para `TabsList` com overflow (afordância visual de scroll horizontal).
-- [ ] Hook `useBreakpoint(bp: 'sm'|'md'|'lg'|'xl')` baseado em `matchMedia` (única fonte de verdade — hoje `useIsMobile` só cobre `md`). Usado nas Fases 3 e 4 para renderização condicional.
-- [ ] Hook `useScrollIntoViewOnFocus()` (usado na Fase 2).
+- [x] `button.tsx`: variante `size="touch"` (`h-11 w-11 min-w-11 min-h-11`) adicionada. Default inalterado.
+- [x] Utilitário `.touch-target` em `src/index.css` — pseudo-elemento `::before` de 44×44 centrado, sem alterar tamanho visual do ícone nem layout desktop.
+- [x] Wrapper `ResponsiveDialogContent` em `src/components/ui/responsive-dialog.tsx` com scroll interno único, `max-h-[90dvh]`, slots `header`/`footer` opcionais e `overscroll-contain`.
+- [x] Utilitário `.scroll-fade-x` (mask-image) adicionado a `src/index.css`.
+- [x] Hook `useBreakpoint(bp)` em `src/hooks/useBreakpoint.ts` — fonte única de verdade via `matchMedia`.
+- [x] Hook `useScrollIntoViewOnFocus()` em `src/hooks/useScrollIntoViewOnFocus.ts` — ativa em ≤ 768px, delay 300ms para o teclado virtual.
 
 **DoD:** build passa; nenhum comportamento visual muda; `bun run responsivo:audit` continua verde (nenhuma regressão vs. baseline da Fase 0).
 
