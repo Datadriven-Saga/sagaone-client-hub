@@ -533,15 +533,14 @@ export default function AdminAgentes() {
     return [...nomesMap.values()].sort();
   })();
 
-  const applyFilters = (
-    term: string,
-    empresaId: string,
-    marca: string,
-    uf: string,
-    status: string,
-    numero: string,
-    nomeAgente: string,
-  ) => {
+  const filteredAgentes = useMemo(() => {
+    const term = searchTerm;
+    const empresaId = filterEmpresa;
+    const marca = filterMarca;
+    const uf = filterUF;
+    const status = filterStatus;
+    const numero = filterNumero;
+    const nomeAgente = filterNomeAgente;
     let filtered = [...agentes];
 
     // Filtro por termo de busca (busca livre em múltiplos campos)
@@ -609,9 +608,13 @@ export default function AdminAgentes() {
       });
     }
 
-    setFilteredAgentes(filtered);
+    return filtered;
+  }, [agentes, searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente]);
+
+  // Reset paginação ao mudar filtros
+  useEffect(() => {
     setCurrentPage(1);
-  };
+  }, [searchTerm, filterEmpresa, filterMarca, filterUF, filterStatus, filterNumero, filterNomeAgente]);
 
   const clearAllFilters = () => {
     setSearchTerm("");
@@ -621,8 +624,6 @@ export default function AdminAgentes() {
     setFilterStatus("all");
     setFilterNumero("");
     setFilterNomeAgente("all");
-    setFilteredAgentes(agentes);
-    setCurrentPage(1);
   };
 
   const totalPages = Math.ceil(filteredAgentes.length / itemsPerPage);
