@@ -287,7 +287,6 @@ export default function AdminAgentes() {
         (item): item is AgenteWebhook => item !== null && item !== undefined,
       );
       setAgentes(agentesArray);
-      setFilteredAgentes(agentesArray);
     } catch (error) {
       console.error("Erro ao carregar agentes:", error);
       toast({
