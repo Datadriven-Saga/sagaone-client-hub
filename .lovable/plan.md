@@ -1,51 +1,37 @@
 ## Objetivo
 
-Permitir editar, na tela **Administração → Webhooks**, tanto o **nome do header de autenticação** (`credencial_header`, ex.: `x-api-key`, `saga_one_supabase`, `authorization`) quanto o **nome do secret** que fornece o valor (`credencial_secret_name`, ex.: `SAGA_ONE`) — sem tocar em edge functions.
+Depois que o SDR confirma "Sim" no diálogo de **Contato Realizado** no card do Kanban, permitir que ele **mova o lead direto para qualquer coluna existente do Kanban**, sem passar por uma etapa intermediária de "vai participar / não vai participar / etc.".
 
-## Por que é simples
+## Fluxo novo
 
-O helper `buildAuthHeaders` em `supabase/functions/_shared/webhook-registry.ts` já monta o header dinamicamente a partir do registry:
+1. SDR clica no ícone de telefone no `KanbanCard`.
+2. Confirma **"Sim, realizei o contato"** → contagem de chamadas incrementa normalmente (comportamento atual preservado).
+3. Em vez de fechar o diálogo, ele passa para um segundo passo mostrando **as colunas do Kanban atual** como botões (as mesmas que já existem hoje — nada de opções fixas novas).
+4. SDR escolhe a coluna destino → o lead é movido, respeitando as regras atuais (lock de 24h, limite de 30 leads, permissões).
+5. Opção **"Fechar sem mover"** para o caso de só registrar a ligação.
 
-- Se `credencial_header = 'authorization'` → envia `Authorization: Bearer <secret>` (mantém compat).
-- Qualquer outro nome (`x-api-key`, `saga_one_supabase`, `x-custom-token`, etc.) → envia `<credencial_header>: <secret>` **verbatim**, sem prefixo.
+## Impacto
 
-Ou seja, o backend já suporta qualquer header custom. Falta apenas expor edição na UI e persistir no update.
+- **Banco / tabelas**: nenhuma mudança de schema. Reusa o que já existe:
+  - `contatos.status` (via caminho atual de mover lead no Kanban).
+  - `logs_movimentacao_contatos` (log de movimentação já disparado hoje).
+  - Contagem de ligação: mesmo fluxo atual de "contato realizado".
+- **Regras preservadas**:
+  - Lock de 24h entre movimentações.
+  - Limite de 30 leads por SDR.
+  - Visibilidade / ownership do lead.
+  - Log de auditoria idêntico ao de mover manualmente.
+- **Código afetado (frontend apenas)**:
+  - `src/components/kanban/KanbanCard.tsx` — transformar o `AlertDialog` de contato realizado em fluxo de 2 passos.
+  - Reusar o handler existente de movimentação de lead do Kanban (mesma função chamada quando o SDR arrasta o card), passando o `status` destino escolhido.
+  - Obter a lista de colunas do próprio contexto do Kanban (não hardcode) — assim, se as colunas mudarem, o diálogo acompanha automaticamente.
 
-## Mudanças (arquivo único: `src/pages/admin/Webhooks.tsx`)
+## Fora de escopo
 
-1. **Sheet de edição (~linhas 714-734)** — substituir o bloco readonly "Credencial exigida" por dois `Input` editáveis:
-   - `Nome do secret` (ex.: `SAGA_ONE`) → `editing.credencial_secret_name`
-   - `Nome do header` (ex.: `x-api-key`) → `editing.credencial_header`
-   - Manter o link "Gerenciar secret" e o hint "use `authorization` para receber prefixo `Bearer` automático; qualquer outro nome é enviado como está".
-   - Ambos aceitam vazio → grava `null` (webhook público sem auth).
+- Nenhuma nova coluna, status ou regra de negócio.
+- Nenhum novo webhook.
+- Nenhuma mudança em RPC, RLS ou tabela.
 
-2. **`handleSave` (linhas 187-195)** — incluir os dois campos no `.update({...})` e no `.select(...)`:
-   ```
-   credencial_secret_name: editing.credencial_secret_name?.trim() || null,
-   credencial_header: editing.credencial_header?.trim() || null,
-   ```
+## Ponto a confirmar
 
-3. **Recarregar credenciais** após save (`load()` já refaz o fetch e o `check-webhook-credential` recalcula os badges verde/vermelho).
-
-## O que NÃO muda
-
-- `supabase/functions/_shared/webhook-registry.ts` — já genérico.
-- `external-webhook-proxy`, `maia-webhook-proxy`, `dispatch-leads-webhook`, demais edges — todas leem via `resolveWebhookBySlug` + `buildAuthHeaders`. Nenhum redeploy necessário.
-- Schema do banco — colunas `credencial_header` e `credencial_secret_name` já existem em `webhook_registry`.
-- Secrets — `SAGA_ONE` continua sendo o mesmo secret; só muda o nome do header em que ele viaja.
-
-## Fluxo pós-mudança para o caso `pri_wpp.disparo`
-
-1. Abrir Administração → Webhooks → editar `pri_wpp.disparo`.
-2. Trocar campo "Nome do header" de `saga_one_supabase` para `x-api-key`. Manter "Nome do secret" = `SAGA_ONE`.
-3. Salvar. A partir da próxima chamada, `dispatch-leads-webhook` passa a enviar `x-api-key: <valor de SAGA_ONE>` para a Lambda AWS — sem deploy.
-
-## Riscos
-
-- Baixíssimos. Se o usuário deixar o header em branco por engano, o webhook passa a chamar sem auth (mesmo comportamento de webhooks sem credencial hoje). Mitigação: badge vermelho já aparece quando `credencial_secret_name` está definido mas o secret não existe; podemos adicionar aviso simétrico se `credencial_secret_name` estiver preenchido e `credencial_header` vazio (validação leve no save).
-
-## Teste de aceite
-
-- Editar um webhook, trocar header de `saga_one_supabase` → `x-api-key`, salvar, reabrir: valor persistiu.
-- Chamar o webhook via botão de teste (ou logs do `dispatch-leads-webhook`) e confirmar no destino que chegou `x-api-key`.
-- Voltar para `authorization` e confirmar que volta a enviar `Bearer <secret>`.
+Ao mover pelo diálogo, deve ser exatamente equivalente ao **arrastar o card** (mesmo log, mesmas validações). Confirma?
