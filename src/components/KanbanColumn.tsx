@@ -16,6 +16,8 @@ interface KanbanColumnProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
+  availableColumns?: { id: string; title: string }[];
+  onMoveItem?: (itemId: string, targetColumnId: string) => void | Promise<void>;
 }
 
 const COLUMN_COLORS: Record<string, string> = {
@@ -31,7 +33,7 @@ const COLUMN_COLORS: Record<string, string> = {
   'desperdicio': '#F43F5E',
 };
 
-export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, solicitarDisabled, solicitarTooltip, onLoadMore, hasMore, loadingMore }: KanbanColumnProps) {
+export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClientes, solicitarDisabled, solicitarTooltip, onLoadMore, hasMore, loadingMore, availableColumns, onMoveItem }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -110,6 +112,9 @@ export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClien
                 key={item.id}
                 item={item}
                 onCardClick={onCardClick}
+                currentColumnId={column.id}
+                availableColumns={availableColumns}
+                onMoveItem={onMoveItem}
               />
             ))}
             {hasMore && (
