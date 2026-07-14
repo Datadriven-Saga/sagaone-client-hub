@@ -1,7 +1,7 @@
 # Diagnóstico de Responsividade — SagaOne
 
 > Diagnóstico + **plano executável em fases**. Nenhuma alteração de código feita ainda.
-> Data: 2026-07-14 · Última revisão: 2026-07-14
+> Data: 2026-07-14 · Última revisão: 2026-07-14 (v3 — critérios objetivos, rollback e observabilidade)
 > Escopo: Mobile (≤ 480px), Tablet (481–1024px), Desktop (≥ 1025px, incluindo ultra-wide ≥ 1920px).
 > Escopo do trabalho: **apenas apresentação** (Tailwind, componentes UI, layout). Nenhuma mudança de RPC, RLS, edge function ou regra de negócio.
 
@@ -14,6 +14,9 @@
 3. **QA por viewport fixo:** 360, 390, 768, 1024, 1440, 1920. Playwright captura screenshots antes/depois de cada fase — a suíte é o baseline (criada na Fase 1).
 4. **Ondas pequenas e mergeáveis.** Uma PR por sub-fase. Nunca abrir mais de uma onda em paralelo em Fase 3.
 5. **Se algo estiver dolorido hoje, prioriza-se.** A ordem abaixo é a padrão; hotfixes de UX pontuais podem furar fila desde que caibam no princípio 1.
+6. **Feature flag opcional para rollback rápido.** Wrappers novos (`ResponsiveDialogContent`, `ResponsiveTable`, Kanban mobile) expõem uma prop `legacy` ou lêem `system_feature_flags` `ui_mobile_v2` — se algum cliente reportar regressão, dá para reverter apenas o comportamento sem redeploy.
+7. **Priorização baseada em uso real.** Antes de cada onda, cruzar `analytics` do último mês por rota × user-agent mobile para decidir a ordem interna. Telas com < 1% de tráfego mobile ficam por último.
+8. **Nada de mudança de dados/regra.** Se algum item exigir alteração em RPC/RLS/edge/webhook, sai do plano e vira ticket separado.
 
 ---
 
@@ -62,6 +65,25 @@
 - Tabs com ícone + label (`ControleAgentes`, `pos-vendas/Agendamentos`) alinham por baseline; em mobile o ícone `h-4 w-4` fica maior que o texto reduzido por `text-xs` implícito → altura irregular.
 - `DateRangePicker` abre popover com `w-auto` que pode ultrapassar o viewport à direita em telas < 400px.
 - `DialogContent` com `!p-0` em `CriarProspeccaoModal` faz o conteúdo colar na borda no mobile (sem `px-4` interno de compensação).
+
+---
+
+## 1.5 Métricas alvo (objetivas, medíveis)
+
+O plano é considerado bem-sucedido quando **todos** os itens abaixo forem atingidos e mantidos:
+
+| Métrica | Baseline (medir na Fase 1) | Alvo pós-Fase 5 | Como medir |
+|---|---|---|---|
+| Rotas com scroll horizontal em 360px | — | **0** | Playwright: `document.documentElement.scrollWidth > innerWidth` por rota |
+| Rotas com scroll horizontal em 390px | — | **0** | idem |
+| Elementos interativos < 44×44 px em mobile | — | **≤ 5 por rota** (só ícones em tabelas densas com `.touch-target`) | axe-core + snapshot de `getBoundingClientRect` |
+| Modais com corte de conteúdo em 812×375 (landscape) | — | **0** | Playwright: `scrollHeight ≤ clientHeight` no body do dialog |
+| Ocorrências de `w-[Npx]` sem `max-w`/`w-full` | 212 | **≤ 20** (exceções documentadas) | `rg "w-\[[0-9]+px\]" \| grep -v "max-w\|w-full"` |
+| CLS (Cumulative Layout Shift) em rotas críticas | medir | **≤ 0,1** | Lighthouse mobile |
+| INP (Interaction to Next Paint) em Kanban mobile | medir | **≤ 200ms** | Lighthouse mobile |
+| Regressões visuais desktop (Playwright diff) | 0 | **0** | comparação pixel a pixel com baseline |
+
+Essas métricas ficam num arquivo `/tmp/browser/responsivo/report.md` gerado a cada onda e comparado com o baseline.
 
 ---
 
@@ -123,6 +145,21 @@
 
 A ordem foi montada para **destravar** as fases seguintes com o menor risco possível. Cada fase tem critério de pronto (DoD) e é mergeável sozinha.
 
+#### Fase 0 — Instrumentação (0,25 dia · 1 PR)
+
+Pré-requisito para tudo. Sem baseline, não há como provar melhoria nem detectar regressão.
+
+- [ ] Script `scripts/responsivo/audit.ts` que roda Playwright em 6 viewports × N rotas e emite:
+  - screenshot por rota+viewport;
+  - `hasHorizontalScroll: boolean`;
+  - contagem de elementos interativos com bounding box < 44px;
+  - dump de axe-core (violations de contraste + touch target).
+- [ ] Lista de rotas priorizadas (top 15 por tráfego real, cruzando `analytics--read_project_analytics` com user-agent mobile).
+- [ ] Salvar baseline em `/tmp/browser/responsivo/baseline/` e commitar apenas o `report.md` agregado (não os PNGs).
+- [ ] Documentar comando `bun run responsivo:audit` no README.
+
+**DoD:** relatório baseline gerado; métricas da seção 1.5 preenchidas com números reais.
+
 #### Fase 1 — Fundações (baixo risco · 0,5 dia · 1 PR)
 
 Prepara tokens e primitivos sem tocar em telas existentes.
@@ -155,9 +192,10 @@ Prepara tokens e primitivos sem tocar em telas existentes.
   ```
   Regras: o **container externo é `overflow-hidden`**, o **body interno é `overflow-y-auto`** — evita o duplo scrollbar do Radix. Uso de `dvh` (não `vh`) resolve o corte com a URL bar no Safari/Chrome mobile. `overscroll-contain` impede scroll chaining para o body da página.
 - [ ] Utilitário `.scroll-fade-x` (mask-image) para `TabsList` com overflow (afordância visual de scroll horizontal).
-- [ ] **Baseline Playwright** em `/tmp/browser/responsivo/`: 10 rotas × 6 viewports (360/390/768/1024/1440/1920). Salvar como referência visual.
+- [ ] Hook `useBreakpoint(bp: 'sm'|'md'|'lg'|'xl')` baseado em `matchMedia` (única fonte de verdade — hoje `useIsMobile` só cobre `md`). Usado nas Fases 3 e 4 para renderização condicional.
+- [ ] Hook `useScrollIntoViewOnFocus()` (usado na Fase 2).
 
-**DoD:** build passa; nenhum comportamento visual muda; suíte de screenshots gerada.
+**DoD:** build passa; nenhum comportamento visual muda; `bun run responsivo:audit` continua verde (nenhuma regressão vs. baseline da Fase 0).
 
 #### Fase 2 — Modais e hitboxes (risco baixo · 1 dia · 1 PR)
 
@@ -169,7 +207,7 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 - [ ] Trocar `vh` → `dvh` em `max-h` de modais e telas full-screen (evita corte com URL bar no iOS/Android).
 - [ ] **Prevenção de teclado virtual em modais longos**: qualquer input próximo ao final de um modal (últimos 30% do body) deve, ao receber foco em mobile (`window.matchMedia('(max-width: 768px)')`), executar `element.scrollIntoView({ block: 'center', behavior: 'smooth' })` **após** um `setTimeout(..., 300)` (aguardar o teclado virtual abrir). Adicionar hook utilitário `useScrollIntoViewOnFocus()` para padronizar. Também usar `visualViewport` API quando disponível para reagir a mudanças de altura do teclado. Regra: nenhum campo obrigatório pode ficar oculto atrás do teclado.
 
-**DoD:** abrir cada modal em 360, 390 e 812×375 (landscape) sem cortes; screenshots comparativos aprovados.
+**DoD:** métrica "modais com corte em 812×375" = 0; screenshots comparativos aprovados; nenhuma regressão desktop.
 
 #### Fase 3 — Tabelas responsivas (risco médio · 3–5 dias · 4 PRs)
 
@@ -185,9 +223,9 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 - [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
 - [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
 - [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)". **Chips de filtros ativos fixos no topo da tabela** — ao fechar o Sheet, cada filtro aplicado (empresa, período, status, busca) aparece como `<Badge variant="secondary">` com botão `x` para remoção individual, ordenados horizontalmente com scroll horizontal se necessário. O usuário nunca precisa reabrir o Sheet para saber o que está filtrando. Adicionar botão "Limpar todos" quando houver ≥ 2 chips.
-- [ ] **Só ao fim das ondas**: remover `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Rodar Playwright completo antes.
+- [ ] **Só ao fim das ondas**: remover `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Rodar Playwright completo antes. **Rollback:** se surgir regressão em produção, reabilitar as duas linhas via hotfix imediato — a remoção não bloqueia nada, é apenas revelação de bugs remanescentes.
 
-**DoD:** nenhuma rota apresenta scroll horizontal em 360/390; suíte Playwright sem regressões desktop.
+**DoD:** métrica "rotas com scroll horizontal em 360/390" = 0; suíte Playwright sem regressões desktop; `overflow-x:hidden` global removido.
 
 #### Fase 4 — Kanban mobile e dashboards (risco médio · 2 dias · 2 PRs)
 
@@ -199,7 +237,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 - [ ] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` (em vez de `p-6` fixo).
 - [ ] Grid de KPIs: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` consistente.
 
-**DoD:** fluxo SDR completo em 390px (Kanban → abrir card → mudar status → voltar) sem scroll horizontal e sem toques errados.
+**DoD:** fluxo SDR completo em 390px validado por Playwright (Kanban → abrir card → mudar status → voltar); INP ≤ 200ms medido no Lighthouse mobile.
 
 #### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
 
@@ -210,17 +248,21 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
     - `w-[80px]` (TableHead) → remover ou trocar por `min-w-[80px]` (deixa expandir)
     - `min-w-[160px]` (botão em modal) → `w-full sm:w-auto sm:min-w-[160px]`
 - [ ] Revisar `.dark [style*="background: linear-gradient"] { opacity: 0.9 }` (efeito colateral silencioso) — restringir ou remover.
-- [ ] Atualizar este documento marcando o que foi entregue.
+- [ ] Atualizar este documento marcando o que foi entregue e anexar o relatório final de métricas.
+- [ ] Rodar `bun run responsivo:audit` uma última vez e arquivar o relatório em `docs/historico/responsividade-<data>.md`.
 
 ### 4.1.1 Resumo cronograma
 
 | Fase | Escopo | Duração | Bloqueia próxima? |
 |---|---|---|---|
+| 0 | Instrumentação (baseline + audit script) | 0,25 dia | **Sim** (todas dependem) |
 | 1 | Fundações (tokens, wrappers, baseline) | 0,5 dia | Não |
 | 2 | Modais + hitboxes | 1 dia | Não |
 | 3 | Tabelas + remoção do overflow global | 3–5 dias | **Sim** (remoção só após ondas) |
 | 4 | Kanban mobile + dashboards | 2 dias | Não |
 | 5 | Tipografia + limpeza de `w-[Npx]` | 0,5 dia | Não |
+
+**Total:** ~7,25 a 9,25 dias úteis, ~10 PRs pequenas.
 
 ### 4.2 Páginas/componentes críticos
 
@@ -244,6 +286,25 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 7. **Adotar `dvh` em vez de `vh`** em modais/full-screen para não quebrar com URL bar do Safari mobile.
 8. **Auditoria contínua:** adicionar Playwright viewport tests (320, 375, 768, 1024, 1440, 1920) capturando screenshots por rota.
 
+### 4.4 Riscos e mitigações
+
+| Risco | Probabilidade | Impacto | Mitigação |
+|---|---|---|---|
+| Remoção do `overflow-x:hidden` expõe overflow em tela não coberta pelo audit | Média | Alto | Fase 3 varre 100% das 53 tabelas + Playwright em todas as rotas listadas na Fase 0 antes da remoção |
+| Wrapper `ResponsiveDialogContent` quebra modal customizado (ex.: `CriarProspeccaoModal` com `!p-0`) | Média | Médio | Migração modal-a-modal com screenshot antes/depois; wrapper aceita `bodyClassName` para override |
+| Substituir `<table>` por `<ResponsiveTable>` em Logs de alto volume degrada performance | Baixa | Alto | Fase 3 usa renderização condicional via JS (não CSS) — Kanban/Logs testados no Lighthouse antes do merge |
+| Kanban mobile com `snap-x` conflita com drag-and-drop residual | Média | Médio | DnD desativado em `< md`; testes E2E cobrem o fluxo "Mover para →" |
+| Ícones com `.touch-target` capturam clique de linha adjacente da tabela | Baixa | Médio | Pseudo-elemento é `pointer-events` só no wrapper; QA em tabela densa (Logs, Empresas) |
+| Regressão em cliente durante rollout | Baixa | Alto | Feature flag `ui_mobile_v2` (princípio 6) permite reverter comportamento por empresa |
+
+### 4.5 Fora de escopo (backlog separado)
+
+- Redesenho do fluxo de check-in da Recepção (é UX, não responsividade).
+- PWA / instalação offline.
+- Refatoração de `contatos.status` global (débito estrutural — não é responsividade).
+- Mudanças em RPC/RLS/edge functions.
+- Internacionalização (i18n) de labels que quebram em outros idiomas.
+
 ---
 
 ## 5. Resumo executivo do risco
@@ -261,22 +322,25 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 ---
 
-## 6. Próximos passos sugeridos (sem executar)
-
 ## 6. Ponto de partida
 
-**Começar pela Fase 1 completa em um único passe** — é reversível, não altera nenhuma tela e destrava todas as fases seguintes:
+**Começar pela Fase 0 (instrumentação) + Fase 1 (fundações) no mesmo dia** — juntas são reversíveis, não alteram nenhuma tela e destravam todas as fases seguintes:
 
-1. Ajustar `tailwind.config.ts` (container padding).
-2. Adicionar tokens tipográficos `.h1/.h2/.body` em `src/index.css`.
-3. Adicionar variante `size="touch"` no `Button` e utilitário `.touch-target`.
-4. Criar wrapper `ResponsiveDialogContent`.
-5. Gerar suíte Playwright baseline (screenshots das 10 rotas × 6 viewports).
+1. **Fase 0:** script `bun run responsivo:audit`, baseline em `/tmp/browser/responsivo/`, relatório de métricas preenchido.
+2. **Fase 1:**
+   - Ajustar `tailwind.config.ts` (container padding).
+   - Adicionar tokens tipográficos `.h1/.h2/.body` em `src/index.css`.
+   - Adicionar variante `size="touch"` no `Button` e utilitário `.touch-target`.
+   - Criar wrapper `ResponsiveDialogContent`.
+   - Criar hooks `useBreakpoint` e `useScrollIntoViewOnFocus`.
+3. Rodar `responsivo:audit` novamente e confirmar 0 regressões.
 
-Ao terminar, marcar os checkboxes da Fase 1 acima e abrir a Fase 2.
+Ao terminar, marcar os checkboxes das Fases 0 e 1 acima e abrir a Fase 2.
 
 ### Checklist de aprovação antes de começar
 
 - [ ] Ordem das fases aprovada?
 - [ ] Alguma tela pontual precisa furar fila (hotfix)?
-- [ ] OK começar direto pela Fase 1 (sem tocar em telas)?
+- [ ] OK começar direto pelas Fases 0 + 1 (sem tocar em telas)?
+- [ ] Métricas da seção 1.5 são as certas para "concluído"?
+- [ ] Usar feature flag `ui_mobile_v2` para rollback ou dispensável?
