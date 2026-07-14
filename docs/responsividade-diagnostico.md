@@ -128,11 +128,33 @@ A ordem foi montada para **destravar** as fases seguintes com o menor risco poss
 Prepara tokens e primitivos sem tocar em telas existentes.
 
 - [ ] `tailwind.config.ts`: `container.padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' }`.
-- [ ] `src/index.css` `@layer components`: criar `.h1`, `.h2`, `.h3`, `.body-lg`, `.body` com `clamp()` (não substituir usos ainda, apenas disponibilizar).
-- [ ] `button.tsx`: adicionar variante `size="touch"` (`h-11 w-11`). Default permanece.
-- [ ] Utilitário `.touch-target` (min 44×44) para ícones em tabelas.
-- [ ] Wrapper `ResponsiveDialogContent`: `w-[calc(100vw-1rem)] sm:max-w-[var(--size)] max-h-[90dvh] overflow-y-auto p-4 sm:p-6` — coexiste com `DialogContent`.
-- [ ] Utilitário `.scroll-fade-x` (mask-image) para `TabsList` com overflow.
+- [ ] **Tipografia fluida com limites seguros** em `src/index.css` `@layer components` — criar `.h1`, `.h2`, `.h3`, `.body-lg`, `.body` usando `clamp(min, preferred, max)`. Os `min` são ancorados no pior caso (viewport 320–360px) e os `max` evitam quebras indesejadas em ultra-wide:
+  - `.h1` → `clamp(1.5rem, 1.2rem + 1.6vw, 2.25rem)` (24px → 36px)
+  - `.h2` → `clamp(1.25rem, 1.05rem + 1vw, 1.75rem)` (20px → 28px)
+  - `.h3` → `clamp(1.125rem, 1rem + 0.6vw, 1.375rem)` (18px → 22px)
+  - `.body-lg` → `clamp(0.9375rem, 0.9rem + 0.25vw, 1.0625rem)` (15px → 17px)
+  - `.body` → `clamp(0.875rem, 0.85rem + 0.15vw, 0.9375rem)` (14px → 15px)
+  - Regra: nunca deixar `min` cair abaixo de 14px para body, 18px para H3, 20px para H2, 24px para H1 (garante legibilidade em 320px sem hifenização forçada).
+- [ ] `button.tsx`: adicionar variante `size="touch"` (`h-11 w-11 min-w-11 min-h-11`). O default permanece — a variante é opt-in.
+- [ ] Utilitário `.touch-target` para ícones em tabelas densas — **aumenta a hitbox sem alterar o tamanho visual**:
+  ```css
+  .touch-target { position: relative; }
+  .touch-target::after {
+    content: ""; position: absolute; inset: 50% 50% 50% 50%;
+    width: 44px; height: 44px; transform: translate(-50%, -50%);
+  }
+  ```
+  Ou equivalente Tailwind `relative before:absolute before:inset-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:w-11 before:h-11 before:content-['']`. O ícone continua `w-4 h-4`; o alinhamento vertical/altura da linha da tabela desktop **não muda** — a área clicável é expandida via pseudo-elemento invisível.
+- [ ] Wrapper `ResponsiveDialogContent` com **scroll interno** e sem duplo scrollbar:
+  ```tsx
+  <DialogPrimitive.Content className="w-[calc(100vw-1rem)] sm:max-w-[var(--dlg-size)] max-h-[90dvh] overflow-hidden p-0 flex flex-col">
+    <div data-dialog-header className="shrink-0 px-4 sm:px-6 pt-4 sm:pt-6" />
+    <div data-dialog-body   className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-3" />
+    <div data-dialog-footer className="shrink-0 px-4 sm:px-6 pb-4 sm:pb-6" />
+  </DialogPrimitive.Content>
+  ```
+  Regras: o **container externo é `overflow-hidden`**, o **body interno é `overflow-y-auto`** — evita o duplo scrollbar do Radix. Uso de `dvh` (não `vh`) resolve o corte com a URL bar no Safari/Chrome mobile. `overscroll-contain` impede scroll chaining para o body da página.
+- [ ] Utilitário `.scroll-fade-x` (mask-image) para `TabsList` com overflow (afordância visual de scroll horizontal).
 - [ ] **Baseline Playwright** em `/tmp/browser/responsivo/`: 10 rotas × 6 viewports (360/390/768/1024/1440/1920). Salvar como referência visual.
 
 **DoD:** build passa; nenhum comportamento visual muda; suíte de screenshots gerada.
@@ -141,9 +163,11 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 
 - [ ] Migrar para `ResponsiveDialogContent`: `CriarProspeccaoModal`, `SimulacaoEventoModal`, `SimulacaoPriWhatsAppModal`, `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog`.
 - [ ] Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo (`p-3 sm:p-4`) para não colar nas bordas em mobile.
-- [ ] Botão fechar (X) do `Dialog`: `h-10 w-10` em mobile.
-- [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile.
-- [ ] Trocar `vh` → `dvh` em `max-h` de modais e telas full-screen.
+- [ ] **Formulários densos em coluna única no mobile**: no `CriarProspeccaoModal` e nas etapas de cadência/config, todos os `grid grid-cols-2` / `grid-cols-3` de campos devem colapsar para `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`. Nada de dois inputs de datetime lado a lado em 360px — campos espremidos abaixo de ~150px viram inutilizáveis com o teclado aberto.
+- [ ] Botão fechar (X) do `Dialog`: `h-10 w-10` em mobile (mantém `h-8 w-8` em desktop via `sm:`).
+- [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile (via classe condicional `md:before:hidden` para não alterar layout desktop).
+- [ ] Trocar `vh` → `dvh` em `max-h` de modais e telas full-screen (evita corte com URL bar no iOS/Android).
+- [ ] **Prevenção de teclado virtual em modais longos**: qualquer input próximo ao final de um modal (últimos 30% do body) deve, ao receber foco em mobile (`window.matchMedia('(max-width: 768px)')`), executar `element.scrollIntoView({ block: 'center', behavior: 'smooth' })` **após** um `setTimeout(..., 300)` (aguardar o teclado virtual abrir). Adicionar hook utilitário `useScrollIntoViewOnFocus()` para padronizar. Também usar `visualViewport` API quando disponível para reagir a mudanças de altura do teclado. Regra: nenhum campo obrigatório pode ficar oculto atrás do teclado.
 
 **DoD:** abrir cada modal em 360, 390 e 812×375 (landscape) sem cortes; screenshots comparativos aprovados.
 
@@ -152,10 +176,15 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 Objetivo: eliminar overflow horizontal **real** para permitir remoção do `overflow-x:hidden` global.
 
 - [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
+- [ ] **Renderização condicional via JS para tabelas volumosas** (Logs, Quarentena, Webhooks, Recepção com > 200 linhas): usar hook `useBreakpoint('md')` baseado em `window.matchMedia('(min-width: 768px)')` para renderizar **apenas** a árvore de `<table>` OU a árvore de `<Card>`, nunca as duas. Renderizar ambas com `hidden md:block` / `md:hidden` duplica o custo de reconciliação e trava o Kanban/Logs em celulares médios. Tabelas pequenas (< 50 linhas) podem manter o toggle CSS puro.
+  ```tsx
+  const isDesktop = useBreakpoint('md');
+  return isDesktop ? <DataTable ... /> : <CardList ... />;
+  ```
 - [ ] **Onda A — Admin** (uso interno, menor risco): `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena`, `Empresas`, `Acessos`, `ControleGastosLigacao`, `Webhooks`.
 - [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
 - [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
-- [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)".
+- [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)". **Chips de filtros ativos fixos no topo da tabela** — ao fechar o Sheet, cada filtro aplicado (empresa, período, status, busca) aparece como `<Badge variant="secondary">` com botão `x` para remoção individual, ordenados horizontalmente com scroll horizontal se necessário. O usuário nunca precisa reabrir o Sheet para saber o que está filtrando. Adicionar botão "Limpar todos" quando houver ≥ 2 chips.
 - [ ] **Só ao fim das ondas**: remover `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Rodar Playwright completo antes.
 
 **DoD:** nenhuma rota apresenta scroll horizontal em 360/390; suíte Playwright sem regressões desktop.
@@ -163,9 +192,9 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 #### Fase 4 — Kanban mobile e dashboards (risco médio · 2 dias · 2 PRs)
 
 - [ ] Kanban (`KanbanBoard`/`KanbanColumn`/`KanbanCard`) em `< md`:
-  - view "coluna única" com chips de status no topo (`snap-x snap-mandatory`);
-  - drag-and-drop só em desktop; em mobile, ação "Mover para →" no card via menu;
-  - `title` em textos truncados dos cards.
+  - view "coluna única" com `snap-x snap-mandatory` **+ indicadores persistentes de navegação**: uma **barra de abas de status fixa no topo** (sticky) mostrando todas as colunas como chips (`<TabsList>` compacta), com o chip ativo destacado, sincronizada com o scroll via `IntersectionObserver`. Clicar em um chip faz `scrollIntoView({ inline: 'start', behavior: 'smooth' })` na coluna correspondente. Adicionar também **paginação por pontos** (`•••••`) abaixo do header como reforço visual — o usuário sempre sabe onde está e quantas colunas existem.
+  - drag-and-drop só em desktop; em mobile, ação **"Mover para →"** no card via **`IconButton` de três pontinhos (⋮)** posicionado no canto superior direito do card com `size="touch"` (44×44) e ícone visual `w-4 h-4`. Ao tocar, abre um `Sheet` ou `DropdownMenu` com a lista de colunas destino — reaproveita o fluxo já implementado em `KanbanCard.tsx` (Contato realizado → mover).
+  - `title` em textos truncados dos cards (acessibilidade + tooltip nativo).
 - [ ] `DashboardWhatsAppTab`: `hintLines` do card de custo empilhados verticalmente em < 360px (`text-[11px]`).
 - [ ] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` (em vez de `p-6` fixo).
 - [ ] Grid de KPIs: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` consistente.
@@ -175,7 +204,11 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 #### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
 
 - [ ] Substituir `text-3xl` fixo dos H1 de landings de módulo pela classe `.h1` (fluida, Fase 1).
-- [ ] Varredura dos 212 `w-[Npx]` — priorizar os que causaram overflow real; converter para `min-w-0 flex-1` ou tokens.
+- [ ] **Varredura dos 212 `w-[Npx]` com estratégia combinada**: converter cada largura rígida para `w-full max-w-[Npx]` (ou `min-w-0 flex-1 max-w-[Npx]` dentro de flex containers). Isso preserva o dimensionamento ideal no desktop **e** permite encolhimento fluido no mobile sem overflow. Exceções permitidas apenas para elementos verdadeiramente fixos (avatares, ícones decorativos, sparklines).
+  - Padrão de refactor:
+    - `w-[200px]` (input de busca) → `w-full max-w-[200px]`
+    - `w-[80px]` (TableHead) → remover ou trocar por `min-w-[80px]` (deixa expandir)
+    - `min-w-[160px]` (botão em modal) → `w-full sm:w-auto sm:min-w-[160px]`
 - [ ] Revisar `.dark [style*="background: linear-gradient"] { opacity: 0.9 }` (efeito colateral silencioso) — restringir ou remover.
 - [ ] Atualizar este documento marcando o que foi entregue.
 
