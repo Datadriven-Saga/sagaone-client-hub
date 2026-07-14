@@ -324,7 +324,7 @@ export function SyncEmpresasButton() {
           Sincronizar Empresas
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[85dvh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Sincronizar Empresas</DialogTitle>
           <DialogDescription>

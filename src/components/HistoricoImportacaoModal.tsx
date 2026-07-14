@@ -31,7 +31,7 @@ export const HistoricoImportacaoModal: React.FC<HistoricoImportacaoModalProps> =
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80dvh] overflow-hidden flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Histórico de Importação</DialogTitle>
         </DialogHeader>

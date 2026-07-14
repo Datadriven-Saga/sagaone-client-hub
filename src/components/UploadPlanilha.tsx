@@ -760,7 +760,7 @@ export const UploadPlanilha = ({
           </DialogTrigger>
         )}
 
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>
               {lockedProspeccao

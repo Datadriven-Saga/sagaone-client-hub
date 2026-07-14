@@ -1993,7 +1993,7 @@ export default function AdminAgentes() {
 
               {/* Modal Principal do Agente */}
               <Dialog open={showAgentModal} onOpenChange={setShowAgentModal}>
-                <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[90dvh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <Bot className="h-5 w-5" />
@@ -2104,11 +2104,11 @@ export default function AdminAgentes() {
                                       />
                                     </div>
                                   </DialogTrigger>
-                                  <DialogContent className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-2">
+                                  <DialogContent className="max-w-[95vw] max-h-[95dvh] w-auto h-auto p-2">
                                     <img
                                       src={formData.foto_url}
                                       alt={`Foto completa do agente ${formData.nome}`}
-                                      className="w-full h-auto max-w-full max-h-[90vh] object-contain rounded-lg"
+                                      className="w-full h-auto max-w-full max-h-[90dvh] object-contain rounded-lg"
                                     />
                                   </DialogContent>
                                 </Dialog>
@@ -2998,7 +2998,7 @@ export default function AdminAgentes() {
 
               {/* Modal de Atribuição de Empresa */}
               <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
-                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] flex flex-col">
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85dvh] flex flex-col">
                   <DialogHeader className="flex-shrink-0">
                     <DialogTitle>Atribuir Agente a Empresas</DialogTitle>
                     <DialogDescription>

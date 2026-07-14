@@ -23,7 +23,7 @@ const CallDetailModal = ({ open, onOpenChange, call, source }: CallDetailModalPr
             <Badge variant="outline" className="text-xs">{source.toUpperCase()}</Badge>
           </DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh]">
+        <ScrollArea className="max-h-[60dvh]">
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div className="text-muted-foreground">ID</div>

@@ -85,7 +85,7 @@ export const ImportPreviewConflitos = ({
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onCancel()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />

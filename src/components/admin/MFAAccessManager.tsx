@@ -632,7 +632,7 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
       <Dialog open={showBulkAssign} onOpenChange={(open) => {
         if (!open) { setShowBulkAssign(false); setBulkSelectedAccount(""); setBulkSelectedUsers([]); setBulkSearchUsers(""); }
       }}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-lg max-h-[85dvh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-primary" />
@@ -733,7 +733,7 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
       <Dialog open={showBulkRevoke} onOpenChange={(open) => {
         if (!open) { setShowBulkRevoke(false); setBulkRevokeAccount(""); setBulkRevokeUsers([]); setBulkRevokeSearch(""); }
       }}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-lg max-h-[85dvh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserMinus className="h-5 w-5 text-destructive" />

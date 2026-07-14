@@ -95,7 +95,7 @@ export function ImportEmpresasButton() {
           Importar Lista Saga
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[80dvh]">
         <DialogHeader>
           <DialogTitle>Importar Empresas do Grupo Saga</DialogTitle>
           <DialogDescription>

@@ -405,7 +405,7 @@ const MinhaConta = () => {
               <img
                 src={profile.foto_url}
                 alt={profile?.nome_completo || "Foto de perfil"}
-                className="max-w-full max-h-[80vh] object-contain rounded-lg"
+                className="max-w-full max-h-[80dvh] object-contain rounded-lg"
               />
             </div>
           )}

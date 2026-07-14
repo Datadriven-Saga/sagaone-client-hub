@@ -658,7 +658,7 @@ export function ContatoModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] max-h-[90vh] md:h-[90vh] p-0 overflow-hidden flex flex-col w-[95vw] md:w-full">
+      <DialogContent className="max-w-6xl h-[90vh] max-h-[90dvh] md:h-[90vh] p-0 overflow-hidden flex flex-col w-[95vw] md:w-full">
         <DialogHeader className="p-3 md:p-6 pb-3 md:pb-4 pr-10 md:pr-12 border-b flex-shrink-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex flex-col gap-1 min-w-0">
