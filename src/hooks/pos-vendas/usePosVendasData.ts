@@ -4,6 +4,15 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { PATY_NAME_FILTER } from "@/constants/pos-vendas-gatilhos";
 import type { PatyAgente, PatyTemplate, GatilhoConfig, CadenciaConfig, FollowupConfig, LojaPosVenda, FollowUpCadenceConfig, FollowUpCadenceInterval } from "@/types/pos-vendas";
 
+const POS_VENDAS_WEBHOOKS = {
+  buscaDadosAgentes: "pri_voz.agentes.busca_dados",
+  cadenciaBuscaConfigTemplate: "paty.cadencia.busca_config_template",
+  cadenciaUpsertConfigTemplate: "paty.cadencia.upsert_config_template",
+  cadenciaBuscaSteps: "paty.cadencia.busca_steps",
+  cadenciaUpsertSteps: "paty.cadencia.upsert_steps",
+  cadenciaDeleteStep: "paty.cadencia.delete_step",
+} as const;
+
 export function usePatyAgentes() {
   const { activeCompany } = useCompany();
   const [agentes, setAgentes] = useState<PatyAgente[]>([]);
@@ -35,7 +44,7 @@ export function usePatyAgentes() {
       let enriched = base;
       try {
         const { data: wh } = await supabase.functions.invoke("external-webhook-proxy", {
-          body: { endpoint: "busca-dados-agentes" },
+          body: { webhook_slug: POS_VENDAS_WEBHOOKS.buscaDadosAgentes },
         });
         const arr = Array.isArray(wh) ? wh : [];
         const byPhone = new Map<string, { marca?: string; uf?: string }>();
@@ -354,7 +363,7 @@ export function usePatyCadenciaTemplates(agenteTelefone: string | null) {
     setError(null);
     try {
       const { data, error: err } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint: "busca-paty-cadencia-config-template", agente_telefone: agenteTelefone },
+        body: { webhook_slug: POS_VENDAS_WEBHOOKS.cadenciaBuscaConfigTemplate, agente_telefone: agenteTelefone },
       });
       if (err) throw new Error(err.message);
       const arr = Array.isArray(data) ? data : data ? [data] : [];
@@ -381,7 +390,7 @@ export function usePatyCadenciaTemplates(agenteTelefone: string | null) {
     if (!agenteTelefone) throw new Error("Telefone do agente não disponível");
     const { error: err } = await supabase.functions.invoke("external-webhook-proxy", {
       body: {
-        endpoint: "upsert-paty-cadencia-config-template",
+        webhook_slug: POS_VENDAS_WEBHOOKS.cadenciaUpsertConfigTemplate,
         agente_telefone: agenteTelefone,
         gatilho,
         template_id_pri: templateIdPri,
@@ -449,7 +458,7 @@ export function usePatyCadenciaSteps(agenteTelefone: string | null) {
   const reloadGatilho = useCallback(async (gatilho: PatyCadenciaGatilho) => {
     if (!agenteTelefone) return;
     const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "busca-paty-cadencia-steps", agente_telefone: agenteTelefone, gatilho_tipo: gatilho },
+      body: { webhook_slug: POS_VENDAS_WEBHOOKS.cadenciaBuscaSteps, agente_telefone: agenteTelefone, gatilho_tipo: gatilho },
     });
     if (error) {
       console.error(`[usePatyCadenciaSteps] reload ${gatilho}:`, error);
@@ -494,7 +503,7 @@ export function usePatyCadenciaSteps(agenteTelefone: string | null) {
       : 1;
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
       body: {
-        endpoint: "upsert-paty-cadencia-steps",
+        webhook_slug: POS_VENDAS_WEBHOOKS.cadenciaUpsertSteps,
         agente_telefone: agenteTelefone,
         gatilho_tipo: gatilho,
         etapa: proximaEtapa,
@@ -509,7 +518,7 @@ export function usePatyCadenciaSteps(agenteTelefone: string | null) {
 
   const remove = useCallback(async (gatilho: PatyCadenciaGatilho, stepId: number) => {
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "delete-paty-cadencia-step", step_id: stepId },
+      body: { webhook_slug: POS_VENDAS_WEBHOOKS.cadenciaDeleteStep, step_id: stepId },
     });
     if (error) throw new Error(error.message);
     await reloadGatilho(gatilho);

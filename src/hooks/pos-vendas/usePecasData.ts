@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+const PECAS_WEBHOOKS = {
+  buscaTemplate: "paty.pecas.busca_template",
+  upsertTemplate: "paty.pecas.upsert_template",
+  desativaTemplate: "paty.pecas.desativa_template",
+  buscaPrazo: "paty.pecas.busca_prazo",
+  upsertPrazo: "paty.pecas.upsert_prazo",
+} as const;
+
 export interface PecasTemplateRow {
   id: number;
   agente_telefone: string;
@@ -19,7 +27,7 @@ export function usePatyPecasTemplates(agenteTelefone: string | null) {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint: "busca-paty-pecas-template", agente_telefone: agenteTelefone },
+        body: { webhook_slug: PECAS_WEBHOOKS.buscaTemplate, agente_telefone: agenteTelefone },
       });
       if (error) throw new Error(error.message);
       const arr = Array.isArray(data) ? data : [];
@@ -46,7 +54,7 @@ export function usePatyPecasTemplates(agenteTelefone: string | null) {
   }) => {
     if (!agenteTelefone) throw new Error("Telefone do agente não disponível");
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "upsert-paty-pecas-template", agente_telefone: agenteTelefone, ...payload },
+      body: { webhook_slug: PECAS_WEBHOOKS.upsertTemplate, agente_telefone: agenteTelefone, ...payload },
     });
     if (error) throw new Error(error.message);
     await reload();
@@ -54,7 +62,7 @@ export function usePatyPecasTemplates(agenteTelefone: string | null) {
 
   const desativar = useCallback(async (id: number) => {
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "desativa-paty-pecas-template", id },
+      body: { webhook_slug: PECAS_WEBHOOKS.desativaTemplate, id },
     });
     if (error) throw new Error(error.message);
     await reload();
@@ -82,7 +90,7 @@ export function usePatyPecasLojas() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint: "busca-paty-pecas-prazo" },
+        body: { webhook_slug: PECAS_WEBHOOKS.buscaPrazo },
       });
       if (error) throw new Error(error.message);
       const arr = Array.isArray(data) ? data : [];
@@ -110,7 +118,7 @@ export function usePatyPecasLojas() {
   const upsert = useCallback(async (loja: PecasLoja) => {
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
       body: {
-        endpoint: "upsert-paty-pecas-prazo",
+        webhook_slug: PECAS_WEBHOOKS.upsertPrazo,
         cnpj: loja.cnpj,
         nome_loja: loja.nome_loja ?? null,
         dias_adicionais: loja.dias_adicionais ?? 0,
