@@ -22,6 +22,32 @@ const LEGACY_ENDPOINT_SLUGS: Record<string, string> = {
   'config_gerais': 'paty.pos_vendas.config_gerais',
   'upsert_ranges': 'paty.pos_vendas.upsert_ranges',
   'altera_status_pos_vendas': 'paty.pos_vendas.altera_status',
+  // Paty — Entregas (Saga Conecta)
+  'busca-paty-entrega-template': 'paty.entrega.busca_template',
+  'upsert-paty-entrega-template': 'paty.entrega.upsert_template',
+  'desativa-paty-entrega-template': 'paty.entrega.desativa_template',
+  'remove-paty-entrega-template': 'paty.entrega.remove_template',
+  // Paty — Peças
+  'busca-paty-pecas-template': 'paty.pecas.busca_template',
+  'upsert-paty-pecas-template': 'paty.pecas.upsert_template',
+  'desativa-paty-pecas-template': 'paty.pecas.desativa_template',
+  'busca-paty-pecas-prazo': 'paty.pecas.busca_prazo',
+  'upsert-paty-pecas-prazo': 'paty.pecas.upsert_prazo',
+  // Paty — Cadência
+  'busca-paty-cadencia-config-template': 'paty.cadencia.busca_config_template',
+  'upsert-paty-cadencia-config-template': 'paty.cadencia.upsert_config_template',
+  'busca-paty-cadencia-steps': 'paty.cadencia.busca_steps',
+  'upsert-paty-cadencia-steps': 'paty.cadencia.upsert_steps',
+  'delete-paty-cadencia-step': 'paty.cadencia.delete_step',
+  // Paty — Lojas
+  'busca-paty-lojas-ids': 'paty.lojas.busca_ids',
+  'insere-paty-lojas-ids': 'paty.lojas.insere_ids',
+  'atualiza-paty-lojas-ids': 'paty.lojas.atualiza_ids',
+  // Templates Meta
+  'apaga-template-meta': 'pri_wpp.templates.apaga_meta',
+  'criar-template-pri-from-meta': 'pri_wpp.templates.criar_from_meta',
+  'verifica-templates': 'pri_wpp.templates.verifica',
+  'busca-dados-agentes': 'pri_voz.agentes.busca_dados',
   'verifica-eventos': 'pri_voz.eventos.list',
   'verifica-todos-eventos-pri': 'pri_voz.eventos.list_all',
   'eventos-pri': 'pri_voz.eventos.eventos_pri',
