@@ -241,9 +241,8 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                   href={telHref}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Deixa o SO abrir o discador via href; a confirmação aparece só ao voltar ao sistema.
-                    callStartedAtRef.current = Date.now();
-                    setPendingCallConfirmation(true);
+                    // Deixa o SO abrir o discador via href; habilita o botão inline de registro/movimentação.
+                    setCallInitiated(true);
                   }}
                   className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
                   aria-label="Ligar para o lead"
