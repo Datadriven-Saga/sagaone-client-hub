@@ -333,10 +333,10 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                   <TableRow>
                     <TableHead className="w-[80px]">Ordem</TableHead>
                     <TableHead>Nome da Etapa</TableHead>
-                    <TableHead>Canal</TableHead>
-                    <TableHead>Tipo da Mensagem</TableHead>
-                    <TableHead>Mensagem Enviada</TableHead>
-                    <TableHead className="text-right">Intervalo (min)</TableHead>
+                    <TableHead className="hidden sm:table-cell">Canal</TableHead>
+                    <TableHead className="hidden md:table-cell">Tipo da Mensagem</TableHead>
+                    <TableHead className="hidden lg:table-cell">Mensagem Enviada</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">Intervalo (min)</TableHead>
                     <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -345,7 +345,7 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                     <TableRow key={cadencia.id} className={!cadencia.ativa ? "opacity-50" : ""}>
                       <TableCell className="font-medium">{cadencia.ordem}</TableCell>
                       <TableCell>{cadencia.nome_cadencia}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline">
                           {cadencia.tipo_disparo === 'whatsapp' ? 'WhatsApp' : 'Ligação'}
                         </Badge>
