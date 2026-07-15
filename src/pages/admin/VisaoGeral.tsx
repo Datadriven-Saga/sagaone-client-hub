@@ -470,9 +470,9 @@ export default function VisaoGeral() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nome</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Criador</TableHead>
-                          <TableHead>Implantação</TableHead>
+                          <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                          <TableHead className="hidden lg:table-cell">Criador</TableHead>
+                          <TableHead className="hidden md:table-cell">Implantação</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="w-[100px]">Ações</TableHead>
                         </TableRow>
@@ -492,9 +492,9 @@ export default function VisaoGeral() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>{av.tipo}</TableCell>
-                            <TableCell>{av.criador || "-"}</TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">{av.tipo}</TableCell>
+                            <TableCell className="hidden lg:table-cell">{av.criador || "-"}</TableCell>
+                            <TableCell className="hidden md:table-cell">
                               <Badge variant="outline" className="text-xs">
                                 {av.tipo_implantacao}
                               </Badge>
@@ -573,10 +573,10 @@ export default function VisaoGeral() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Agente</TableHead>
-                          <TableHead>Atividade</TableHead>
-                          <TableHead>Período</TableHead>
+                          <TableHead className="hidden md:table-cell">Atividade</TableHead>
+                          <TableHead className="hidden sm:table-cell">Período</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Responsável</TableHead>
+                          <TableHead className="hidden lg:table-cell">Responsável</TableHead>
                           <TableHead className="w-[100px]">Ações</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -586,10 +586,10 @@ export default function VisaoGeral() {
                             <TableCell className="max-w-[200px]">
                               <p className="truncate text-sm font-medium">{getControleAgenteName(item.controle_agente_id)}</p>
                             </TableCell>
-                            <TableCell className="max-w-[200px]">
+                            <TableCell className="hidden md:table-cell max-w-[200px]">
                               <p className="truncate text-sm">{item.atividade}</p>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">
                               <span className="text-sm">
                                 {format(new Date(item.data_inicio), "dd/MM", { locale: ptBR })} - {format(new Date(item.data_termino), "dd/MM", { locale: ptBR })}
                               </span>
@@ -616,7 +616,7 @@ export default function VisaoGeral() {
                                 )}
                               </Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden lg:table-cell">
                               <span className="text-sm">{item.responsavel || "-"}</span>
                             </TableCell>
                             <TableCell>

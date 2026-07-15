@@ -69,11 +69,11 @@ export function QuarentenaLogs() {
           <TableHeader>
             <TableRow>
               <TableHead>Data/Hora</TableHead>
-              <TableHead>Usuário</TableHead>
+              <TableHead className="hidden md:table-cell">Usuário</TableHead>
               <TableHead>Ação</TableHead>
               <TableHead>Telefone</TableHead>
-              <TableHead>Marca</TableHead>
-              <TableHead>Detalhes</TableHead>
+              <TableHead className="hidden lg:table-cell">Marca</TableHead>
+              <TableHead className="hidden xl:table-cell">Detalhes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -95,15 +95,15 @@ export function QuarentenaLogs() {
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {format(new Date(log.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
                   </TableCell>
-                  <TableCell className="text-sm">{log.usuario_email || "-"}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm">{log.usuario_email || "-"}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs">
                       {acaoLabels[log.acao] || log.acao}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{log.telefone_normalizado}</TableCell>
-                  <TableCell className="text-sm">{log.marca || "-"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
+                  <TableCell className="hidden lg:table-cell text-sm">{log.marca || "-"}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-sm text-muted-foreground max-w-[250px] truncate">
                     {log.detalhes || "-"}
                   </TableCell>
                 </TableRow>
