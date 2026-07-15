@@ -2501,11 +2501,11 @@ export default function Templates() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Formato</TableHead>
-                    <TableHead>ID Pri</TableHead>
-                    <TableHead>ID Meta</TableHead>
-                    <TableHead>Status Meta</TableHead>
+                    <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                    <TableHead className="hidden md:table-cell">Formato</TableHead>
+                    <TableHead className="hidden lg:table-cell">ID Pri</TableHead>
+                    <TableHead className="hidden lg:table-cell">ID Meta</TableHead>
+                    <TableHead className="hidden md:table-cell">Status Meta</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -2513,15 +2513,15 @@ export default function Templates() {
                   {templates.map((template) => (
                     <TableRow key={template.id}>
                       <TableCell className="font-medium">{template.nome}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline">
                           {(template.category_meta || template.categoria).charAt(0).toUpperCase() + (template.category_meta || template.categoria).slice(1).toLowerCase()}
                         </Badge>
                       </TableCell>
-                      <TableCell>{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
-                      <TableCell className="font-mono text-xs">{template.template_id_pri || "-"}</TableCell>
-                      <TableCell className="font-mono text-xs">{template.id_meta || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{template.formato.charAt(0).toUpperCase() + template.formato.slice(1)}</TableCell>
+                      <TableCell className="hidden lg:table-cell font-mono text-xs">{template.template_id_pri || "-"}</TableCell>
+                      <TableCell className="hidden lg:table-cell font-mono text-xs">{template.id_meta || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {template.status_meta ? (
                           <Badge 
                             className={
