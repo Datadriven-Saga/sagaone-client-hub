@@ -4,9 +4,19 @@ import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  React.HTMLAttributes<HTMLTableElement> & { wrapperClassName?: string }
+>(({ className, wrapperClassName, ...props }, ref) => (
+  // `overflow-x-auto` garante scroll horizontal em telas estreitas sem quebrar
+  // o layout; `-webkit-overflow-scrolling: touch` mantém rolagem inercial em iOS.
+  // Adicionamos role="region" + tabIndex para acessibilidade (WCAG SC 2.1.1).
+  <div
+    role="region"
+    tabIndex={0}
+    className={cn(
+      "relative w-full overflow-x-auto [-webkit-overflow-scrolling:touch] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-[inherit]",
+      wrapperClassName,
+    )}
+  >
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
