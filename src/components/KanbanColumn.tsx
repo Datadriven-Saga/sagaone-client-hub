@@ -43,8 +43,13 @@ export function KanbanColumn({ column, totalCount, onCardClick, onSolicitarClien
 
   return (
     <div 
+      id={`kanban-col-${column.id}`}
+      data-kanban-col={column.id}
       className={cn(
-        "min-w-[280px] flex-1 max-w-[320px] flex-shrink-0 flex flex-col h-full rounded-xl border border-border bg-muted/30 transition-colors",
+        "flex flex-col h-full rounded-xl border border-border bg-muted/30 transition-colors flex-shrink-0",
+        // Mobile: 1 coluna por viewport com snap; desktop mantém o comportamento antigo.
+        "min-w-[85vw] max-w-[85vw] snap-start",
+        "md:min-w-[280px] md:max-w-[320px] md:flex-1 md:snap-align-none",
         isOver && "border-primary/50 bg-primary/5"
       )}
     >

@@ -204,6 +204,8 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 > **Onda B concluída (tabelas operacionais):** além de `RecepcaoTable`, `DisparosProgramadosList`, `Cadeiras`, `DePara` e `ClientesImportadosList`, agora `prospeccao/Templates`, `prospeccao/EventoBase`, `DetalhesProspeccao`, `AgenteEventos`, `AgenteCadenciasNova`, `AgenteVariaveis`, `AgenteLojas`, `configuracoes/OrigensTab` e `configuracoes/DepartamentosTab` também colapsam colunas secundárias por breakpoint. `MotivosTab`/`TemperaturasTab` já tinham poucas colunas e não precisaram de ajuste.
 
+> **Onda C iniciada (Kanban + dashboards):** `KanbanBoard` ganhou chip-nav sticky em mobile (sincronizada via `IntersectionObserver`) e scroll horizontal com `snap-x snap-mandatory`; `KanbanColumn` passa a ocupar 85vw em mobile (`snap-start`) mantendo `min-w-[280px] max-w-[320px]` em `md:`. `DashboardWhatsAppTab` reduziu `hintLines` para `text-[11px] sm:text-xs` com `leading-tight` para não estourar cards de custo abaixo de 340px. Drag-and-drop segue funcionando (não foi desativado) — o fluxo "Mover para →" já existia no `KanbanCard`. Tsgo verde.
+
 - [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
 - [ ] **Renderização condicional via JS para tabelas volumosas** (Logs, Quarentena, Webhooks, Recepção com > 200 linhas): usar hook `useBreakpoint('md')` baseado em `window.matchMedia('(min-width: 768px)')` para renderizar **apenas** a árvore de `<table>` OU a árvore de `<Card>`, nunca as duas. Renderizar ambas com `hidden md:block` / `md:hidden` duplica o custo de reconciliação e trava o Kanban/Logs em celulares médios. Tabelas pequenas (< 50 linhas) podem manter o toggle CSS puro.
   ```tsx

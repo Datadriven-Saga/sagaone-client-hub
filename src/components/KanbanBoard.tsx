@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -206,6 +206,37 @@ export function KanbanBoard({
 
   const columnMeta = columns.map(c => ({ id: c.id, title: c.title }));
 
+  // Mobile: chip nav sincronizada com o scroll horizontal via IntersectionObserver.
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [activeColId, setActiveColId] = useState<string | null>(columns[0]?.id ?? null);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const els = columns
+      .map(c => scroller.querySelector<HTMLElement>(`[data-kanban-col="${c.id}"]`))
+      .filter((el): el is HTMLElement => !!el);
+    if (!els.length) return;
+    const io = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const id = visible?.target.getAttribute('data-kanban-col');
+        if (id) setActiveColId(id);
+      },
+      { root: scroller, threshold: [0.4, 0.6, 0.8] }
+    );
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, [columns]);
+
+  const scrollToColumn = (id: string) => {
+    const scroller = scrollerRef.current;
+    const el = scroller?.querySelector<HTMLElement>(`[data-kanban-col="${id}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -213,7 +244,34 @@ export function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full w-full min-w-0 max-w-full overflow-x-auto scrollbar-thin">
+      {/* Chip nav (mobile only) — permite pular entre etapas sem depender de drag */}
+      <div className="md:hidden sticky top-0 z-10 -mx-0.5 mb-1 flex gap-1.5 overflow-x-auto scrollbar-thin bg-background/95 backdrop-blur px-0.5 py-1.5">
+        {columns.map(col => {
+          const count = columnCounts?.[col.id] ?? col.items.length;
+          const isActive = activeColId === col.id;
+          return (
+            <button
+              key={col.id}
+              type="button"
+              onClick={() => scrollToColumn(col.id)}
+              className={
+                'shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors ' +
+                (isActive
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted')
+              }
+            >
+              {col.title}
+              <span className="ml-1.5 opacity-70">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        ref={scrollerRef}
+        className="h-full w-full min-w-0 max-w-full overflow-x-auto scrollbar-thin snap-x snap-mandatory md:snap-none"
+      >
         <div className="flex gap-2 p-0.5 min-w-max w-full h-full">
           {columns.map((column) => (
             <SortableContext
