@@ -387,10 +387,10 @@ export default function LogsCadeiras() {
                     <TableHead>Quando</TableHead>
                     <TableHead>Ação</TableHead>
                     <TableHead>Terceiro</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Loja</TableHead>
-                    <TableHead>Evento</TableHead>
-                    <TableHead>Executado por</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden sm:table-cell">Loja</TableHead>
+                    <TableHead className="hidden lg:table-cell">Evento</TableHead>
+                    <TableHead className="hidden md:table-cell">Executado por</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -410,10 +410,10 @@ export default function LogsCadeiras() {
                           )}
                         </TableCell>
                         <TableCell>{l.alvo?.nome_completo || "—"}</TableCell>
-                        <TableCell className="text-xs font-mono">{l.email || "—"}</TableCell>
-                        <TableCell>{l.empresas?.nome_empresa || "—"}</TableCell>
-                        <TableCell>{l.prospeccoes?.titulo || "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-xs font-mono hidden md:table-cell">{l.email || "—"}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{l.empresas?.nome_empresa || "—"}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{l.prospeccoes?.titulo || "—"}</TableCell>
+                        <TableCell className="hidden md:table-cell">
                           <div>{l.executor?.nome_completo || "—"}</div>
                           {(l.executado_por && (executorEmails[l.executado_por] || l.executor?.tipo_acesso)) && (
                             <div className="text-xs text-muted-foreground">
