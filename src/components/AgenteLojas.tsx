@@ -307,22 +307,22 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Dealer ID</TableHead>
+                  <TableHead className="hidden lg:table-cell">ID</TableHead>
+                  <TableHead className="hidden md:table-cell">Dealer ID</TableHead>
                   <TableHead>Loja</TableHead>
-                  <TableHead>UF</TableHead>
+                  <TableHead className="hidden sm:table-cell">UF</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Maia ID</TableHead>
-                  <TableHead>Chatwoot</TableHead>
-                  <TableHead>Histórico</TableHead>
+                  <TableHead className="hidden xl:table-cell">Maia ID</TableHead>
+                  <TableHead className="hidden xl:table-cell">Chatwoot</TableHead>
+                  <TableHead className="hidden xl:table-cell">Histórico</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredLojas.map((loja, idx) => (
                   <TableRow key={loja.id ?? idx}>
-                    <TableCell className="font-mono text-xs">{loja.id ?? "-"}</TableCell>
-                    <TableCell className="font-mono text-sm">{loja.dealerid}</TableCell>
+                    <TableCell className="font-mono text-xs hidden lg:table-cell">{loja.id ?? "-"}</TableCell>
+                    <TableCell className="font-mono text-sm hidden md:table-cell">{loja.dealerid}</TableCell>
                     <TableCell className="font-medium">{loja.loja_nome}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{loja.uf}</Badge>
