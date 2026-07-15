@@ -379,10 +379,10 @@ export function ControleEmpresasTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Empresa</TableHead>
-                    <TableHead>CNPJ</TableHead>
-                    <TableHead>Marca</TableHead>
-                    <TableHead>UF</TableHead>
-                    <TableHead>Cidade</TableHead>
+                    <TableHead className="hidden md:table-cell">CNPJ</TableHead>
+                    <TableHead className="hidden sm:table-cell">Marca</TableHead>
+                    <TableHead className="hidden lg:table-cell">UF</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cidade</TableHead>
                     <TableHead className="w-[100px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -390,14 +390,14 @@ export function ControleEmpresasTab() {
                   {empresas.map((empresa) => (
                     <TableRow key={empresa.id}>
                       <TableCell className="font-medium">{empresa.nome_empresa}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{empresa.cnpj}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{empresa.cnpj}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {empresa.marca ? (
                           <Badge variant="outline">{empresa.marca}</Badge>
                         ) : "-"}
                       </TableCell>
-                      <TableCell>{empresa.uf || "-"}</TableCell>
-                      <TableCell>{empresa.cidade || "-"}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{empresa.uf || "-"}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{empresa.cidade || "-"}</TableCell>
                       <TableCell>
                         <Button
                           variant="outline"
