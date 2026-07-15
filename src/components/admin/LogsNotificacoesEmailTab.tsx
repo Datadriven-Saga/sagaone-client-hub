@@ -150,11 +150,11 @@ export function LogsNotificacoesEmailTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data/Hora</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead className="hidden sm:table-cell">Tipo</TableHead>
                   <TableHead>Destinatário</TableHead>
-                  <TableHead>Assunto</TableHead>
+                  <TableHead className="hidden md:table-cell">Assunto</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Erro</TableHead>
+                  <TableHead className="hidden lg:table-cell">Erro</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -163,7 +163,7 @@ export function LogsNotificacoesEmailTab() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {new Date(log.created_at).toLocaleString('pt-BR')}
                     </TableCell>
-                    <TableCell>{getTipoBadge(log.tipo)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{getTipoBadge(log.tipo)}</TableCell>
                     <TableCell>
                       <div>
                         {log.destinatario_nome && (
@@ -172,11 +172,11 @@ export function LogsNotificacoesEmailTab() {
                         <p className="text-xs text-muted-foreground">{log.destinatario_email}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-sm">
+                    <TableCell className="hidden md:table-cell max-w-[200px] truncate text-sm">
                       {log.assunto}
                     </TableCell>
                     <TableCell>{getStatusBadge(log.status, log.erro)}</TableCell>
-                    <TableCell className="max-w-[200px] text-xs text-destructive truncate" title={log.erro || undefined}>
+                    <TableCell className="hidden lg:table-cell max-w-[200px] text-xs text-destructive truncate" title={log.erro || undefined}>
                       {log.erro || '-'}
                     </TableCell>
                   </TableRow>
