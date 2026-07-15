@@ -5,34 +5,22 @@ import { KanbanItem } from './KanbanBoard';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Phone, PhoneCall, MessageCircle } from 'lucide-react';
+import { Phone, PhoneCall, MessageCircle, ArrowRightCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatPhoneForDisplay, normalizePhoneForComparison } from '@/lib/phoneUtils';
+import { useUserAccessType } from '@/hooks/useUserAccessType';
 
 interface KanbanCardProps {
   item: KanbanItem;
@@ -57,41 +45,24 @@ const ORIGIN_STYLES: Record<string, string> = {
 };
 
 export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, availableColumns, onMoveItem }: KanbanCardProps) {
-  const [showCallConfirm, setShowCallConfirm] = useState(false);
-  const [pendingCallConfirmation, setPendingCallConfirmation] = useState(false);
-  const [showMovePicker, setShowMovePicker] = useState(false);
-  const [isMoving, setIsMoving] = useState(false);
+  const { isSDR } = useUserAccessType();
+  const [callInitiated, setCallInitiated] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverStep, setPopoverStep] = useState<'confirm' | 'move'>('confirm');
+  const [isBusy, setIsBusy] = useState(false);
   const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
-  const callStartedAtRef = useRef<number | null>(null);
 
   // Sync with prop when parent re-fetches
   useEffect(() => {
     setLocalTentativas(item.tentativas_chamada ?? 0);
   }, [item.tentativas_chamada]);
 
+  // Reset call state when the card is recycled to a different item
   useEffect(() => {
-    if (!pendingCallConfirmation) return;
-
-    const showConfirmationAfterReturn = () => {
-      if (document.visibilityState === 'hidden') return;
-
-      const elapsed = Date.now() - (callStartedAtRef.current ?? 0);
-      if (elapsed < 800) return;
-
-      setPendingCallConfirmation(false);
-      setShowCallConfirm(true);
-    };
-
-    window.addEventListener('focus', showConfirmationAfterReturn);
-    window.addEventListener('pageshow', showConfirmationAfterReturn);
-    document.addEventListener('visibilitychange', showConfirmationAfterReturn);
-
-    return () => {
-      window.removeEventListener('focus', showConfirmationAfterReturn);
-      window.removeEventListener('pageshow', showConfirmationAfterReturn);
-      document.removeEventListener('visibilitychange', showConfirmationAfterReturn);
-    };
-  }, [pendingCallConfirmation]);
+    setCallInitiated(false);
+    setPopoverOpen(false);
+    setPopoverStep('confirm');
+  }, [item.id]);
 
   const {
     attributes,
@@ -159,39 +130,65 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
     window.open(`https://wa.me/${phone}`, '_blank');
   };
 
-  const handleConfirmCall = async () => {
-    setShowCallConfirm(false);
-    const newCount = localTentativas + 1;
-    setLocalTentativas(newCount); // Optimistic update
+  const handleConfirmSim = async () => {
+    if (isBusy) return;
+    setIsBusy(true);
+    const prev = localTentativas;
+    setLocalTentativas(prev + 1); // Optimistic
     try {
       const { error } = await supabase.rpc('increment_tentativas_chamada', {
         p_contato_id: item.id,
       });
       if (error) throw error;
-      toast.success('Tentativa de ligação registrada!');
-      // Offer to move the lead to another Kanban column right away.
-      if (onMoveItem && availableColumns && availableColumns.length > 1) {
-        setShowMovePicker(true);
-      }
+      toast.success('Tentativa registrada');
+      setPopoverStep('move');
     } catch (err) {
       console.error('Erro ao registrar tentativa:', err);
-      setLocalTentativas(localTentativas); // Revert on error
+      setLocalTentativas(prev);
       toast.error('Erro ao registrar tentativa de ligação');
+    } finally {
+      setIsBusy(false);
     }
   };
 
-  const handlePickColumn = async (targetColumnId: string) => {
-    if (!onMoveItem) return;
-    setIsMoving(true);
+  const handleConfirmNao = () => {
+    // Não conta tentativa. Fecha popover mas mantém callInitiated para permitir nova tentativa.
+    setPopoverOpen(false);
+    setPopoverStep('confirm');
+  };
+
+  const handlePickDestination = async (targetColumnId: string) => {
+    if (!onMoveItem || isBusy) return;
+    setIsBusy(true);
     try {
       await onMoveItem(item.id, targetColumnId);
-      setShowMovePicker(false);
+      setPopoverOpen(false);
+      setPopoverStep('confirm');
+      setCallInitiated(false);
+    } catch (err) {
+      console.error('Erro ao mover lead:', err);
+      toast.error('Erro ao mover lead');
     } finally {
-      setIsMoving(false);
+      setIsBusy(false);
     }
   };
 
-  const moveTargets = (availableColumns ?? []).filter(c => c.id !== currentColumnId);
+  const handleCloseWithoutMove = () => {
+    setPopoverOpen(false);
+    setPopoverStep('confirm');
+    setCallInitiated(false);
+  };
+
+  // Destinos fixos: Em Espera, Convidados, Confirmados
+  const DESTINATIONS: Array<{ id: string; label: string }> = [
+    { id: 'emespera', label: 'Em Espera' },
+    { id: 'convidados', label: 'Convidados' },
+    { id: 'confirmados', label: 'Confirmados' },
+  ];
+  const availableIds = new Set((availableColumns ?? []).map(c => c.id));
+  const visibleDestinations = DESTINATIONS.filter(
+    d => availableIds.has(d.id) && d.id !== currentColumnId
+  );
 
   return (
     <>
@@ -244,9 +241,8 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                   href={telHref}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Deixa o SO abrir o discador via href; a confirmação aparece só ao voltar ao sistema.
-                    callStartedAtRef.current = Date.now();
-                    setPendingCallConfirmation(true);
+                    // Deixa o SO abrir o discador via href; habilita o botão inline de registro/movimentação.
+                    setCallInitiated(true);
                   }}
                   className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
                   aria-label="Ligar para o lead"
@@ -278,7 +274,7 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
         {/* Origin + Responsável + Time */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            {origin && (
+            {origin && !isSDR && (
               <span 
                 className={cn(
                   "text-[10px] font-medium px-2 py-0.5 rounded border",
@@ -288,6 +284,110 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                 {origin.toLowerCase()}
               </span>
             )}
+            <Popover
+              open={popoverOpen}
+              onOpenChange={(open) => {
+                if (isBusy) return;
+                setPopoverOpen(open);
+                if (!open) setPopoverStep('confirm');
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={!callInitiated}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!callInitiated) return;
+                        setPopoverOpen((v) => !v);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className={cn(
+                        "flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border transition-colors",
+                        callInitiated
+                          ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                          : "bg-muted text-muted-foreground border-border opacity-60 cursor-not-allowed"
+                      )}
+                      aria-label="Registrar ligação e mover lead"
+                    >
+                      <ArrowRightCircle className="w-3 h-3" />
+                      Ligação
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                {!callInitiated && (
+                  <TooltipContent>
+                    <p>Clique em ligar antes de registrar/mover</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+              <PopoverContent
+                className="w-64 p-3"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {popoverStep === 'confirm' ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">
+                      Você realizou a ligação para <strong>{item.title}</strong>?
+                    </p>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isBusy}
+                        onClick={handleConfirmNao}
+                      >
+                        Não
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={handleConfirmSim}
+                      >
+                        Sim
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Mover lead para…</p>
+                    {visibleDestinations.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Sem destinos disponíveis nesta visão.
+                      </p>
+                    ) : (
+                      <div className="grid gap-1.5">
+                        {visibleDestinations.map((d) => (
+                          <Button
+                            key={d.id}
+                            variant="outline"
+                            size="sm"
+                            disabled={isBusy}
+                            onClick={() => handlePickDestination(d.id)}
+                            className="justify-start"
+                          >
+                            {d.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={handleCloseWithoutMove}
+                        className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        Fechar sem mover
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span 
@@ -327,51 +427,6 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
           )}
         </div>
       </div>
-
-      <AlertDialog open={showCallConfirm} onOpenChange={setShowCallConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você realizou a ligação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Confirme se a ligação para <strong>{item.title}</strong> foi realizada para registrar a tentativa.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Não</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmCall}>Sim</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={showMovePicker} onOpenChange={(open) => !isMoving && setShowMovePicker(open)}>
-        <DialogContent onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Mover lead para outra etapa?</DialogTitle>
-            <DialogDescription>
-              Escolha a etapa do Kanban para onde <strong>{item.title}</strong> deve ir. Se preferir só registrar a ligação, feche sem mover.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 py-2">
-            {moveTargets.map(col => (
-              <Button
-                key={col.id}
-                variant="outline"
-                size="sm"
-                disabled={isMoving}
-                onClick={() => handlePickColumn(col.id)}
-                className="justify-start"
-              >
-                {col.title}
-              </Button>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" disabled={isMoving} onClick={() => setShowMovePicker(false)}>
-              Fechar sem mover
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
