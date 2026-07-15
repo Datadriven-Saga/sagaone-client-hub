@@ -206,7 +206,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
   const isDesktop = useBreakpoint('md');
   return isDesktop ? <DataTable ... /> : <CardList ... />;
   ```
-- [ ] **Onda A — Admin** (uso interno, menor risco): `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena`, `Empresas`, `Acessos`, `ControleGastosLigacao`, `Webhooks`.
+- [~] **Onda A — Admin** (uso interno, menor risco): `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena` já com colunas secundárias `hidden md:table-cell`/`lg:table-cell`/`xl:table-cell` (só as essenciais aparecem em < md). `Webhooks` não usa `<Table>` (grid de cards, já responsivo). Falta: `Empresas`, `Acessos`, `ControleGastosLigacao`.
 - [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
 - [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
 - [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)". **Chips de filtros ativos fixos no topo da tabela** — ao fechar o Sheet, cada filtro aplicado (empresa, período, status, busca) aparece como `<Badge variant="secondary">` com botão `x` para remoção individual, ordenados horizontalmente com scroll horizontal se necessário. O usuário nunca precisa reabrir o Sheet para saber o que está filtrando. Adicionar botão "Limpar todos" quando houver ≥ 2 chips.
