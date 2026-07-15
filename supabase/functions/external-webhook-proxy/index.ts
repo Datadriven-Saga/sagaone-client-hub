@@ -119,11 +119,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const endpoint = bodyData.endpoint;
-    const webhookSlug = bodyData.webhook_slug || bodyData.slug;
     const genericWebhookUrl = bodyData.webhook_url;
-
-    // Auth vem do registry por webhook; fallback global mantém compat.
-    const FALLBACK_SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
+    // `slug` is frequently a business field in payloads (ex.: slug do gatilho Paty).
+    // Only treat it as a webhook selector in the old generic mode where no endpoint/url exists.
+    const legacySlugSelector = !endpoint && !genericWebhookUrl && !bodyData.webhook_slug ? bodyData.slug : undefined;
+    const webhookSlug = bodyData.webhook_slug || legacySlugSelector;
 
     // ============ MODO GENÉRICO (webhook_url dinâmico) ============
     if (webhookSlug || genericWebhookUrl) {
@@ -135,13 +135,13 @@ Deno.serve(async (req: Request) => {
           { status: 424, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const targetUrl = registryEntry?.url || genericWebhookUrl;
-      if (!targetUrl) {
+      if (!registryEntry?.url) {
         return new Response(
           JSON.stringify({ error: `Webhook "${legacyKey}" não cadastrado em Administração → Webhooks.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      const targetUrl = registryEntry.url;
       const urlCheck = isAllowedGenericUrl(targetUrl);
       if (!urlCheck.valid) {
         console.error(`❌ URL bloqueada no proxy genérico: ${urlCheck.error} - ${targetUrl}`);
@@ -151,8 +151,12 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Remover campos de controle do body
-      const { endpoint: _e, webhook_url: _w, webhook_slug: _s, slug: _sl, webhook_method: method, ...payload } = bodyData;
+      // Remover apenas campos de controle do body. Mantém `slug` quando ele é dado de negócio.
+      const { endpoint: _e, webhook_url: _w, webhook_slug: _s, webhook_method: method, ...payloadWithMaybeSlug } = bodyData;
+      const payload = legacySlugSelector ? (() => {
+        const { slug: _legacySlug, ...rest } = payloadWithMaybeSlug;
+        return rest;
+      })() : payloadWithMaybeSlug;
       const httpMethod = (method || registryEntry?.metodo || 'POST').toUpperCase();
 
       console.log(`🔗 Proxy genérico ${httpMethod} → ${targetUrl}`);
@@ -162,7 +166,7 @@ Deno.serve(async (req: Request) => {
         method: httpMethod,
         headers: {
           'Content-Type': 'application/json',
-          ...(registryEntry ? buildAuthHeaders(registryEntry) : (FALLBACK_SAGA_ONE ? { 'saga_one_supabase': FALLBACK_SAGA_ONE } : {})),
+          ...buildAuthHeaders(registryEntry),
         },
       };
       if (httpMethod === 'POST' || httpMethod === 'PUT') {

@@ -30,6 +30,11 @@ interface LojaPaty {
 
 const UF_OPTIONS = ["DF", "GO", "MG", "MT", "RO"];
 const MARCA_OPTIONS = ["HYUNDAI", "TOYOTA", "RAM", "JEEP", "FIAT", "CHEVROLET", "VOLKSWAGEN", "HONDA", "NISSAN", "FORD"];
+const LOJAS_WEBHOOKS = {
+  buscaIds: "paty.lojas.busca_ids",
+  insereIds: "paty.lojas.insere_ids",
+  atualizaIds: "paty.lojas.atualiza_ids",
+} as const;
 
 export function LojasTab() {
   const { toast } = useToast();
@@ -51,7 +56,7 @@ export function LojasTab() {
     try {
       setLoading(true);
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint: "busca-paty-lojas-ids" },
+        body: { webhook_slug: LOJAS_WEBHOOKS.buscaIds },
       });
       if (error) throw new Error(error.message);
       const arr = Array.isArray(data) ? data : data ? [data] : [];
@@ -95,9 +100,9 @@ export function LojasTab() {
         movisis_id: Number(formData.movisis_id),
         ativo: !!formData.ativo,
       };
-      const endpoint = editing?.id ? "atualiza-paty-lojas-ids" : "insere-paty-lojas-ids";
+      const webhook_slug = editing?.id ? LOJAS_WEBHOOKS.atualizaIds : LOJAS_WEBHOOKS.insereIds;
       const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint, ...payload },
+        body: { webhook_slug, ...payload },
       });
       if (error) throw new Error(error.message);
       toast({ title: editing ? "Loja atualizada" : "Loja inserida" });

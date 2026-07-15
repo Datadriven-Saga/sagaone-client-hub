@@ -328,7 +328,7 @@ export default function TemplatesPaty() {
       // Enriquecer com marca/uf do webhook externo (mesma fonte de /administracao/agentes)
       try {
         const { data: wh } = await supabase.functions.invoke("external-webhook-proxy", {
-          body: { endpoint: "busca-dados-agentes" },
+          body: { webhook_slug: "pri_voz.agentes.busca_dados" },
         });
         const arr = Array.isArray(wh) ? wh : [];
         const byPhone = new Map<string, { marca?: string; uf?: string }>();

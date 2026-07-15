@@ -21,6 +21,13 @@ export const ENTREGA_SLUGS_FIXOS = [
   "MESSAGE_SENT_AFTER_1D",
 ] as const;
 
+const ENTREGA_WEBHOOKS = {
+  buscaTemplates: "paty.entrega.busca_template",
+  upsertTemplate: "paty.entrega.upsert_template",
+  desativaTemplate: "paty.entrega.desativa_template",
+  removeTemplate: "paty.entrega.remove_template",
+} as const;
+
 export type EntregaRowsBySlug = Record<string, EntregaTemplateRow[]>;
 
 export function usePatyEntregasTemplates(agenteTelefone: string | null) {
@@ -66,7 +73,7 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("external-webhook-proxy", {
-        body: { endpoint: "busca-paty-entrega-template", agente_telefone: agenteTelefone },
+        body: { webhook_slug: ENTREGA_WEBHOOKS.buscaTemplates, agente_telefone: agenteTelefone },
       });
       if (error) throw new Error(error.message);
       const arr = Array.isArray(data) ? data : [];
@@ -105,7 +112,7 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
     });
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
       body: {
-        endpoint: "upsert-paty-entrega-template",
+        webhook_slug: ENTREGA_WEBHOOKS.upsertTemplate,
         agente_telefone: agenteTelefone,
         gatilho: payload.slug,
         slug: payload.slug,
@@ -120,7 +127,7 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
 
   const desativar = useCallback(async (id: number) => {
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "desativa-paty-entrega-template", id },
+      body: { webhook_slug: ENTREGA_WEBHOOKS.desativaTemplate, id },
     });
     if (error) throw new Error(error.message);
     reload().catch(() => {});
@@ -128,7 +135,7 @@ export function usePatyEntregasTemplates(agenteTelefone: string | null) {
 
   const remover = useCallback(async (id: number) => {
     const { error } = await supabase.functions.invoke("external-webhook-proxy", {
-      body: { endpoint: "remove-paty-entrega-template", id },
+      body: { webhook_slug: ENTREGA_WEBHOOKS.removeTemplate, id },
     });
     if (error) throw new Error(error.message);
     reload().catch(() => {});
