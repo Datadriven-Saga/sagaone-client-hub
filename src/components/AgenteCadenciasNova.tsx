@@ -350,15 +350,15 @@ export function AgenteCadenciasNova({ agenteId }: AgenteCadenciasNovaProps) {
                           {cadencia.tipo_disparo === 'whatsapp' ? 'WhatsApp' : 'Ligação'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant="outline">
                           {cadencia.tipo_mensagem === 'dinamica' ? 'Dinâmica' : 'Pré-Definida'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[300px] truncate">
+                      <TableCell className="max-w-[300px] truncate hidden lg:table-cell">
                         {cadencia.mensagem_enviada || '-'}
                       </TableCell>
-                      <TableCell className="text-right">{cadencia.intervalo_minutos}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell">{cadencia.intervalo_minutos}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
                           <Button
