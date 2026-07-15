@@ -4,9 +4,19 @@ import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  React.HTMLAttributes<HTMLTableElement> & { wrapperClassName?: string }
+>(({ className, wrapperClassName, ...props }, ref) => (
+  // `overflow-x-auto` garante scroll horizontal em telas estreitas sem quebrar
+  // o layout; `-webkit-overflow-scrolling: touch` mantém rolagem inercial em iOS.
+  // Adicionamos role="region" + tabIndex para acessibilidade (WCAG SC 2.1.1).
+  <div
+    role="region"
+    tabIndex={0}
+    className={cn(
+      "relative w-full overflow-x-auto [-webkit-overflow-scrolling:touch] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-[inherit]",
+      wrapperClassName,
+    )}
+  >
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
@@ -73,7 +83,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      "h-10 px-2 sm:h-12 sm:px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}
@@ -87,7 +97,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn("p-2 sm:p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
     {...props}
   />
 ))

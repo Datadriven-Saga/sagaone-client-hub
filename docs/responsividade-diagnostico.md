@@ -198,6 +198,8 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 
 Objetivo: eliminar overflow horizontal **real** para permitir remoção do `overflow-x:hidden` global.
 
+> **Progresso base (execução do plano priorizado, sem PR por página):** o primitivo `src/components/ui/table.tsx` foi hardenizado — wrapper com `overflow-x:auto`, `role="region"` + `tabIndex=0` (WCAG 2.1.1), scroll inercial iOS, `wrapperClassName` opcional, e cells/heads com padding compacto (`p-2 sm:p-4`, `h-10 sm:h-12`). Isso propaga automaticamente para todas as ~53 telas com `<Table>` sem tocar em cada arquivo. Falta ainda a migração para `<ResponsiveTable>` por onda (Admin → Operacional → Restantes) para colapsar em cards abaixo de `md`.
+
 - [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
 - [ ] **Renderização condicional via JS para tabelas volumosas** (Logs, Quarentena, Webhooks, Recepção com > 200 linhas): usar hook `useBreakpoint('md')` baseado em `window.matchMedia('(min-width: 768px)')` para renderizar **apenas** a árvore de `<table>` OU a árvore de `<Card>`, nunca as duas. Renderizar ambas com `hidden md:block` / `md:hidden` duplica o custo de reconciliação e trava o Kanban/Logs em celulares médios. Tabelas pequenas (< 50 linhas) podem manter o toggle CSS puro.
   ```tsx
