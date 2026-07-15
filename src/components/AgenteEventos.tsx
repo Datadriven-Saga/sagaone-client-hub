@@ -253,7 +253,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome do Evento</TableHead>
-                  <TableHead>ID</TableHead>
+                  <TableHead className="hidden md:table-cell">ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Ativo/Inativo</TableHead>
                   {isAdminOrTI && (
