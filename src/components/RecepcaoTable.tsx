@@ -138,8 +138,8 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
                     <span className="font-medium">{visita.nome_cliente}</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{visita.telefone_cliente}</TableCell>
-                <TableCell>
+                <TableCell className="text-muted-foreground hidden sm:table-cell">{visita.telefone_cliente}</TableCell>
+                <TableCell className="hidden md:table-cell">
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
                     {visita.nome_campanha}
                   </span>
