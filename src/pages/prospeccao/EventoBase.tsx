@@ -2826,12 +2826,12 @@ export default function EventoBase() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[200px]">Nome</TableHead>
-                        <TableHead className="w-[140px]">Telefone</TableHead>
+                        <TableHead className="w-[140px] hidden sm:table-cell">Telefone</TableHead>
                         <TableHead className="w-[110px]">Status Lead</TableHead>
-                        <TableHead className="w-[100px]">Origem</TableHead>
-                        {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
-                        {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
-                        <TableHead className="w-[100px]">Criação</TableHead>
+                        <TableHead className="w-[100px] hidden md:table-cell">Origem</TableHead>
+                        {isIA && <TableHead className="w-[130px] hidden lg:table-cell">Disparo IA</TableHead>}
+                        {isIALigacao && <TableHead className="w-[80px] text-center hidden md:table-cell">Tent.</TableHead>}
+                        <TableHead className="w-[100px] hidden lg:table-cell">Criação</TableHead>
                         {isIA && <TableHead className="w-[100px] text-center">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
