@@ -324,7 +324,7 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
                     <TableCell className="font-mono text-xs hidden lg:table-cell">{loja.id ?? "-"}</TableCell>
                     <TableCell className="font-mono text-sm hidden md:table-cell">{loja.dealerid}</TableCell>
                     <TableCell className="font-medium">{loja.loja_nome}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Badge variant="secondary">{loja.uf}</Badge>
                     </TableCell>
                     <TableCell>
@@ -332,9 +332,9 @@ export function AgenteLojas({ agenteNome, agenteTelefone }: AgenteLojaProps) {
                         {isStatusAtivo(loja.ativa) ? "Ativo" : "Inativo"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{loja.maia_id}</TableCell>
-                    <TableCell className="font-mono text-xs">{loja.chatwoot}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{loja.tb_histories}</TableCell>
+                    <TableCell className="font-mono text-xs hidden xl:table-cell">{loja.maia_id}</TableCell>
+                    <TableCell className="font-mono text-xs hidden xl:table-cell">{loja.chatwoot}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">{loja.tb_histories}</TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(loja)}>
                         <Edit className="h-4 w-4" />
