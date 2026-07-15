@@ -125,9 +125,6 @@ Deno.serve(async (req: Request) => {
     const legacySlugSelector = !endpoint && !genericWebhookUrl ? bodyData.slug : undefined;
     const webhookSlug = bodyData.webhook_slug || legacySlugSelector;
 
-    // Auth vem do registry por webhook; fallback global mantém compat.
-    const FALLBACK_SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
-
     // ============ MODO GENÉRICO (webhook_url dinâmico) ============
     if (webhookSlug || genericWebhookUrl) {
       const legacyKey = webhookSlug || pathKeyFromUrl(genericWebhookUrl);
