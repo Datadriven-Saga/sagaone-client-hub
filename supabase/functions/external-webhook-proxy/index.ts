@@ -119,8 +119,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const endpoint = bodyData.endpoint;
-    const webhookSlug = bodyData.webhook_slug || bodyData.slug;
     const genericWebhookUrl = bodyData.webhook_url;
+    // `slug` is frequently a business field in payloads (ex.: slug do gatilho Paty).
+    // Only treat it as a webhook selector in the old generic mode where no endpoint/url exists.
+    const legacySlugSelector = !endpoint && !genericWebhookUrl ? bodyData.slug : undefined;
+    const webhookSlug = bodyData.webhook_slug || legacySlugSelector;
 
     // Auth vem do registry por webhook; fallback global mantém compat.
     const FALLBACK_SAGA_ONE = Deno.env.get('SAGA_ONE') || '';
@@ -151,8 +154,12 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Remover campos de controle do body
-      const { endpoint: _e, webhook_url: _w, webhook_slug: _s, slug: _sl, webhook_method: method, ...payload } = bodyData;
+      // Remover apenas campos de controle do body. Mantém `slug` quando ele é dado de negócio.
+      const { endpoint: _e, webhook_url: _w, webhook_slug: _s, webhook_method: method, ...payloadWithMaybeSlug } = bodyData;
+      const payload = legacySlugSelector ? (() => {
+        const { slug: _legacySlug, ...rest } = payloadWithMaybeSlug;
+        return rest;
+      })() : payloadWithMaybeSlug;
       const httpMethod = (method || registryEntry?.metodo || 'POST').toUpperCase();
 
       console.log(`🔗 Proxy genérico ${httpMethod} → ${targetUrl}`);
