@@ -247,8 +247,8 @@ const OptOutGlobal = () => {
                     <TableRow>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Motivo</TableHead>
-                      <TableHead>Data Bloqueio</TableHead>
+                      <TableHead className="hidden md:table-cell">Motivo</TableHead>
+                      <TableHead className="hidden lg:table-cell">Data Bloqueio</TableHead>
                       <TableHead className="w-[60px]" />
                     </TableRow>
                   </TableHeader>
@@ -263,10 +263,10 @@ const OptOutGlobal = () => {
                             BLOQUEADO PERMANENTEMENTE
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-[200px] truncate">
                           {item.motivo || "—"}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                           {item.created_at
                             ? format(new Date(item.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })
                             : "—"}
