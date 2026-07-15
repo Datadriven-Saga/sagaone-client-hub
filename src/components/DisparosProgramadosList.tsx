@@ -111,11 +111,11 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
             <TableRow>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Lotes</TableHead>
-              <TableHead>Próximo lote</TableHead>
-              <TableHead>Primeiro envio</TableHead>
-              <TableHead>Último envio</TableHead>
-              <TableHead>Progresso</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Lotes</TableHead>
+              <TableHead className="hidden md:table-cell">Próximo lote</TableHead>
+              <TableHead className="hidden lg:table-cell">Primeiro envio</TableHead>
+              <TableHead className="hidden lg:table-cell">Último envio</TableHead>
+              <TableHead className="hidden sm:table-cell">Progresso</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -135,11 +135,11 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                 <TableRow key={j.id}>
                   <TableCell><Badge className={sb.cls}>{sb.label}</Badge></TableCell>
                   <TableCell className="text-right">{j.total_records.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{lotesAgrupados.length}</TableCell>
-                  <TableCell>{fmt(proximo)}</TableCell>
-                  <TableCell>{fmt(min)}</TableCell>
-                  <TableCell>{fmt(max)}</TableCell>
-                  <TableCell>{done.toLocaleString()} / {j.total_records.toLocaleString()}</TableCell>
+                  <TableCell className="text-right hidden sm:table-cell">{lotesAgrupados.length}</TableCell>
+                  <TableCell className="hidden md:table-cell">{fmt(proximo)}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{fmt(min)}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{fmt(max)}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{done.toLocaleString()} / {j.total_records.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => setDetailJob(j)}>
@@ -179,8 +179,8 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                     <TableHead>Status</TableHead>
                     <TableHead>Agendado para</TableHead>
                     <TableHead className="text-right">Contatos</TableHead>
-                    <TableHead className="text-right">Tentativas</TableHead>
-                    <TableHead>Em processamento desde</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">Tentativas</TableHead>
+                    <TableHead className="hidden md:table-cell">Em processamento desde</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -192,8 +192,8 @@ export default function DisparosProgramadosList({ prospeccaoId, canCancel }: Pro
                         <TableCell><Badge className={sb.cls}>{sb.label}</Badge></TableCell>
                         <TableCell>{fmt(b.scheduled_at)}</TableCell>
                         <TableCell className="text-right">{b.total_leads.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{b.retry_count}</TableCell>
-                        <TableCell>{b.status === 'processing' ? fmt(b.locked_at) : '—'}</TableCell>
+                        <TableCell className="text-right hidden sm:table-cell">{b.retry_count}</TableCell>
+                        <TableCell className="hidden md:table-cell">{b.status === 'processing' ? fmt(b.locked_at) : '—'}</TableCell>
                       </TableRow>
                     );
                   })}
