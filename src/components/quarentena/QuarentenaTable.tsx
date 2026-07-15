@@ -31,9 +31,9 @@ const statusBadgeVariant: Record<QuarentenaStatus, "destructive" | "secondary" |
   desativado: "outline",
 };
 
-function SortableHeader({ label, column, active, direction, onToggle }: { label: string; column: string; active: boolean; direction: string; onToggle: (c: string) => void }) {
+function SortableHeader({ label, column, active, direction, onToggle, className }: { label: string; column: string; active: boolean; direction: string; onToggle: (c: string) => void; className?: string }) {
   return (
-    <TableHead className="cursor-pointer select-none" onClick={() => onToggle(column)}>
+    <TableHead className={`cursor-pointer select-none ${className || ""}`} onClick={() => onToggle(column)}>
       <div className="flex items-center gap-1">
         {label}
         <ArrowUpDown className={`h-3 w-3 ${active ? "text-foreground" : "text-muted-foreground/50"}`} />
@@ -159,12 +159,12 @@ export function QuarentenaTable({
                 <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
               </TableHead>
               <SortableHeader label="Telefone" column="telefone_normalizado" active={sortColumn === "telefone_normalizado"} direction={sortDirection} onToggle={onToggleSort} />
-              <SortableHeader label="Marca" column="marca" active={sortColumn === "marca"} direction={sortDirection} onToggle={onToggleSort} />
-              <TableHead>Canal</TableHead>
-              <SortableHeader label="Loja" column="empresa_nome" active={sortColumn === "empresa_nome"} direction={sortDirection} onToggle={onToggleSort} />
-              <SortableHeader label="Evento" column="evento_nome" active={sortColumn === "evento_nome"} direction={sortDirection} onToggle={onToggleSort} />
-              <SortableHeader label="Último Impacto" column="ultimo_impacto_at" active={sortColumn === "ultimo_impacto_at"} direction={sortDirection} onToggle={onToggleSort} />
-              <SortableHeader label="Fim Evento" column="data_fim_evento" active={sortColumn === "data_fim_evento"} direction={sortDirection} onToggle={onToggleSort} />
+              <SortableHeader className="hidden md:table-cell" label="Marca" column="marca" active={sortColumn === "marca"} direction={sortDirection} onToggle={onToggleSort} />
+              <TableHead className="hidden sm:table-cell">Canal</TableHead>
+              <SortableHeader className="hidden md:table-cell" label="Loja" column="empresa_nome" active={sortColumn === "empresa_nome"} direction={sortDirection} onToggle={onToggleSort} />
+              <SortableHeader className="hidden lg:table-cell" label="Evento" column="evento_nome" active={sortColumn === "evento_nome"} direction={sortDirection} onToggle={onToggleSort} />
+              <SortableHeader className="hidden lg:table-cell" label="Último Impacto" column="ultimo_impacto_at" active={sortColumn === "ultimo_impacto_at"} direction={sortDirection} onToggle={onToggleSort} />
+              <SortableHeader className="hidden xl:table-cell" label="Fim Evento" column="data_fim_evento" active={sortColumn === "data_fim_evento"} direction={sortDirection} onToggle={onToggleSort} />
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px]">Ação</TableHead>
             </TableRow>
@@ -192,20 +192,20 @@ export function QuarentenaTable({
                       <Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggle(item.id)} />
                     </TableCell>
                     <TableCell className="font-mono text-sm">{item.telefone_normalizado}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {item.marca ? <Badge variant="outline">{item.marca}</Badge> : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Badge variant={item.canal === "ligacao" ? "secondary" : "default"} className="text-xs">
                         {item.canal === "ligacao" ? "Ligação" : "WhatsApp"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm max-w-[150px] truncate">{item.empresa_nome || "-"}</TableCell>
-                    <TableCell className="max-w-[180px] truncate text-sm">{item.evento_nome || "-"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-sm max-w-[150px] truncate hidden md:table-cell">{item.empresa_nome || "-"}</TableCell>
+                    <TableCell className="max-w-[180px] truncate text-sm hidden lg:table-cell">{item.evento_nome || "-"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
                       {format(new Date(item.ultimo_impacto_at), "dd/MM/yy HH:mm", { locale: ptBR })}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-sm text-muted-foreground hidden xl:table-cell">
                       {item.data_fim_evento ? format(new Date(item.data_fim_evento), "dd/MM/yy", { locale: ptBR }) : "-"}
                     </TableCell>
                     <TableCell>

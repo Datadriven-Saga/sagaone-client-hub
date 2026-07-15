@@ -381,13 +381,13 @@ const LogsDisparos = () => {
                         <TableRow>
                           <TableHead>Data/Hora</TableHead>
                           <TableHead>Usuário</TableHead>
-                          <TableHead>Marca / UF</TableHead>
+                          <TableHead className="hidden md:table-cell">Marca / UF</TableHead>
                           <TableHead>Evento</TableHead>
-                          <TableHead>Canal</TableHead>
-                          <TableHead>Template</TableHead>
-                          <TableHead>Origem</TableHead>
-                          <TableHead className="text-right">Contatos</TableHead>
-                          <TableHead className="text-right">Ok/Falha</TableHead>
+                          <TableHead className="hidden sm:table-cell">Canal</TableHead>
+                          <TableHead className="hidden lg:table-cell">Template</TableHead>
+                          <TableHead className="hidden xl:table-cell">Origem</TableHead>
+                          <TableHead className="text-right hidden sm:table-cell">Contatos</TableHead>
+                          <TableHead className="text-right hidden lg:table-cell">Ok/Falha</TableHead>
                           <TableHead className="text-right">USD</TableHead>
                           {mostrarBRL && <TableHead className="text-right">BRL</TableHead>}
                         </TableRow>
@@ -404,24 +404,24 @@ const LogsDisparos = () => {
                                 <p className="text-xs text-muted-foreground">{log.usuario_email || "—"}</p>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden md:table-cell">
                               <div className="text-sm">
                                 <p>{log.marca || "—"}</p>
                                 <p className="text-xs text-muted-foreground">{log.uf || "—"}</p>
                               </div>
                             </TableCell>
                             <TableCell className="max-w-[150px] truncate text-sm">{log.evento_nome}</TableCell>
-                            <TableCell>{getCanalBadge(log.canal)}</TableCell>
-                            <TableCell className="max-w-[140px] truncate text-xs text-muted-foreground">{log.template_nome || "—"}</TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">{getCanalBadge(log.canal)}</TableCell>
+                            <TableCell className="hidden lg:table-cell max-w-[140px] truncate text-xs text-muted-foreground">{log.template_nome || "—"}</TableCell>
+                            <TableCell className="hidden xl:table-cell">
                               <Badge variant={log.origem === "edge_function" ? "default" : "secondary"} className="text-[10px]">
                                 {log.origem === "edge_function" ? "Server" : "Cliente"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-medium">
+                            <TableCell className="text-right font-medium hidden sm:table-cell">
                               {log.total_contatos.toLocaleString('pt-BR')}
                             </TableCell>
-                            <TableCell className="text-right text-xs">
+                            <TableCell className="text-right text-xs hidden lg:table-cell">
                               <span className="text-green-600">{log.total_sucesso ?? "—"}</span>
                               {" / "}
                               <span className="text-red-600">{log.total_falha ?? "—"}</span>
