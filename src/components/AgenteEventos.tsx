@@ -267,7 +267,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                     <TableCell className="font-medium">
                       {evento.nome || evento.nome_evento || evento.titulo || `Evento ${evento.id_evento}`}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-sm hidden md:table-cell">
                       {evento.id_evento}
                     </TableCell>
                     <TableCell>
