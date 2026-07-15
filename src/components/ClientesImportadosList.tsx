@@ -428,10 +428,10 @@ export const ClientesImportadosList = ({
                 />
               </TableHead>
               <TableHead className="w-[200px]">Nome</TableHead>
-              <TableHead className="w-[150px]">Telefone</TableHead>
-              <TableHead className="w-[200px]">E-mail</TableHead>
+              <TableHead className="w-[150px] hidden sm:table-cell">Telefone</TableHead>
+              <TableHead className="w-[200px] hidden md:table-cell">E-mail</TableHead>
               <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[120px]">Data Criação</TableHead>
+              <TableHead className="w-[120px] hidden lg:table-cell">Data Criação</TableHead>
               <TableHead className="w-[100px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -452,8 +452,8 @@ export const ClientesImportadosList = ({
                     />
                   </TableCell>
                   <TableCell className="font-medium">{contato.nome}</TableCell>
-                  <TableCell>{contato.telefone || '-'}</TableCell>
-                  <TableCell>{contato.email || '-'}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{contato.telefone || '-'}</TableCell>
+                  <TableCell className="hidden md:table-cell">{contato.email || '-'}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                       contato.status === 'Novo' ? 'bg-blue-100 text-blue-700' :
@@ -464,7 +464,7 @@ export const ClientesImportadosList = ({
                       {contato.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">
                     {contato.created_at ? format(new Date(contato.created_at), 'dd/MM/yyyy') : '-'}
                   </TableCell>
                   <TableCell className="text-right">

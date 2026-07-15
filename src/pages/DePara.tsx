@@ -216,8 +216,8 @@ export default function DePara() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Atualizado em</TableHead>
-                  <TableHead>Tamanho</TableHead>
+                      <TableHead className="hidden md:table-cell">Atualizado em</TableHead>
+                      <TableHead className="hidden sm:table-cell">Tamanho</TableHead>
                   <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
@@ -237,8 +237,8 @@ export default function DePara() {
                     <TableCell className="font-medium flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" /> {it.name}
                     </TableCell>
-                    <TableCell>{it.lastModified ? new Date(it.lastModified).toLocaleString("pt-BR") : "-"}</TableCell>
-                    <TableCell>{it.size} B</TableCell>
+                    <TableCell className="hidden md:table-cell">{it.lastModified ? new Date(it.lastModified).toLocaleString("pt-BR") : "-"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{it.size} B</TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" onClick={() => openEdit(it)}>Editar</Button>
                     </TableCell>

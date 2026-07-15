@@ -642,8 +642,8 @@ const Cadeiras = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Evento</TableHead>
-                    <TableHead>Vence em</TableHead>
+                    <TableHead className="hidden md:table-cell">Evento</TableHead>
+                    <TableHead className="hidden sm:table-cell">Vence em</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -656,8 +656,8 @@ const Cadeiras = () => {
                         <TableCell>
                           {s.profiles?.nome_completo || "—"}
                         </TableCell>
-                        <TableCell>{s.prospeccoes?.titulo || "—"}</TableCell>
-                        <TableCell>{s.prospeccoes?.data_fim || "—"}</TableCell>
+                        <TableCell className="hidden md:table-cell">{s.prospeccoes?.titulo || "—"}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{s.prospeccoes?.data_fim || "—"}</TableCell>
                         <TableCell>{statusBadge(s)}</TableCell>
                         <TableCell className="text-right space-x-1">
                           {(s.status !== "active" ||

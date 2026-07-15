@@ -202,6 +202,8 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 > **Onda A concluída (colapso de colunas por breakpoint):** `LogsDisparos`, `LogsCadeiras`, `QuarentenaTable`, `OptOutGlobal`, `QuarentenaLogs`, `LogsNotificacoesEmailTab`, `ControleEmpresasTab`, `Agentes` (tabela principal) e `VisaoGeral` (Agentes + Cronograma) receberam `hidden {sm,md,lg,xl}:table-cell` nas colunas secundárias, mantendo identificador + status/ações sempre visíveis. `Empresas` já usava lista em cards responsiva; `Webhooks` já é grid de cards. Tsgo verde.
 
+> **Onda B em andamento (tabelas operacionais):** `RecepcaoTable`, `DisparosProgramadosList` (job + lotes), `Cadeiras`, `DePara` e `ClientesImportadosList` receberam o mesmo padrão de colapso progressivo. Faltam: `DetalhesProspeccao`, `TemplatesPaty`, `prospeccao/Templates`, `EventoBase`, tabelas de agentes (`AgenteVariaveis/Lojas/Eventos/CadenciasNova`) e config (`Temperaturas/Origens/Motivos/Departamentos`).
+
 - [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
 - [ ] **Renderização condicional via JS para tabelas volumosas** (Logs, Quarentena, Webhooks, Recepção com > 200 linhas): usar hook `useBreakpoint('md')` baseado em `window.matchMedia('(min-width: 768px)')` para renderizar **apenas** a árvore de `<table>` OU a árvore de `<Card>`, nunca as duas. Renderizar ambas com `hidden md:block` / `md:hidden` duplica o custo de reconciliação e trava o Kanban/Logs em celulares médios. Tabelas pequenas (< 50 linhas) podem manter o toggle CSS puro.
   ```tsx
