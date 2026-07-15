@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
     const genericWebhookUrl = bodyData.webhook_url;
     // `slug` is frequently a business field in payloads (ex.: slug do gatilho Paty).
     // Only treat it as a webhook selector in the old generic mode where no endpoint/url exists.
-    const legacySlugSelector = !endpoint && !genericWebhookUrl ? bodyData.slug : undefined;
+    const legacySlugSelector = !endpoint && !genericWebhookUrl && !bodyData.webhook_slug ? bodyData.slug : undefined;
     const webhookSlug = bodyData.webhook_slug || legacySlugSelector;
 
     // ============ MODO GENÉRICO (webhook_url dinâmico) ============
