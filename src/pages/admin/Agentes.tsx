@@ -1862,10 +1862,10 @@ export default function AdminAgentes() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Marca</TableHead>
-                          <TableHead>UF</TableHead>
+                          <TableHead className="hidden sm:table-cell">UF</TableHead>
                           <TableHead>Número</TableHead>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Instância</TableHead>
+                          <TableHead className="hidden md:table-cell">Nome</TableHead>
+                          <TableHead className="hidden xl:table-cell">Instância</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -1883,7 +1883,7 @@ export default function AdminAgentes() {
                                 <span className="font-medium">{agente.marca || "N/A"}</span>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">
                               <div className="flex items-center gap-2">
                                 <MapPin className="h-4 w-4 text-muted-foreground" />
                                 <span>{agente.uf || "N/A"}</span>
@@ -1895,7 +1895,7 @@ export default function AdminAgentes() {
                                 <span>{agente.num_maia || "N/A"}</span>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden md:table-cell">
                               <div className="flex items-center gap-2">
                                 <Bot className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium">
@@ -1903,7 +1903,7 @@ export default function AdminAgentes() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden xl:table-cell">
                               <div className="flex items-center gap-2">
                                 <Server className="h-4 w-4 text-muted-foreground" />
                                 <span
