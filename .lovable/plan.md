@@ -1,19 +1,33 @@
-## Sim — voltar ao formato antigo
+## Diagnóstico
 
-Clicar no botão de telefone volta a abrir o app de telefone nativamente (mobile: discador; desktop: handler configurado como FaceTime/Teams/Skype ou "Escolher um app"), exatamente como era antes de virar `<button>` com `window.open`.
+O fluxo ainda parece “pular” o aplicativo de telefone porque o clique no ícone faz duas coisas ao mesmo tempo:
 
-## O que mudou (e por quê "vai direto na pergunta")
+1. dispara o `href="tel:..."`, que deveria abrir o discador nativo;
+2. no mesmo clique, abre imediatamente o modal “Você realizou a ligação?”.
 
-Antes: `<a href="tel:+55...">` — o navegador/SO cuidava de abrir o discador.
-Hoje: `<button onClick>` que chama `window.open('tel:...', '_self')` e imediatamente abre o `AlertDialog` "Você realizou a ligação?". No desktop sem handler o `window.open` não mostra nada visível, e o dialog sobe por cima — dá a impressão de que pulou o discador.
+Mesmo com o `<a href="tel:">` restaurado, esse `setShowCallConfirm(true)` imediato pode tomar a tela/foco antes do sistema operacional mostrar o app de telefone ou o seletor de aplicativo. Por isso a experiência continua parecendo que vai direto para a pergunta.
 
-## Correção — `src/components/KanbanCard.tsx`
+## Plano de correção
 
-1. Trocar o `<button onClick={handlePhoneClick}>` do ícone de telefone por um `<a href="tel:+55{phone}">`, mantendo o mesmo estilo/tooltip. O `onClick` do anchor apenas faz `stopPropagation` e `setShowCallConfirm(true)` — quem dispara o discador é o próprio `href`, tratado pelo SO como sempre foi.
-2. Remover `window.open('tel:...', '_self')` de `handlePhoneClick` (a função deixa de ser necessária; a lógica migra para o `onClick` do anchor).
-3. Manter intactos: `AlertDialog` de confirmação, `handleConfirmCall`, incremento de tentativas via `increment_tentativas_chamada`, e o `Dialog` de mover o lead após confirmar. Nada de RPC, RLS, edge function ou webhook muda.
+1. **Deixar o clique de telefone como ação nativa pura**
+   - O botão de ligar continuará sendo um `<a href="tel:+55...">`.
+   - No clique, não abrirá nenhum modal imediatamente.
+   - O clique só deve impedir que o card do Kanban abra por trás, sem bloquear o `tel:`.
 
-### Resultado
-- Mobile: toca no ícone → abre o app de telefone nativo (como antes).
-- Desktop: clica → navegador abre o handler `tel:` do sistema (como antes).
-- Em ambos, a caixinha "Você realizou a ligação?" aparece por cima para registrar a tentativa e, se confirmar, oferecer mover o lead.
+2. **Abrir a pergunta somente depois que o usuário voltar ao sistema**
+   - Ao clicar para ligar, salvar temporariamente qual lead iniciou a ligação.
+   - Escutar quando a aba/app voltar ao foco (`visibilitychange`, `focus` ou `pageshow`).
+   - Só então mostrar “Você realizou a ligação?”.
+
+3. **Manter o restante do fluxo igual**
+   - Se responder “Sim”, continua registrando tentativa via `increment_tentativas_chamada`.
+   - Depois disso, continua oferecendo mover o lead no Kanban.
+   - Se responder “Não”, apenas fecha.
+
+4. **Validar o comportamento**
+   - Clicar no ícone de telefone deve primeiro acionar o app/discador do dispositivo.
+   - A pergunta só aparece depois do retorno ao sistema, não no mesmo instante do clique.
+
+## Resultado esperado
+
+O comportamento volta ao padrão antigo: clicou no telefone, o navegador/SO tenta abrir imediatamente o aplicativo de ligação. A confirmação deixa de competir com o discador e passa a aparecer apenas depois do retorno ao SagaOne.

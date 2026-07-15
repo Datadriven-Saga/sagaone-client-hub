@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { KanbanItem } from './KanbanBoard';
@@ -58,14 +58,40 @@ const ORIGIN_STYLES: Record<string, string> = {
 
 export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, availableColumns, onMoveItem }: KanbanCardProps) {
   const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const [pendingCallConfirmation, setPendingCallConfirmation] = useState(false);
   const [showMovePicker, setShowMovePicker] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
+  const callStartedAtRef = useRef<number | null>(null);
 
   // Sync with prop when parent re-fetches
   useEffect(() => {
     setLocalTentativas(item.tentativas_chamada ?? 0);
   }, [item.tentativas_chamada]);
+
+  useEffect(() => {
+    if (!pendingCallConfirmation) return;
+
+    const showConfirmationAfterReturn = () => {
+      if (document.visibilityState === 'hidden') return;
+
+      const elapsed = Date.now() - (callStartedAtRef.current ?? 0);
+      if (elapsed < 800) return;
+
+      setPendingCallConfirmation(false);
+      setShowCallConfirm(true);
+    };
+
+    window.addEventListener('focus', showConfirmationAfterReturn);
+    window.addEventListener('pageshow', showConfirmationAfterReturn);
+    document.addEventListener('visibilitychange', showConfirmationAfterReturn);
+
+    return () => {
+      window.removeEventListener('focus', showConfirmationAfterReturn);
+      window.removeEventListener('pageshow', showConfirmationAfterReturn);
+      document.removeEventListener('visibilitychange', showConfirmationAfterReturn);
+    };
+  }, [pendingCallConfirmation]);
 
   const {
     attributes,
@@ -218,8 +244,9 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                   href={telHref}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Deixa o SO abrir o discador via href; abre a confirmação por cima.
-                    setShowCallConfirm(true);
+                    // Deixa o SO abrir o discador via href; a confirmação aparece só ao voltar ao sistema.
+                    callStartedAtRef.current = Date.now();
+                    setPendingCallConfirmation(true);
                   }}
                   className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
                   aria-label="Ligar para o lead"
