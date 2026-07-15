@@ -120,8 +120,8 @@ export const RecepcaoTable = ({ visitas, onDelete, searchFilter = "" }: Recepcao
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="font-semibold">Cliente</TableHead>
-              <TableHead className="font-semibold">Telefone</TableHead>
-              <TableHead className="font-semibold">Campanha</TableHead>
+              <TableHead className="font-semibold hidden sm:table-cell">Telefone</TableHead>
+              <TableHead className="font-semibold hidden md:table-cell">Campanha</TableHead>
               <TableHead className="font-semibold hidden lg:table-cell">ID Maia</TableHead>
               <TableHead className="font-semibold">Data/Hora</TableHead>
               {canDeleteRecepcaoVisita && <TableHead className="w-[80px]"></TableHead>}
