@@ -138,13 +138,13 @@ Deno.serve(async (req: Request) => {
           { status: 424, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const targetUrl = registryEntry?.url || genericWebhookUrl;
-      if (!targetUrl) {
+      if (!registryEntry?.url) {
         return new Response(
           JSON.stringify({ error: `Webhook "${legacyKey}" não cadastrado em Administração → Webhooks.` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      const targetUrl = registryEntry.url;
       const urlCheck = isAllowedGenericUrl(targetUrl);
       if (!urlCheck.valid) {
         console.error(`❌ URL bloqueada no proxy genérico: ${urlCheck.error} - ${targetUrl}`);
@@ -169,7 +169,7 @@ Deno.serve(async (req: Request) => {
         method: httpMethod,
         headers: {
           'Content-Type': 'application/json',
-          ...(registryEntry ? buildAuthHeaders(registryEntry) : (FALLBACK_SAGA_ONE ? { 'saga_one_supabase': FALLBACK_SAGA_ONE } : {})),
+          ...buildAuthHeaders(registryEntry),
         },
       };
       if (httpMethod === 'POST' || httpMethod === 'PUT') {
