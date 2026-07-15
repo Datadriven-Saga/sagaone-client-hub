@@ -239,26 +239,26 @@ export const DetalhesProspeccao = ({ prospeccao }: DetalhesProspeccaoProps) => {
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead className="w-[180px]">Nome</TableHead>
-                      <TableHead className="w-[140px]">Telefone</TableHead>
-                      <TableHead className="w-[180px]">E-mail</TableHead>
+                      <TableHead className="w-[140px] hidden sm:table-cell">Telefone</TableHead>
+                      <TableHead className="w-[180px] hidden lg:table-cell">E-mail</TableHead>
                       <TableHead className="w-[120px]">Status</TableHead>
-                      <TableHead className="w-[110px]">Data Contato</TableHead>
-                      <TableHead className="w-[110px]">Últ. Interação</TableHead>
+                      <TableHead className="w-[110px] hidden md:table-cell">Data Contato</TableHead>
+                      <TableHead className="w-[110px] hidden md:table-cell">Últ. Interação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {clientesProspectados.map((cliente) => (
                       <TableRow key={cliente.id}>
                         <TableCell className="font-medium">{cliente.nome}</TableCell>
-                        <TableCell>{cliente.telefone}</TableCell>
-                        <TableCell>{cliente.email || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{cliente.telefone}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{cliente.email || '-'}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(cliente.status)}>
                             {cliente.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{cliente.dataContato}</TableCell>
-                        <TableCell>{cliente.ultimaInteracao}</TableCell>
+                        <TableCell className="hidden md:table-cell">{cliente.dataContato}</TableCell>
+                        <TableCell className="hidden md:table-cell">{cliente.ultimaInteracao}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

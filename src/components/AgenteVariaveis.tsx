@@ -291,8 +291,8 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
                   <TableRow>
                     <TableHead className="w-16">Ordem</TableHead>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="w-32">Obrigatório</TableHead>
+                    <TableHead className="hidden md:table-cell">Descrição</TableHead>
+                    <TableHead className="w-32 hidden sm:table-cell">Obrigatório</TableHead>
                     <TableHead className="text-right w-48">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -301,8 +301,8 @@ export default function AgenteVariaveis({ agenteId }: AgenteVariaveisProps) {
                     <TableRow key={variavel.id} className={!variavel.ativo ? "opacity-50" : ""}>
                       <TableCell className="font-medium">{variavel.ordem}</TableCell>
                       <TableCell>{variavel.nome}</TableCell>
-                      <TableCell className="max-w-md truncate">{variavel.descricao}</TableCell>
-                      <TableCell>{variavel.obrigatorio ? "Sim" : "Não"}</TableCell>
+                      <TableCell className="max-w-md truncate hidden md:table-cell">{variavel.descricao}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{variavel.obrigatorio ? "Sim" : "Não"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button

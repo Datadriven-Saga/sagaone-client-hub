@@ -2826,12 +2826,12 @@ export default function EventoBase() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[200px]">Nome</TableHead>
-                        <TableHead className="w-[140px]">Telefone</TableHead>
+                        <TableHead className="w-[140px] hidden sm:table-cell">Telefone</TableHead>
                         <TableHead className="w-[110px]">Status Lead</TableHead>
-                        <TableHead className="w-[100px]">Origem</TableHead>
-                        {isIA && <TableHead className="w-[130px]">Disparo IA</TableHead>}
-                        {isIALigacao && <TableHead className="w-[80px] text-center">Tent.</TableHead>}
-                        <TableHead className="w-[100px]">Criação</TableHead>
+                        <TableHead className="w-[100px] hidden md:table-cell">Origem</TableHead>
+                        {isIA && <TableHead className="w-[130px] hidden lg:table-cell">Disparo IA</TableHead>}
+                        {isIALigacao && <TableHead className="w-[80px] text-center hidden md:table-cell">Tent.</TableHead>}
+                        <TableHead className="w-[100px] hidden lg:table-cell">Criação</TableHead>
                         {isIA && <TableHead className="w-[100px] text-center">Ações</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -2839,7 +2839,7 @@ export default function EventoBase() {
                       {filteredContatos.map((contato) => (
                         <TableRow key={contato.id} className="hover:bg-muted/50">
                           <TableCell className="font-medium">{contato.nome || '-'}</TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             {contato.telefone ? (
                               <span className="flex items-center gap-1">
                                 <Phone className="h-3 w-3 text-muted-foreground" />
@@ -2852,11 +2852,11 @@ export default function EventoBase() {
                               {contato.status || 'Sem Status'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
                             {contato.origem || '-'}
                           </TableCell>
                           {isIA && (
-                            <TableCell>
+                            <TableCell className="hidden lg:table-cell">
                               {(() => {
                                 // Normalizar telefone removendo +55
                                 let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
@@ -2923,7 +2923,7 @@ export default function EventoBase() {
                           )}
                           {/* Coluna Tentativas - apenas para IA Ligação */}
                           {isIALigacao && (
-                            <TableCell className="text-center">
+                            <TableCell className="text-center hidden md:table-cell">
                               {(() => {
                                 // Normalizar telefone removendo +55
                                 let telefoneNormalizado = contato.telefone?.replace(/\D/g, '') || '';
@@ -2952,7 +2952,7 @@ export default function EventoBase() {
                               })()}
                             </TableCell>
                           )}
-                          <TableCell className="text-xs text-muted-foreground">
+                          <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">
                             {contato.created_at ? format(new Date(contato.created_at), 'dd/MM/yy') : '-'}
                           </TableCell>
                           {/* Coluna Ações - disparo individual */}

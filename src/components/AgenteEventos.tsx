@@ -253,7 +253,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome do Evento</TableHead>
-                  <TableHead>ID</TableHead>
+                  <TableHead className="hidden md:table-cell">ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Ativo/Inativo</TableHead>
                   {isAdminOrTI && (
@@ -267,7 +267,7 @@ export function AgenteEventos({ agenteId, agenteTelefone }: AgenteEventosProps) 
                     <TableCell className="font-medium">
                       {evento.nome || evento.nome_evento || evento.titulo || `Evento ${evento.id_evento}`}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-sm hidden md:table-cell">
                       {evento.id_evento}
                     </TableCell>
                     <TableCell>

@@ -159,7 +159,7 @@ export function DepartamentosTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Modelo de Distribuição</TableHead>
+                <TableHead className="hidden md:table-cell">Modelo de Distribuição</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
@@ -168,7 +168,7 @@ export function DepartamentosTab() {
               {departamentos.map((dept) => (
                 <TableRow key={dept.id}>
                   <TableCell>{dept.nome}</TableCell>
-                  <TableCell>{dept.modelo_distribuicao}</TableCell>
+                  <TableCell className="hidden md:table-cell">{dept.modelo_distribuicao}</TableCell>
                   <TableCell>
                     <span className={dept.ativo ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
                       {dept.ativo ? "Ativo" : "Desativado"}
