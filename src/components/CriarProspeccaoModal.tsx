@@ -3052,7 +3052,7 @@ ${localEvento}`;
               )}
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="data_inicio">Data de Início</Label>
                 <Input
@@ -3676,7 +3676,7 @@ ${localEvento}`;
                   <MapPin className="h-4 w-4 text-primary" />
                   <h4 className="text-sm font-medium">Localização do Evento *</h4>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div className="space-y-2">
                     <Label htmlFor="eventoUF">Estado (UF) *</Label>
                     <Input
@@ -3844,7 +3844,7 @@ ${localEvento}`;
               </div>
             </Card>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <Card className="p-2">
                 <div className="flex items-center gap-1.5 mb-1">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -3894,7 +3894,7 @@ ${localEvento}`;
               </Card>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <Card className="p-2">
                 <div className="flex items-center gap-1.5 mb-1">
                   <MapPin className="h-3 w-3 text-orange-500" />
@@ -3982,7 +3982,7 @@ ${localEvento}`;
                 )}
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Vendas */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
@@ -4213,7 +4213,7 @@ ${localEvento}`;
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Nome da Equipe</Label>
                       <Input
@@ -4318,7 +4318,7 @@ ${localEvento}`;
                   <Card key={index} className={`p-3 ${!equipe.ativo ? 'opacity-50' : ''}`}>
                     {equipeEditando === index ? (
                       <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs">Nome</Label>
                             <Input

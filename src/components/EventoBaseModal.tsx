@@ -311,7 +311,7 @@ export const EventoBaseModal = ({
           </div>
 
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -327,7 +327,7 @@ export const EventoBaseModal = ({
 
           {isIA && (
             <Select value={disparoFilter} onValueChange={(v) => setDisparoFilter(v as DisparoFilter)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <Send className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Disparo IA" />
               </SelectTrigger>

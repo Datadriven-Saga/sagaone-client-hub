@@ -2199,7 +2199,7 @@ export default function EventoBase() {
                 onValueChange={setSelectedReplacementTemplate}
                 disabled={loadingTemplates || isReplacingTemplate}
               >
-                <SelectTrigger className="w-[300px] h-9 bg-background">
+                <SelectTrigger className="w-full sm:w-[300px] h-9 bg-background">
                   <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -2246,7 +2246,7 @@ export default function EventoBase() {
                 onValueChange={setSelectedReplacementTemplate}
                 disabled={loadingTemplates || isReplacingTemplate}
               >
-                <SelectTrigger className="w-[300px] h-9 bg-background">
+                <SelectTrigger className="w-full sm:w-[300px] h-9 bg-background">
                   <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -2518,7 +2518,7 @@ export default function EventoBase() {
               </div>
 
               <Select value={statusFilter} onValueChange={(v) => handleFilterChange('status', v)}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[150px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Status Lead" />
                 </SelectTrigger>
@@ -2532,7 +2532,7 @@ export default function EventoBase() {
 
               {isIA && (
                 <Select value={disparoFilter} onValueChange={(v) => handleFilterChange('disparo', v)}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-full sm:w-[140px]">
                     <Send className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Disparo" />
                   </SelectTrigger>
@@ -2550,7 +2550,7 @@ export default function EventoBase() {
               {isIALigacao && (
                 <>
                   <Select value={statusLigacaoFilter} onValueChange={(v) => handleFilterChange('statusLigacao', v)}>
-                    <SelectTrigger className="w-[150px]">
+                    <SelectTrigger className="w-full sm:w-[150px]">
                       <PhoneCall className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Ligação" />
                     </SelectTrigger>
@@ -2565,7 +2565,7 @@ export default function EventoBase() {
                   </Select>
                   
                   <Select value={tentativasFilter} onValueChange={(v) => handleFilterChange('tentativas', v)}>
-                    <SelectTrigger className="w-[130px]">
+                    <SelectTrigger className="w-full sm:w-[130px]">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Tentativas" />
                     </SelectTrigger>

@@ -986,7 +986,7 @@ export function MFAAgentesContent() {
                 <Input placeholder="Buscar nos logs..." value={searchLogs} onChange={e => { setSearchLogs(e.target.value); setLogPage(1); }} className="pl-9" />
               </div>
               <Select value={logActionFilter} onValueChange={(v) => { setLogActionFilter(v); setLogPage(1); }}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar ação" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrar ação" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as ações</SelectItem>
                   {uniqueLogActions.map(a => (

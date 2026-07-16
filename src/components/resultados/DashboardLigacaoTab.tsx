@@ -376,7 +376,7 @@ export const DashboardLigacaoTab = ({
             {/* Event Switcher */}
             {availableEvents.length > 0 && (
               <Select value={selectedEventId || ''} onValueChange={handleEventChange}>
-                <SelectTrigger className="w-[220px] h-9 text-sm">
+                <SelectTrigger className="w-full sm:w-[220px] h-9 text-sm">
                   <SelectValue placeholder="Selecionar evento..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -419,7 +419,7 @@ export const DashboardLigacaoTab = ({
             )}
             {lojasDisponiveis.length > 1 && (
               <Select value={selectedLoja || '__all__'} onValueChange={(v) => setSelectedLoja(v === '__all__' ? '' : v)}>
-                <SelectTrigger className="w-[240px] h-8 text-xs border-primary/30 bg-primary/5">
+                <SelectTrigger className="w-full sm:w-[240px] h-8 text-xs border-primary/30 bg-primary/5">
                   <SelectValue placeholder="Selecionar loja..." />
                 </SelectTrigger>
                 <SelectContent>
