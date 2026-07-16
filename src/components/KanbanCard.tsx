@@ -17,6 +17,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatPhoneForDisplay, normalizePhoneForComparison } from '@/lib/phoneUtils';
@@ -48,9 +58,10 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
   const { isSDR } = useUserAccessType();
   const [callInitiated, setCallInitiated] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [popoverStep, setPopoverStep] = useState<'confirm' | 'move'>('confirm');
   const [isBusy, setIsBusy] = useState(false);
   const [localTentativas, setLocalTentativas] = useState(item.tentativas_chamada ?? 0);
+  const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const awaitingReturnRef = useRef(false);
 
   // Sync with prop when parent re-fetches
   useEffect(() => {
@@ -61,8 +72,28 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
   useEffect(() => {
     setCallInitiated(false);
     setPopoverOpen(false);
-    setPopoverStep('confirm');
+    setShowCallConfirm(false);
+    awaitingReturnRef.current = false;
   }, [item.id]);
+
+  // Pós-retorno do discador: pergunta se ligação aconteceu e conta tentativa.
+  useEffect(() => {
+    const handleReturn = () => {
+      if (!awaitingReturnRef.current) return;
+      if (document.visibilityState !== 'visible') return;
+      awaitingReturnRef.current = false;
+      // pequeno delay pra evitar disparar antes do foco voltar de fato
+      setTimeout(() => setShowCallConfirm(true), 250);
+    };
+    window.addEventListener('focus', handleReturn);
+    document.addEventListener('visibilitychange', handleReturn);
+    window.addEventListener('pageshow', handleReturn);
+    return () => {
+      window.removeEventListener('focus', handleReturn);
+      document.removeEventListener('visibilitychange', handleReturn);
+      window.removeEventListener('pageshow', handleReturn);
+    };
+  }, []);
 
   const {
     attributes,
@@ -141,7 +172,7 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
       });
       if (error) throw error;
       toast.success('Tentativa registrada');
-      setPopoverStep('move');
+      setShowCallConfirm(false);
     } catch (err) {
       console.error('Erro ao registrar tentativa:', err);
       setLocalTentativas(prev);
@@ -152,9 +183,8 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
   };
 
   const handleConfirmNao = () => {
-    // Não conta tentativa. Fecha popover mas mantém callInitiated para permitir nova tentativa.
-    setPopoverOpen(false);
-    setPopoverStep('confirm');
+    // Não conta tentativa. Apenas fecha o diálogo pós-retorno.
+    setShowCallConfirm(false);
   };
 
   const handlePickDestination = async (targetColumnId: string) => {
@@ -163,7 +193,6 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
     try {
       await onMoveItem(item.id, targetColumnId);
       setPopoverOpen(false);
-      setPopoverStep('confirm');
       setCallInitiated(false);
     } catch (err) {
       console.error('Erro ao mover lead:', err);
@@ -175,7 +204,6 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
 
   const handleCloseWithoutMove = () => {
     setPopoverOpen(false);
-    setPopoverStep('confirm');
     setCallInitiated(false);
   };
 
@@ -244,8 +272,10 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                   href={telHref}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Deixa o SO abrir o discador via href; habilita o botão inline de registro/movimentação.
+                    // Deixa o SO abrir o discador via href; habilita o botão inline de movimentação
+                    // e arma o listener pós-retorno para perguntar sobre a tentativa.
                     setCallInitiated(true);
+                    awaitingReturnRef.current = true;
                   }}
                   className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors shrink-0"
                   aria-label="Ligar para o lead"
@@ -292,7 +322,6 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
               onOpenChange={(open) => {
                 if (isBusy) return;
                 setPopoverOpen(open);
-                if (!open) setPopoverStep('confirm');
               }}
             >
               <Tooltip>
@@ -313,16 +342,16 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                           ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                           : "bg-muted text-muted-foreground border-border opacity-60 cursor-not-allowed"
                       )}
-                      aria-label="Registrar ligação e mover lead"
+                      aria-label="Mover lead"
                     >
                       <ArrowRightCircle className="w-3 h-3" />
-                      Ligação
+                      Mover lead
                     </button>
                   </PopoverTrigger>
                 </TooltipTrigger>
                 {!callInitiated && (
                   <TooltipContent>
-                    <p>Clique em ligar antes de registrar/mover</p>
+                    <p>Clique em ligar antes de mover o lead</p>
                   </TooltipContent>
                 )}
               </Tooltip>
@@ -331,31 +360,7 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                {popoverStep === 'confirm' ? (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">
-                      Você realizou a ligação para <strong>{item.title}</strong>?
-                    </p>
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isBusy}
-                        onClick={handleConfirmNao}
-                      >
-                        Não
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={handleConfirmSim}
-                      >
-                        Sim
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
+                <div className="space-y-2">
                     <p className="text-sm font-medium">Mover lead para…</p>
                     {visibleDestinations.length === 0 ? (
                       <p className="text-xs text-muted-foreground">
@@ -387,8 +392,7 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
                         Fechar sem mover
                       </button>
                     </div>
-                  </div>
-                )}
+                </div>
               </PopoverContent>
             </Popover>
             <Tooltip>
@@ -430,6 +434,29 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
           )}
         </div>
       </div>
+      <AlertDialog
+        open={showCallConfirm}
+        onOpenChange={(open) => {
+          if (!open && !isBusy) setShowCallConfirm(false);
+        }}
+      >
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você realizou a ligação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Contato: <strong>{item.title}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBusy} onClick={handleConfirmNao}>
+              Não
+            </AlertDialogCancel>
+            <AlertDialogAction disabled={isBusy} onClick={handleConfirmSim}>
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
