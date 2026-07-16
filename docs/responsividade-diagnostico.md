@@ -211,6 +211,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 > **Onda A finalizada:** `Empresas`, `Acessos` e `ControleGastosLigacao` não usam `<Table>` — já são grids/cards responsivos ou wrappers de tabs. Sub-tabelas (Vapi/Twilio/Gastos) herdam o wrapper hardenizado do primitivo `table.tsx`. Nenhuma ação adicional necessária nesta onda.
 
 - [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
+  - [x] **Feito** — `src/components/ui/responsive-table.tsx` já expõe API com `columns: ColumnDef<T>[]`, `renderMobileCard`, `keyExtractor`, `emptyMessage/Icon`. Colapsa para lista de cards via `useIsMobile` (breakpoint `md`). Pronto para consumo incremental pelas próximas ondas.
 - [ ] **Renderização condicional via JS para tabelas volumosas** (Logs, Quarentena, Webhooks, Recepção com > 200 linhas): usar hook `useBreakpoint('md')` baseado em `window.matchMedia('(min-width: 768px)')` para renderizar **apenas** a árvore de `<table>` OU a árvore de `<Card>`, nunca as duas. Renderizar ambas com `hidden md:block` / `md:hidden` duplica o custo de reconciliação e trava o Kanban/Logs em celulares médios. Tabelas pequenas (< 50 linhas) podem manter o toggle CSS puro.
   ```tsx
   const isDesktop = useBreakpoint('md');
@@ -219,7 +220,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 - [x] **Onda A — Admin**: `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena` com colunas secundárias `hidden md:table-cell`/`lg:table-cell`/`xl:table-cell`. `Webhooks`, `Empresas`, `Acessos` e `ControleGastosLigacao` já são grids/cards responsivos — nenhuma migração necessária.
 - [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
 - [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
-- [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)". **Chips de filtros ativos fixos no topo da tabela** — ao fechar o Sheet, cada filtro aplicado (empresa, período, status, busca) aparece como `<Badge variant="secondary">` com botão `x` para remoção individual, ordenados horizontalmente com scroll horizontal se necessário. O usuário nunca precisa reabrir o Sheet para saber o que está filtrando. Adicionar botão "Limpar todos" quando houver ≥ 2 chips.
+- [x] `FilterBar` em mobile: implementado em `src/components/FilterBar.tsx`. Em `< md`, o componente renderiza input de busca + botão de filtro (com contador de filtros ativos) que abre um `Sheet` (side="bottom", `max-h-[85dvh]`) contendo período e filtros adicionais. Chips ativos aparecem em linha logo abaixo do input com scroll horizontal (`scrollbar-hide`) e botão `x` por chip; quando há ≥ 2 chips, botão "Limpar tudo" aparece ao final. Desktop mantém o layout inline original.
 - [ ] **Só ao fim das ondas**: remover `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Rodar Playwright completo antes. **Rollback:** se surgir regressão em produção, reabilitar as duas linhas via hotfix imediato — a remoção não bloqueia nada, é apenas revelação de bugs remanescentes.
 
 **DoD:** métrica "rotas com scroll horizontal em 360/390" = 0; suíte Playwright sem regressões desktop; `overflow-x:hidden` global removido.
