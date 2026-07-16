@@ -20,7 +20,7 @@ export default function EmConstrucao({ titulo, grupo }: EmConstrucaoProps) {
               <p className="text-sm uppercase tracking-wider text-muted-foreground">
                 Algoritmos · {grupo}
               </p>
-              <h1 className="text-3xl font-bold">{titulo}</h1>
+              <h1 className="h1">{titulo}</h1>
               <p className="text-muted-foreground max-w-md">
                 Esta página está em construção. Em breve você terá acesso a este algoritmo.
               </p>

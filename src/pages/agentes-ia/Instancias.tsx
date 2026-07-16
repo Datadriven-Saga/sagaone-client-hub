@@ -349,7 +349,7 @@ export default function Instancias() {
       <ScrollIndicator className="flex-1 h-full">
         <div className="space-y-6 pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Instâncias Evolution</h1>
+            <h1 className="h1 text-foreground">Instâncias Evolution</h1>
             <p className="text-muted-foreground">
               Gerencie as instâncias da Evolution API vinculadas aos agentes
             </p>

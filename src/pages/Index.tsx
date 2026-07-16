@@ -24,7 +24,7 @@ const Index = () => {
         <div className="space-y-3 pb-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 className="h1 text-foreground mb-2">
             Bem-vindo ao Saga One
           </h1>
           <p className="text-muted-foreground">

@@ -11,7 +11,7 @@ export default function ControleAgentes() {
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Controle de Agentes</h1>
+            <h1 className="h1 text-foreground">Controle de Agentes</h1>
             <p className="text-muted-foreground">
               Gerencie implantações e configurações de agentes
             </p>

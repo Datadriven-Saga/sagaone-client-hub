@@ -340,7 +340,7 @@ export default function VisaoGeral() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Visão Geral</h1>
+                <h1 className="h1 text-foreground">Visão Geral</h1>
                 <p className="text-muted-foreground">
                   Catálogo de agentes e cronograma de implantação
                 </p>

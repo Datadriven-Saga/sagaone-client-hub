@@ -163,7 +163,7 @@ const OptOutGlobal = () => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">Gestão de Opt-Out</h1>
+              <h1 className="h1 text-foreground mb-1">Gestão de Opt-Out</h1>
               <p className="text-muted-foreground">
                 Bloqueio interno (lista negra global) e externo (regulatório por marca/UF)
               </p>
