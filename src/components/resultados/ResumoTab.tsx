@@ -246,14 +246,14 @@ export const ResumoTab = ({ prospeccaoIds, prospeccaoId, empresaId }: ResumoTabP
     <div className="space-y-6">
       <Card className="p-4">
         <div className="flex flex-wrap gap-3 items-end">
-          <div className="w-[150px]">
+          <div className="w-full sm:w-[150px]">
             <label className="text-sm font-medium mb-1.5 block">Data Início</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className="pl-9" />
             </div>
           </div>
-          <div className="w-[150px]">
+          <div className="w-full sm:w-[150px]">
             <label className="text-sm font-medium mb-1.5 block">Data Fim</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

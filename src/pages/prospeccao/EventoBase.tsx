@@ -2586,14 +2586,14 @@ export default function EventoBase() {
                 placeholder="Data início"
                 value={dataInicioFilter}
                 onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
-                className="w-[140px]"
+                className="w-full sm:w-[140px]"
               />
               <Input
                 type="date"
                 placeholder="Data fim"
                 value={dataFimFilter}
                 onChange={(e) => handleFilterChange('dataFim', e.target.value)}
-                className="w-[140px]"
+                className="w-full sm:w-[140px]"
               />
               
               {/* Botão limpar filtros */}

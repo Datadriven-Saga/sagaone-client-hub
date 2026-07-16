@@ -207,7 +207,10 @@ export function KanbanCard({ item, isDragging, onCardClick, currentColumnId, ava
         {/* Header: Name + ID */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5">
-            <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
+            <h4
+              className="text-sm font-medium text-foreground leading-snug line-clamp-2"
+              title={item.title}
+            >
               {item.title}
             </h4>
             {localTentativas > 0 && (
