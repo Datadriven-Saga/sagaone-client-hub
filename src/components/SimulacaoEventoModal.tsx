@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -263,14 +264,31 @@ export function SimulacaoEventoModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <DollarSign className="h-5 w-5 text-primary" />
-            {modalTitle}
-          </DialogTitle>
-        </DialogHeader>
-
+      <ResponsiveDialogContent
+        size="lg"
+        header={
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <DollarSign className="h-5 w-5 text-primary" />
+              {modalTitle}
+            </DialogTitle>
+          </DialogHeader>
+        }
+        footer={
+          isDisparo ? (
+            <DialogFooter className="flex flex-row gap-2 sm:justify-end">
+              <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
+                <X className="h-4 w-4 mr-1" />
+                Cancelar Disparo
+              </Button>
+              <Button onClick={onConfirm} className="flex-1 sm:flex-none">
+                <Send className="h-4 w-4 mr-1" />
+                Confirmar Disparo
+              </Button>
+            </DialogFooter>
+          ) : undefined
+        }
+      >
         <div className="space-y-5">
           {/* Event info when in dispatch mode */}
           {isDisparo && eventoNome && (
@@ -683,21 +701,7 @@ export function SimulacaoEventoModal({
             </div>
           )}
         </div>
-
-        {/* Dispatch mode footer with confirm/cancel */}
-        {isDisparo && (
-          <DialogFooter className="flex flex-row gap-2 sm:justify-end mt-4">
-            <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
-              <X className="h-4 w-4 mr-1" />
-              Cancelar Disparo
-            </Button>
-            <Button onClick={onConfirm} className="flex-1 sm:flex-none">
-              <Send className="h-4 w-4 mr-1" />
-              Confirmar Disparo
-            </Button>
-          </DialogFooter>
-        )}
-      </DialogContent>
+      </ResponsiveDialogContent>
     </Dialog>
   );
 }

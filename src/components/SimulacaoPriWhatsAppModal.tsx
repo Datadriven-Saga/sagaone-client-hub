@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ResponsiveDialogContent } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,14 +95,17 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <DollarSign className="h-5 w-5 text-primary" />
-            Simulação PRI WhatsApp
-          </DialogTitle>
-        </DialogHeader>
-
+      <ResponsiveDialogContent
+        size="lg"
+        header={
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Simulação PRI WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+        }
+      >
         <div className="space-y-5">
           {/* Entrada */}
           <div className="space-y-4">
@@ -308,7 +312,7 @@ export function SimulacaoPriWhatsAppModal({ isOpen, onClose }: SimulacaoPriWhats
             </div>
           )}
         </div>
-      </DialogContent>
+      </ResponsiveDialogContent>
     </Dialog>
   );
 }
