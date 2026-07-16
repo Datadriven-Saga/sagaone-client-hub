@@ -12,7 +12,7 @@ const ControleGastosLigacao = () => {
       <ScrollIndicator className="h-full">
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-1">Controle de Gastos — Ligação</h1>
+            <h1 className="h1 text-foreground mb-1">Controle de Gastos — Ligação</h1>
             <p className="text-muted-foreground">Dashboard de custos e métricas de chamadas de voz</p>
           </div>
 

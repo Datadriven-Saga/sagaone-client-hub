@@ -59,7 +59,7 @@ const Administracao = () => {
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
+            <h1 className="h1 text-foreground mb-2">
               Acesso Negado
             </h1>
             <p className="text-muted-foreground">
@@ -232,7 +232,7 @@ const Administracao = () => {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
+            <h1 className="h1 text-foreground mb-2">
               Administração
             </h1>
             <p className="text-muted-foreground">

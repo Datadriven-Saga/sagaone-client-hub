@@ -162,7 +162,7 @@ const ControleAcessos = () => {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
+            <h1 className="h1 text-foreground mb-2 flex items-center gap-2">
               <ShieldCheck className="h-8 w-8" />
               Permission Flags
             </h1>

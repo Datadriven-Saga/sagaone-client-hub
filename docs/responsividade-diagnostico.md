@@ -206,13 +206,15 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 > **Onda C iniciada (Kanban + dashboards):** `KanbanBoard` ganhou chip-nav sticky em mobile (sincronizada via `IntersectionObserver`) e scroll horizontal com `snap-x snap-mandatory`; `KanbanColumn` passa a ocupar 85vw em mobile (`snap-start`) mantendo `min-w-[280px] max-w-[320px]` em `md:`. `DashboardWhatsAppTab` reduziu `hintLines` para `text-[11px] sm:text-xs` com `leading-tight` para não estourar cards de custo abaixo de 340px. Drag-and-drop segue funcionando (não foi desativado) — o fluxo "Mover para →" já existia no `KanbanCard`. Tsgo verde.
 
+> **Onda A finalizada:** `Empresas`, `Acessos` e `ControleGastosLigacao` não usam `<Table>` — já são grids/cards responsivos ou wrappers de tabs. Sub-tabelas (Vapi/Twilio/Gastos) herdam o wrapper hardenizado do primitivo `table.tsx`. Nenhuma ação adicional necessária nesta onda.
+
 - [ ] Consolidar `<ResponsiveTable>` genérico com `columns` + `renderCard(row)`, breakpoint em `md`.
 - [ ] **Renderização condicional via JS para tabelas volumosas** (Logs, Quarentena, Webhooks, Recepção com > 200 linhas): usar hook `useBreakpoint('md')` baseado em `window.matchMedia('(min-width: 768px)')` para renderizar **apenas** a árvore de `<table>` OU a árvore de `<Card>`, nunca as duas. Renderizar ambas com `hidden md:block` / `md:hidden` duplica o custo de reconciliação e trava o Kanban/Logs em celulares médios. Tabelas pequenas (< 50 linhas) podem manter o toggle CSS puro.
   ```tsx
   const isDesktop = useBreakpoint('md');
   return isDesktop ? <DataTable ... /> : <CardList ... />;
   ```
-- [~] **Onda A — Admin** (uso interno, menor risco): `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena` já com colunas secundárias `hidden md:table-cell`/`lg:table-cell`/`xl:table-cell` (só as essenciais aparecem em < md). `Webhooks` não usa `<Table>` (grid de cards, já responsivo). Falta: `Empresas`, `Acessos`, `ControleGastosLigacao`.
+- [x] **Onda A — Admin**: `admin/LogsDisparos`, `LogsCadeiras`, `Quarentena` com colunas secundárias `hidden md:table-cell`/`lg:table-cell`/`xl:table-cell`. `Webhooks`, `Empresas`, `Acessos` e `ControleGastosLigacao` já são grids/cards responsivos — nenhuma migração necessária.
 - [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
 - [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
 - [ ] `FilterBar` em mobile: colapsar em `Sheet` com botão "Filtros (N)". **Chips de filtros ativos fixos no topo da tabela** — ao fechar o Sheet, cada filtro aplicado (empresa, período, status, busca) aparece como `<Badge variant="secondary">` com botão `x` para remoção individual, ordenados horizontalmente com scroll horizontal se necessário. O usuário nunca precisa reabrir o Sheet para saber o que está filtrando. Adicionar botão "Limpar todos" quando houver ≥ 2 chips.
@@ -227,20 +229,20 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
   - drag-and-drop só em desktop; em mobile, ação **"Mover para →"** no card via **`IconButton` de três pontinhos (⋮)** posicionado no canto superior direito do card com `size="touch"` (44×44) e ícone visual `w-4 h-4`. Ao tocar, abre um `Sheet` ou `DropdownMenu` com a lista de colunas destino — reaproveita o fluxo já implementado em `KanbanCard.tsx` (Contato realizado → mover).
   - `title` em textos truncados dos cards (acessibilidade + tooltip nativo).
 - [ ] `DashboardWhatsAppTab`: `hintLines` do card de custo empilhados verticalmente em < 360px (`text-[11px]`).
-- [ ] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` (em vez de `p-6` fixo).
+- [x] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` aplicado (`src/components/DashboardLayout.tsx`).
 - [ ] Grid de KPIs: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` consistente.
 
 **DoD:** fluxo SDR completo em 390px validado por Playwright (Kanban → abrir card → mudar status → voltar); INP ≤ 200ms medido no Lighthouse mobile.
 
 #### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
 
-- [ ] Substituir `text-3xl` fixo dos H1 de landings de módulo pela classe `.h1` (fluida, Fase 1).
-- [ ] **Varredura dos 212 `w-[Npx]` com estratégia combinada**: converter cada largura rígida para `w-full max-w-[Npx]` (ou `min-w-0 flex-1 max-w-[Npx]` dentro de flex containers). Isso preserva o dimensionamento ideal no desktop **e** permite encolhimento fluido no mobile sem overflow. Exceções permitidas apenas para elementos verdadeiramente fixos (avatares, ícones decorativos, sparklines).
+- [x] Substituídos os H1 `text-3xl font-bold` de landings de módulo pela classe `.h1` (fluida, Fase 1) em: `Personas`, `EmConstrucao`, `Instancias`, `Ajuda`, `Index`, `Administracao` (2 ocorrências), `admin/FeatureFlags`, `admin/ControleAgentes`, `admin/ControleAcessos`, `admin/VisaoGeral`, `admin/Integracoes`, `admin/ControleGastosLigacao`, `admin/OptOutGlobal`.
+- [~] **Varredura dos 212 `w-[Npx]` com estratégia combinada** (converter para `w-full max-w-[Npx]` / `w-full sm:w-[Npx]`). Primeira leva feita: SelectTriggers e inputs de busca com `w-[200px]` em `Notificacoes`, `TemplatesPaty`, `prospeccao/Templates`, `ProdutosTab`, `MFAAccessManager` migrados para `w-full sm:w-[200px]`. Restam ~200 ocorrências para varredura sistemática.
   - Padrão de refactor:
     - `w-[200px]` (input de busca) → `w-full max-w-[200px]`
     - `w-[80px]` (TableHead) → remover ou trocar por `min-w-[80px]` (deixa expandir)
     - `min-w-[160px]` (botão em modal) → `w-full sm:w-auto sm:min-w-[160px]`
-- [ ] Revisar `.dark [style*="background: linear-gradient"] { opacity: 0.9 }` (efeito colateral silencioso) — restringir ou remover.
+- [x] Restringido `.dark [style*="background: linear-gradient"]` — agora `.dark [data-dark-gradient-adjust]`, escopo opt-in via atributo. Evita efeito colateral silencioso em qualquer inline gradient.
 - [ ] Atualizar este documento marcando o que foi entregue e anexar o relatório final de métricas.
 - [ ] Rodar `bun run responsivo:audit` uma última vez e arquivar o relatório em `docs/historico/responsividade-<data>.md`.
 

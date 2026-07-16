@@ -79,7 +79,7 @@ const Ajuda = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Central de Ajuda</h1>
+          <h1 className="h1">Central de Ajuda</h1>
           <p className="text-muted-foreground">
             Encontre respostas para suas dúvidas e aprenda a usar o sistema Saga One
           </p>

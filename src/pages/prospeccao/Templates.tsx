@@ -2452,7 +2452,7 @@ export default function Templates() {
                 onValueChange={setSelectedAgenteId}
                 disabled={agentesIAWhatsapp.length === 0}
               >
-                <SelectTrigger className="w-[200px] bg-white">
+                <SelectTrigger className="w-full sm:w-[200px] bg-white">
                   <SelectValue placeholder="Selecione o agente" />
                 </SelectTrigger>
                 <SelectContent>

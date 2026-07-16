@@ -152,7 +152,7 @@ export function ProdutosTab() {
               placeholder="Buscar produto..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-[200px]"
+              className="pl-9 w-full sm:w-[200px]"
             />
           </div>
           <Button onClick={handleNew}>

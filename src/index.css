@@ -374,8 +374,11 @@
 .dark .bg-white { background-color: hsl(220 18% 13%) !important; }
 .dark .text-white { color: hsl(210 20% 93%) !important; }
 
-/* Ensure inline styles with hardcoded green gradient adapt */
-.dark [style*="background: linear-gradient"] {
+/* Ensure inline styles with hardcoded gradient adapt.
+   Escopo estreito: só reduz opacidade quando o elemento marca
+   explicitamente `data-dark-gradient-adjust` — evita efeito
+   colateral silencioso em qualquer inline gradient. */
+.dark [data-dark-gradient-adjust] {
   opacity: 0.9;
 }
 
