@@ -907,74 +907,28 @@ export default function EventoBase() {
       // Para outros tipos de evento, usar query tradicional (contatos + eventos_prospeccao)
       const offset = (currentPage - 1) * PAGE_SIZE;
 
-      let query = supabase
-        .from('contatos')
-        .select(`
-          id, lead_id, nome, telefone, email, status, origem, 
-          created_at, updated_at, 
-          responsavel_email, vendedor_nome, codigo_proposta,
-          eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)
-        `)
-        .eq('empresa_id', activeCompany.id)
-        .eq('eventos_prospeccao.prospeccao_id', eventoId);
-
-      // Aplicar filtros
-      if (searchTerm) {
-        query = query.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-      }
-      if (statusFilter !== 'todos') {
-        query = query.eq('status', statusFilter as any);
-      }
-      if (disparoFilter === 'pendente') {
-        query = query.is('eventos_prospeccao.data_disparo_ia', null);
-      } else if (disparoFilter === 'disparado') {
-        query = query.not('eventos_prospeccao.data_disparo_ia', 'is', null);
-      }
-
-      // Ordenar e paginar
-      query = query
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
-
-      const { data, error, count } = await query;
+      // RPC dedicada: devolve status POR EVENTO (derivado de logs_movimentacao_contatos)
+      // em vez do `contatos.status` global. Ver docs/prospeccao/kanban-e-status.md.
+      const { data: rpcData, error } = await supabase.rpc('get_evento_base_contatos', {
+        p_empresa_id: activeCompany.id,
+        p_prospeccao_id: eventoId,
+        p_limit: PAGE_SIZE,
+        p_offset: offset,
+        p_search: searchTerm || null,
+        p_status: statusFilter && statusFilter !== 'todos' ? statusFilter : null,
+        p_disparo: disparoFilter && disparoFilter !== 'todos' ? disparoFilter : null,
+      });
 
       if (error) throw error;
 
-      // Mapear dados extraindo data_disparo_ia de eventos_prospeccao
-      const cleanData = (data || []).map(({ eventos_prospeccao, ...rest }) => {
-        const evento = Array.isArray(eventos_prospeccao) ? eventos_prospeccao[0] : eventos_prospeccao;
-        return {
-          ...rest,
-          data_disparo_ia: evento?.data_disparo_ia || null
-        };
-      }) as ContatoEvento[];
-      setContatos(cleanData);
+      const payload = (rpcData ?? { total: 0, contatos: [] }) as unknown as { total: number; contatos: ContatoEvento[] };
+      setContatos(payload.contatos || []);
 
-      // Se temos filtros, precisamos contar o total filtrado
       if (searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos') {
-        let countQuery = supabase
-          .from('contatos')
-          .select('id, eventos_prospeccao!inner(prospeccao_id, data_disparo_ia)', { count: 'exact', head: true })
-          .eq('empresa_id', activeCompany.id)
-          .eq('eventos_prospeccao.prospeccao_id', eventoId);
-
-        if (searchTerm) {
-          countQuery = countQuery.or(`nome.ilike.%${searchTerm}%,telefone.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
-        }
-        if (statusFilter !== 'todos') {
-          countQuery = countQuery.eq('status', statusFilter as any);
-        }
-        if (disparoFilter === 'pendente') {
-          countQuery = countQuery.is('eventos_prospeccao.data_disparo_ia', null);
-        } else if (disparoFilter === 'disparado') {
-          countQuery = countQuery.not('eventos_prospeccao.data_disparo_ia', 'is', null);
-        }
-
-        const { count: filteredCount } = await countQuery;
-        setTotalCount(filteredCount || 0);
+        setTotalCount(payload.total || 0);
       } else {
-        // Sem filtros, usar a contagem das métricas
-        setTotalCount(metricas.total);
+        // Sem filtros, priorizar a contagem das métricas se ela já foi carregada
+        setTotalCount(metricas.total || payload.total || 0);
       }
     } catch (error) {
       console.error('Erro ao buscar contatos:', error);

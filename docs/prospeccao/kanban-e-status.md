@@ -8,7 +8,9 @@
 
 Tela `/prospeccao/atendimento` — quadro Kanban onde cada coluna é um valor de `contatos.status`. O usuário move o lead entre colunas via drag-and-drop; cada movimento grava `logs_movimentacao_contatos` e (quando aplicável) dispara webhook para o Mobi.
 
-> **Débito arquitetural:** `contatos.status` é **global** — não é por evento. Um lead em `Check-in` num evento aparece `Check-in` em qualquer outro evento em que estiver vinculado. Isso infla métricas e causa disputas de escrita (race conditions). Está mapeado; mudança estrutural pendente.
+> **Status por evento (leitura):** desde 2026-07 as telas `/prospeccao/atendimento` (Kanban) e `/prospeccao/eventos/:id/base` mostram o status **derivado por evento** — última entrada em `logs_movimentacao_contatos` para `(contato_id, prospeccao_id)`, com fallback `Novo`. RPCs envolvidas: `get_contato_status_por_evento`, `get_kanban_columns`, `get_contatos_paginated`, `get_evento_base_contatos`, `get_prospeccao_status_options`.
+>
+> **Escrita ainda global:** `contatos.status` continua sendo atualizado por `mutate_contato_status_atomic` (fonte para integrações e webhook Mobi). Ele passa a valer como "último status conhecido em qualquer evento" — não é mais fonte de verdade da UI de leitura. Relatórios/funil (`get_resumo_stats` etc.) ainda leem o global; migração pendente.
 
 ## Fluxo funcional (para usuário)
 
