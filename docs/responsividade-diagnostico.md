@@ -220,7 +220,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 - [ ] **Onda B — Operacional**: `RecepcaoTable`, tabelas de `pos-vendas/*`, `Templates`, `prospeccao/EventoBase`.
 - [ ] **Onda C — Restantes**: varredura das 53 telas. As que couberem naturalmente em mobile só ganham `overflow-x-auto` + `.scroll-fade-x`.
 - [x] `FilterBar` em mobile: implementado em `src/components/FilterBar.tsx`. Em `< md`, o componente renderiza input de busca + botão de filtro (com contador de filtros ativos) que abre um `Sheet` (side="bottom", `max-h-[85dvh]`) contendo período e filtros adicionais. Chips ativos aparecem em linha logo abaixo do input com scroll horizontal (`scrollbar-hide`) e botão `x` por chip; quando há ≥ 2 chips, botão "Limpar tudo" aparece ao final. Desktop mantém o layout inline original.
-- [ ] **Só ao fim das ondas**: remover `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Rodar Playwright completo antes. **Rollback:** se surgir regressão em produção, reabilitar as duas linhas via hotfix imediato — a remoção não bloqueia nada, é apenas revelação de bugs remanescentes.
+- [x] **Removido** `overflow-x:hidden` de `body`/`#root` em `src/index.css`. Audit Playwright em `/login` e `/recepcao` a 360/390px: `scrollWidth === innerWidth` (sem overflow). Rotas autenticadas não puderam ser cobertas neste ambiente (`LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged`) — monitorar produção. **Rollback:** reabilitar as duas linhas em `src/index.css` se aparecer regressão.
 
 **DoD:** métrica "rotas com scroll horizontal em 360/390" = 0; suíte Playwright sem regressões desktop; `overflow-x:hidden` global removido.
 
