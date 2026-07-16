@@ -921,7 +921,7 @@ export default function EventoBase() {
 
       if (error) throw error;
 
-      const payload = (rpcData ?? { total: 0, contatos: [] }) as { total: number; contatos: ContatoEvento[] };
+      const payload = (rpcData ?? { total: 0, contatos: [] }) as unknown as { total: number; contatos: ContatoEvento[] };
       setContatos(payload.contatos || []);
 
       if (searchTerm || statusFilter !== 'todos' || disparoFilter !== 'todos') {
