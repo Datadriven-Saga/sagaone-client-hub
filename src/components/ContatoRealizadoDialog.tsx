@@ -368,7 +368,7 @@ export function ContatoRealizadoDialog({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl h-[85vh] max-h-[680px] flex flex-col p-0 gap-0">
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-3xl h-[85dvh] max-h-[680px] flex flex-col p-0 gap-0">
         {/* Header fixo */}
         <DialogHeader className="px-6 py-5 border-b flex-shrink-0 bg-background">
           <DialogTitle className="flex items-center gap-3 text-xl">
