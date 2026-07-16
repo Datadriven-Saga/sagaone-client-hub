@@ -47,6 +47,8 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
     empresa_marca?: string | null;
     empresa_uf?: string | null;
   } | null>(null);
+  const [nomeEdit, setNomeEdit] = useState('');
+  const [savingNome, setSavingNome] = useState(false);
 
   const canRegisterOptOut = permissions.canRegisterExternalOptOut === true;
 
@@ -78,6 +80,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
           empresa_marca: (data as any).empresas?.marca ?? null,
           empresa_uf: (data as any).empresas?.uf ?? null,
         });
+        setNomeEdit(data.nome || '');
       }
     };
     fetchContato();
@@ -192,6 +195,36 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
     } else {
       toast.error('Só é possível se atribuir em cards da coluna "Novo"');
     }
+  };
+
+  const handleSalvarNome = async () => {
+    if (!item?.id) return;
+    const nome = nomeEdit.trim();
+    if (!nome) {
+      toast.error('Nome não pode ser vazio');
+      return;
+    }
+    if (nome.length > 100) {
+      toast.error('Nome deve ter no máximo 100 caracteres');
+      return;
+    }
+    setSavingNome(true);
+    const { error } = await supabase
+      .from('contatos')
+      .update({ nome })
+      .eq('id', item.id);
+    setSavingNome(false);
+    if (error) {
+      toast.error('Erro ao salvar nome');
+      return;
+    }
+    setContatoData((prev) => (prev ? { ...prev, nome } : prev));
+    window.dispatchEvent(
+      new CustomEvent('lead-nome-updated', {
+        detail: { contatoId: item.id, nome },
+      })
+    );
+    toast.success('Nome atualizado');
   };
 
   if (!item) return null;
@@ -317,9 +350,28 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                     <CardTitle>Dados Pessoais</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Nome do Cliente</Label>
-                      <p className="text-sm font-medium">{dadosCliente.nome}</p>
+                    <div className="col-span-2">
+                      <Label htmlFor="atd-nome">Nome do Cliente</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          id="atd-nome"
+                          value={nomeEdit}
+                          onChange={(e) => setNomeEdit(e.target.value)}
+                          maxLength={100}
+                          placeholder="Nome do cliente"
+                          style={{ backgroundColor: '#FFFFFF' }}
+                        />
+                        <Button
+                          onClick={handleSalvarNome}
+                          disabled={
+                            savingNome ||
+                            !nomeEdit.trim() ||
+                            nomeEdit.trim() === (contatoData?.nome || '').trim()
+                          }
+                        >
+                          {savingNome ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label>CPF</Label>
