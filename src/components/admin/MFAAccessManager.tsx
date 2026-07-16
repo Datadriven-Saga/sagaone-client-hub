@@ -509,7 +509,7 @@ export function MFAAccessManager({ accounts, onAccessChanged }: MFAAccessManager
                 onChange={e => setSearchAccess(e.target.value)} className="pl-9" />
             </div>
             <Select value={filterAccount} onValueChange={setFilterAccount}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar por conta" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Filtrar por conta" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os authenticators</SelectItem>
                 {accounts.map(a => (
