@@ -352,6 +352,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <Label htmlFor="atd-nome">Nome do Cliente</Label>
+                      {!(contatoData?.nome && contatoData.nome.trim()) ? (
                       <div className="flex gap-2 mt-1">
                         <Input
                           id="atd-nome"
@@ -372,6 +373,9 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                           {savingNome ? 'Salvando...' : 'Salvar'}
                         </Button>
                       </div>
+                      ) : (
+                        <p className="text-sm font-medium mt-1">{contatoData.nome}</p>
+                      )}
                     </div>
                     <div>
                       <Label>CPF</Label>
