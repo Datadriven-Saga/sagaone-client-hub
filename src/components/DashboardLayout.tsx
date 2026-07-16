@@ -148,7 +148,7 @@ export function DashboardLayout({ children, title, showBackButton }: DashboardLa
           </header>
 
           {/* Main Content - Scrollable area */}
-          <main className="flex-1 p-3 md:p-6 min-h-0 overflow-y-auto overflow-x-hidden">
+          <main className="flex-1 p-3 sm:p-4 lg:p-6 min-h-0 overflow-y-auto overflow-x-hidden">
             {children}
           </main>
         </div>
