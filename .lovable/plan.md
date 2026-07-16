@@ -1,41 +1,76 @@
-## Análise da coluna "Status Lead" em `/prospeccao/eventos/:id/base`
+## Objetivo
 
-### 1. Origem dos dados
+Fazer com que a coluna "Status Lead" da tela `/prospeccao/eventos/:id/base` **e o Kanban** (`/prospeccao/atendimento`) mostrem o status do lead **naquele evento**, não o status global `contatos.status`. Sem alterar schema — deriva do último registro em `logs_movimentacao_contatos` filtrado por `prospeccao_id`.
 
-**Arquivo:** `src/pages/prospeccao/EventoBase.tsx` (linhas ~910–930)
+## Diagnóstico (feito antes do plano)
 
-**Query principal da tabela de leads:**
+- `contatos.status` é global — 1 lead compartilha status entre eventos.
+- `logs_movimentacao_contatos` tem `contato_id`, `prospeccao_id`, `status_novo`, `data_movimentacao`. 100% das linhas têm `prospeccao_id` preenchido (1.434.104 / 1.434.104). Base sólida para derivação.
+- **Kanban também usa status global** — confirmado em `get_kanban_columns` (linhas 33, 55) e `get_contatos_paginated`: filtram por `c.status::text = v_status`, então um lead em evento A aparece na mesma coluna que estiver globalmente. É o mesmo bug arquitetural, só que no Kanban ele fica mascarado porque o usuário quase sempre filtra 1 evento por vez.
+
+## Estratégia
+
+Introduzir função SQL `get_contato_status_por_evento(contato_id, prospeccao_id) → text`:
+
+- Retorna `status_novo` do log mais recente de `(contato_id, prospeccao_id)`.
+- Se não houver log para aquele evento, usa fallback: `Novo` (é o status inicial ao vincular via `eventos_prospeccao`).
+- `STABLE SECURITY DEFINER`, `search_path=public`.
+
+Depois trocar as leituras nas RPCs/queries que hoje consultam `c.status` no contexto de "status neste evento".
+
+## Escopo de mudança
+
+### 1. Nova função SQL
 ```
-supabase
-  .from('contatos')
-  .select('id, lead_id, nome, telefone, email, status, origem, ...')
-  .eq('status', statusFilter)   // quando filtro != 'todos'
+get_contato_status_por_evento(p_contato_id uuid, p_prospeccao_id uuid) returns text
 ```
++ índice de suporte se ainda não existir: `logs_movimentacao_contatos (contato_id, prospeccao_id, data_movimentacao desc)`.
 
-- **Tabela:** `public.contatos`
-- **Coluna exibida como "Status Lead":** `contatos.status`
-- **Filtro do dropdown "Status":** também `contatos.status`, populado pela RPC `get_prospeccao_status_options`
+### 2. Tela Base (`/prospeccao/eventos/:id/base`)
+- `src/pages/prospeccao/EventoBase.tsx` (~L910–930): substituir `select('...status...')` de `contatos` por join/RPC que devolva o status por evento. Opções:
+  - **a)** RPC dedicada `get_evento_base_contatos(p_prospeccao_id, filtros...)` que já resolve o status por evento no servidor (preferido — evita N+1).
+  - **b)** manter query atual mas trocar `c.status` por subquery lateral em `logs_movimentacao_contatos`.
+- Filtro do dropdown "Status" precisa filtrar pelo status derivado (não pelo global).
+- Popular dropdown continua via `get_prospeccao_status_options` (já é por evento — validar).
 
-### 2. Qual "status" está sendo considerado
+### 3. Kanban (`/prospeccao/atendimento`)
+- `get_kanban_columns` e `get_contatos_paginated`: trocar `c.status::text = v_status` por comparação com o status derivado do log mais recente **daquele `prospeccao_id`** (usando `p_prospeccao_ids`).
+- Quando `p_prospeccao_ids` tiver mais de 1 evento: o lead aparece em cada evento com seu próprio status (pode aparecer duplicado entre colunas se o mesmo lead estiver em 2 eventos com status diferentes — este é o comportamento **correto** por evento; hoje aparece 1x com status global). Documentar.
+- Sem `p_prospeccao_ids` (visão "todos os eventos"): já é bloqueado pela regra `kanban-default-filter-and-timeout-prevention`, então não precisa tratar.
 
-O `contatos.status` é **global do lead**, não do vínculo com o evento. Isso é um débito arquitetural já mapeado na KB (`kanban-e-status.md`, memory core):
+### 4. Escrita (mover lead / mudar status)
+- Continua gravando em `logs_movimentacao_contatos` com `prospeccao_id` (já é o padrão via `mutate_contato_status_atomic`). **Não** mudar `contatos.status` como parte deste caminho — ou seja, ele passa a ser "último status conhecido em qualquer evento" e não é mais fonte de verdade da UI.
+- Auditar `mutate_contato_status_atomic`: garantir que continua atualizando `contatos.status` (para compatibilidade com integrações e webhook Mobi) **e** inserindo log com `prospeccao_id` correto. Nenhuma mudança de comportamento aqui.
 
-> `contatos.status` é global — não é por evento. Um lead em `Check-in` num evento aparece `Check-in` em qualquer outro evento em que estiver vinculado.
+### 5. Webhook Mobi
+- Dispatcher `trg_dispatch_movimentacao_lead_webhook` lê de `logs_movimentacao_contatos` — não afetado.
 
-O vínculo evento↔lead vive em `eventos_prospeccao (contato_id, prospeccao_id, ...)`, mas essa tabela **não tem uma coluna de status por evento**. Ela guarda a interação/vínculo, não o estado do funil naquele evento específico.
+## Impactos e riscos
 
-### 3. Divergência real vs esperada
+- **Métricas / relatórios** que hoje contam por `contatos.status` (ex.: `get_resumo_stats`, funil) continuarão globais até serem migradas. Fora do escopo desta fase. Documentar como próximo passo.
+- **Performance**: leitura por evento vira `DISTINCT ON (contato_id, prospeccao_id) ... ORDER BY data_movimentacao DESC`. Precisa índice composto. Validar com EXPLAIN em BMW MOTOS e FIAT SIA (bases grandes).
+- **Duplicação visual no Kanban** com filtro multi-evento: intencional. Alinhar com usuário antes de subir.
+- **Contatos sem log naquele evento**: fallback `Novo`. Validar contra `eventos_prospeccao` para casos legados.
+- Nada de mudança de schema. Reversível trocando as RPCs de volta.
 
-- **Esperado pelo usuário:** a base da tela `/eventos/:id/base` mostrar o status do lead **naquele evento**.
-- **Hoje:** mostra o status **global** do contato. Se o lead está `Em Espera` em outro evento, aparece `Em Espera` aqui, mesmo tendo entrado como `Novo` neste evento.
-- **Efeito colateral:** o filtro "Status" também filtra por status global, então esconde/mostra leads com base em outro evento — dá a sensação de leads "sumindo" ou "duplicando" entre eventos.
+## Validação obrigatória (pré-deploy)
 
-### 4. Próximos passos possíveis (aguardando decisão)
+1. Evento 1222 / BMW MOTOS: reproduzir cenário original (lead com status global ≠ status no evento) e confirmar que a Base mostra o status do evento.
+2. Kanban com 1 evento filtrado: lead aparece na coluna certa daquele evento.
+3. Kanban com 2 eventos filtrados: lead com status diferente entre eventos aparece 2x, um em cada coluna.
+4. Mover lead no Kanban → confere log com `prospeccao_id` correto, webhook Mobi disparado 1x.
+5. Filtro "Status" na Base filtra pelo status derivado.
+6. EXPLAIN das novas RPCs em empresa grande — sem regressão >20%.
+7. `get_prospeccao_status_options` continua populando corretamente.
 
-Antes de mexer, preciso confirmar com você qual caminho:
+## Fora de escopo (fica para próximas fases)
 
-- **(a) Apenas documentar/rotular:** manter como está, mas deixar claro na UI que "Status Lead" é global do contato (rótulo + tooltip).
-- **(b) Derivar status por evento a partir de sinais existentes:** usar `logs_movimentacao_contatos` + `eventos_prospeccao` do vínculo daquele `prospeccao_id` para reconstruir o último status registrado **no contexto do evento**. Sem migração de schema.
-- **(c) Mudança estrutural:** adicionar `status` em `eventos_prospeccao` e migrar leitura/escrita — é o débito arquitetural mapeado; alto risco, exige plano próprio (Kanban, RPCs de agregação, webhook Mobi, importação, etc.).
+- Migrar `get_resumo_stats` e demais relatórios para status por evento.
+- Adicionar coluna `status` em `eventos_prospeccao` (débito estrutural — caminho C).
+- Reset/limpeza de `contatos.status` global.
 
-Sem alteração de código nesta etapa — só diagnóstico. Me confirma qual direção seguir (a, b ou c) que eu monto o plano de implementação.
+## Confirmações necessárias antes de eu implementar
+
+1. Ok deixar `contatos.status` como "último status em qualquer evento" (não é mais fonte de verdade da UI, mas continua sendo escrito para integrações)?
+2. Ok o Kanban passar a mostrar o mesmo lead em colunas diferentes quando filtrar múltiplos eventos com status divergentes?
+3. Escopo desta fase: **só Base + Kanban**. Relatórios/funil ficam para depois. Confirma?
