@@ -184,9 +184,9 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 
 #### Fase 2 — Modais e hitboxes (risco baixo · 1 dia · 1 PR)
 
-- [ ] Migrar para `ResponsiveDialogContent`: `CriarProspeccaoModal`, `SimulacaoEventoModal`, `SimulacaoPriWhatsAppModal`, `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog`.
+- [ ] Migrar para `ResponsiveDialogContent`: `CriarProspeccaoModal`, `SimulacaoEventoModal`, `SimulacaoPriWhatsAppModal`, `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog`. (Pendente — migração modal-a-modal com risco. `CriarProspeccaoModal` já teve grids `grid-cols-2/3` colapsados para `grid-cols-1 sm:grid-cols-2 [md:grid-cols-3]` como preparação.)
 - [ ] ~~Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo~~ — **cancelado**: `!p-0` é requisito explícito do usuário (divs devem encostar nas bordas). Padding interno responsivo será resolvido dentro do body do modal, não no wrapper.
-- [ ] **Formulários densos em coluna única no mobile**: no `CriarProspeccaoModal` e nas etapas de cadência/config, todos os `grid grid-cols-2` / `grid-cols-3` de campos devem colapsar para `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`. Nada de dois inputs de datetime lado a lado em 360px — campos espremidos abaixo de ~150px viram inutilizáveis com o teclado aberto.
+- [x] **Formulários densos em coluna única no mobile**: no `CriarProspeccaoModal` todos os `grid grid-cols-2` / `grid-cols-3` de campos foram colapsados via sweep para `grid-cols-1 sm:grid-cols-2` / `grid-cols-1 sm:grid-cols-2 md:grid-cols-3`. Grid do stepper (3 cols) e grid do marketing (2 cards pequenos) mantidos por decisão de UI.
 - [x] Botão fechar (X) do `Dialog`: `h-11 w-11` em mobile / `sm:h-8 sm:w-8` desktop (`src/components/ui/dialog.tsx`).
 - [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile (via classe condicional `md:before:hidden` para não alterar layout desktop).
 - [x] Trocar `vh` → `dvh` em `max-h` de modais e `calc(100vh-...)` de telas full-screen (sweep em toda a `src/`).
@@ -237,7 +237,10 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 #### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
 
 - [x] Substituídos os H1 `text-3xl font-bold` de landings de módulo pela classe `.h1` (fluida, Fase 1) em: `Personas`, `EmConstrucao`, `Instancias`, `Ajuda`, `Index`, `Administracao` (2 ocorrências), `admin/FeatureFlags`, `admin/ControleAgentes`, `admin/ControleAcessos`, `admin/VisaoGeral`, `admin/Integracoes`, `admin/ControleGastosLigacao`, `admin/OptOutGlobal`.
-- [~] **Varredura dos 212 `w-[Npx]` com estratégia combinada** (converter para `w-full max-w-[Npx]` / `w-full sm:w-[Npx]`). Primeira leva feita: SelectTriggers e inputs de busca com `w-[200px]` em `Notificacoes`, `TemplatesPaty`, `prospeccao/Templates`, `ProdutosTab`, `MFAAccessManager` migrados para `w-full sm:w-[200px]`. Restam ~200 ocorrências para varredura sistemática.
+- [~] **Varredura dos 212 `w-[Npx]` com estratégia combinada** (converter para `w-full max-w-[Npx]` / `w-full sm:w-[Npx]`). Sweeps aplicados:
+  - `SelectTrigger className="w-[Npx]..."` em toda a `src/` (`EventoBase`, `EventoBaseModal`, `Templates`, `TemplatesPaty`, `ProspeccaoGlobalFilter`, `FilterBar`, `QuarentenaFilters`, `QuarentenaConfigTab`, `DashboardLigacaoTab`, `Agentes`, `MFAAgentesContent`, `Notificacoes`, `ProdutosTab`, `MFAAccessManager`) → `w-full sm:w-[Npx]`.
+  - `<Input className="w-[Npx]...">` sweep global (nenhuma ocorrência remanescente).
+  - Restam larguras fixas em `TableHead` (mantidas para reserva de coluna) e alguns `w-[Npx]` em botões/badges que não impactam mobile (auditar em iteração futura se aparecer no relatório).
   - Padrão de refactor:
     - `w-[200px]` (input de busca) → `w-full max-w-[200px]`
     - `w-[80px]` (TableHead) → remover ou trocar por `min-w-[80px]` (deixa expandir)
