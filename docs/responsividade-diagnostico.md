@@ -190,7 +190,7 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 - [x] Botão fechar (X) do `Dialog`: `h-11 w-11` em mobile / `sm:h-8 sm:w-8` desktop (`src/components/ui/dialog.tsx`).
 - [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile (via classe condicional `md:before:hidden` para não alterar layout desktop).
 - [x] Trocar `vh` → `dvh` em `max-h` de modais e `calc(100vh-...)` de telas full-screen (sweep em toda a `src/`).
-- [ ] **Prevenção de teclado virtual em modais longos**: qualquer input próximo ao final de um modal (últimos 30% do body) deve, ao receber foco em mobile (`window.matchMedia('(max-width: 768px)')`), executar `element.scrollIntoView({ block: 'center', behavior: 'smooth' })` **após** um `setTimeout(..., 300)` (aguardar o teclado virtual abrir). Adicionar hook utilitário `useScrollIntoViewOnFocus()` para padronizar. Também usar `visualViewport` API quando disponível para reagir a mudanças de altura do teclado. Regra: nenhum campo obrigatório pode ficar oculto atrás do teclado.
+- [~] **Prevenção de teclado virtual em modais longos**: hook `useScrollIntoViewOnFocus()` disponível em `src/hooks/useScrollIntoViewOnFocus.ts` (delay 300ms, ≤ 768px). Aplicação campo-a-campo nos modais longos ainda pendente.
 
 **DoD:** métrica "modais com corte em 812×375" = 0; screenshots comparativos aprovados; nenhuma regressão desktop.
 
@@ -205,6 +205,8 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 > **Onda B concluída (tabelas operacionais):** além de `RecepcaoTable`, `DisparosProgramadosList`, `Cadeiras`, `DePara` e `ClientesImportadosList`, agora `prospeccao/Templates`, `prospeccao/EventoBase`, `DetalhesProspeccao`, `AgenteEventos`, `AgenteCadenciasNova`, `AgenteVariaveis`, `AgenteLojas`, `configuracoes/OrigensTab` e `configuracoes/DepartamentosTab` também colapsam colunas secundárias por breakpoint. `MotivosTab`/`TemperaturasTab` já tinham poucas colunas e não precisaram de ajuste.
 
 > **Onda C iniciada (Kanban + dashboards):** `KanbanBoard` ganhou chip-nav sticky em mobile (sincronizada via `IntersectionObserver`) e scroll horizontal com `snap-x snap-mandatory`; `KanbanColumn` passa a ocupar 85vw em mobile (`snap-start`) mantendo `min-w-[280px] max-w-[320px]` em `md:`. `DashboardWhatsAppTab` reduziu `hintLines` para `text-[11px] sm:text-xs` com `leading-tight` para não estourar cards de custo abaixo de 340px. Drag-and-drop segue funcionando (não foi desativado) — o fluxo "Mover para →" já existia no `KanbanCard`. Tsgo verde.
+
+> **KanbanCard acessibilidade:** título do lead agora expõe `title={item.title}` como fallback nativo quando o texto é truncado por `line-clamp-2` (Fase 4, item de acessibilidade).
 
 > **Onda A finalizada:** `Empresas`, `Acessos` e `ControleGastosLigacao` não usam `<Table>` — já são grids/cards responsivos ou wrappers de tabs. Sub-tabelas (Vapi/Twilio/Gastos) herdam o wrapper hardenizado do primitivo `table.tsx`. Nenhuma ação adicional necessária nesta onda.
 
@@ -240,6 +242,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 - [~] **Varredura dos 212 `w-[Npx]` com estratégia combinada** (converter para `w-full max-w-[Npx]` / `w-full sm:w-[Npx]`). Sweeps aplicados:
   - `SelectTrigger className="w-[Npx]..."` em toda a `src/` (`EventoBase`, `EventoBaseModal`, `Templates`, `TemplatesPaty`, `ProspeccaoGlobalFilter`, `FilterBar`, `QuarentenaFilters`, `QuarentenaConfigTab`, `DashboardLigacaoTab`, `Agentes`, `MFAAgentesContent`, `Notificacoes`, `ProdutosTab`, `MFAAccessManager`) → `w-full sm:w-[Npx]`.
   - `<Input className="w-[Npx]...">` sweep global (nenhuma ocorrência remanescente).
+  - `<div className="w-[150px]|w-[140px]|w-[120px]|w-[80px]">` em `ResumoTab`, `DesempenhoTab`, `RankingTab`, `ControleEmpresasTab`, `EventoBase`, `QuarentenaConfigTab` → `w-full sm:w-[Npx]`. Ocorrências problemáticas restantes caíram de 36 → 25 (as remanescentes são popovers/skeletons — largura fixa é ok porque Radix colide com bordas).
   - Restam larguras fixas em `TableHead` (mantidas para reserva de coluna) e alguns `w-[Npx]` em botões/badges que não impactam mobile (auditar em iteração futura se aparecer no relatório).
   - Padrão de refactor:
     - `w-[200px]` (input de busca) → `w-full max-w-[200px]`
