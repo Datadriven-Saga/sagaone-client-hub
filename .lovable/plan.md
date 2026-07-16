@@ -1,54 +1,27 @@
 ## Objetivo
+Permitir editar o **Nome** do lead na aba "Dados Pessoais" do `AtendimentoModal`, principalmente para leads criados sem nome (ex.: "Lead sem nome #1295002").
 
-Dois ajustes cirúrgicos em `src/components/KanbanCard.tsx`. **Nada mais muda.**
+## Dificuldade
+Baixa. O modal já busca o contato real de `contatos` (`contatoData`) no `useEffect`. Hoje o campo Nome é apenas um `<p>` estático usando `dadosCliente.nome` (mock). Basta trocar por um input controlado ligado ao `contatoData.nome` e salvar em `contatos.nome`.
 
-## O que **NÃO** muda (garantia explícita)
+## Mudanças em `src/components/AtendimentoModal.tsx`
+1. Adicionar estado local `nomeEdit` inicializado com `contatoData?.nome` quando o contato carrega.
+2. Na aba **Dados Pessoais**, substituir o `<p>` do nome por:
+   - `<Input>` controlado + botão **Salvar** (habilitado só quando `nomeEdit !== contatoData.nome` e não vazio).
+3. Ao salvar:
+   - `supabase.from('contatos').update({ nome }).eq('id', item.id)`
+   - Atualizar `contatoData` local e disparar um `CustomEvent('lead-nome-updated', { detail: { contatoId, nome } })` (mesmo padrão já usado para temperatura) para o Kanban refletir sem reload.
+   - Toast de sucesso/erro.
+4. Manter os demais campos (CPF, celular, e-mail) como estão (mock), fora do escopo.
 
-Fluxo atual do telefone fica **intacto**:
+## Kanban (opcional, mesmo arquivo de listener existente)
+Se o card exibir "Lead sem nome #<id>", o listener do evento `lead-nome-updated` pode atualizar o `title` local para refletir imediatamente. Se preferir, deixamos para o próximo refresh natural — confirmar.
 
-1. Usuário clica no ícone de telefone → abre app de ligação (`tel:`).
-2. Ao voltar pro sistema (listener de `focus` / `visibilitychange` / `pageshow` que já existe), aparece a pergunta *"Você realizou a ligação?"*.
-3. Se **Sim** → `supabase.rpc('increment_tentativas_chamada', …)` incrementa o contador (comportamento atual preservado).
-4. Se **Não** → nada é gravado.
-
-Esse pedaço **não é tocado**: estados, listeners, RPC e diálogo de confirmação pós-retorno continuam iguais.
-
-## O que muda
-
-### 1. Renomear o botão
-- Label atual: **"Ligação"**.
-- Novo label: **"Mover lead"**.
-- Mesmo ícone, posição, estilo e regra de `disabled` (segue habilitando só após `callInitiated`).
-- Tooltip do estado desabilitado passa a: *"Clique em ligar antes de mover o lead"*.
-
-### 2. Popover do botão "Mover lead" → uma etapa só
-- Remover a **etapa 1** do popover (a pergunta "Você realizou a ligação para {nome}?" com Sim/Não que existia **dentro** do popover).
-- Ao clicar em **"Mover lead"**, o popover abre **direto** na lista de destinos que já existe hoje:
-  - **Em Espera**, **Convidados**, **Confirmados** (filtrados por `availableColumns`).
-  - Link **"Fechar sem mover"**.
-- Comportamento de cada destino segue igual: `await onMoveItem(item.id, targetId)` → fecha popover.
-- Remover estado `popoverStep` (agora só existe uma tela). `isBusy` fica se ainda é usado para desabilitar destinos durante o move.
-
-> Importante: a **contagem de tentativa** já é feita pelo fluxo do telefone descrito acima. Não vai haver contagem no popover — não duplica pergunta.
+## Permissão / RLS
+Já coberto pelas policies existentes em `contatos` (o usuário que enxerga o lead no Kanban tem update via `user_can_access_empresa`). Sem migração necessária.
 
 ## Fora de escopo
+- Edição de telefone/e-mail/CPF (mock hoje).
+- Validação de duplicidade por telefone.
 
-- Fluxo do ícone de telefone e diálogo pós-retorno.
-- Regra de origem oculta para SDR.
-- `KanbanColumn`, `KanbanBoard`, RPCs, RLS, docs.
-
-## Riscos
-
-| # | Risco | Mitigação |
-|---|---|---|
-| 1 | Remover a etapa do popover apagar acidentalmente o RPC de tentativa | O RPC vive no diálogo pós-retorno do telefone, não no popover. Antes de codar, confirmar isso lendo o arquivo e só remover o bloco visual/estado do popover. |
-| 2 | `callInitiated` não resetar corretamente após mover | Manter o reset atual no sucesso do move e no unmount/troca de `item.id`. |
-| 3 | Destinos ausentes na visão atual | Filtro por `availableColumns` já existe; sem mudança. |
-
-## Verificação
-
-- `tsgo` para tipos.
-- Preview `/prospeccao/atendimento`:
-  - Botão mostra **"Mover lead"** e inicia `disabled`.
-  - Clicar no telefone abre discador; ao voltar, aparece a pergunta atual e "Sim" continua incrementando o contador.
-  - Clicar em **"Mover lead"** abre o popover **direto** nos 3 destinos + "Fechar sem mover", sem pergunta intermediária.
+Confirma que quer também atualizar o título do card no Kanban em tempo real?
