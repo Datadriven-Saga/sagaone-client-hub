@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ResponsiveDialogContent } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -107,18 +108,42 @@ export function DescarteLeadModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-destructive" />
-            Descartar Lead
-          </DialogTitle>
-          <DialogDescription>
-            Você está prestes a descartar o lead <strong>{contatoNome}</strong>. 
-            Por favor, informe o motivo e uma justificativa.
-          </DialogDescription>
-        </DialogHeader>
-
+      <ResponsiveDialogContent
+        size="sm"
+        header={
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Descartar Lead
+            </DialogTitle>
+            <DialogDescription>
+              Você está prestes a descartar o lead <strong>{contatoNome}</strong>. 
+              Por favor, informe o motivo e uma justificativa.
+            </DialogDescription>
+          </DialogHeader>
+        }
+        footer={
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClose} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleSubmit} 
+              disabled={loading || !isValid}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Descartando...
+                </>
+              ) : (
+                'Confirmar Descarte'
+              )}
+            </Button>
+          </DialogFooter>
+        }
+      >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Motivo de Insucesso *</Label>
@@ -166,27 +191,7 @@ export function DescarteLeadModal({
             </p>
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button 
-            variant="destructive" 
-            onClick={handleSubmit} 
-            disabled={loading || !isValid}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Descartando...
-              </>
-            ) : (
-              'Confirmar Descarte'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+      </ResponsiveDialogContent>
     </Dialog>
   );
 }
