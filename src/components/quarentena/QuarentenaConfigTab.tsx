@@ -151,7 +151,7 @@ export function QuarentenaConfigTab({ availableMarcas }: Props) {
             <TableRow>
               <TableHead>Marca</TableHead>
               <TableHead>Canal</TableHead>
-              <TableHead className="w-[140px]">Prazo (dias)</TableHead>
+              <TableHead className="w-full sm:w-[140px]">Prazo (dias)</TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -176,7 +176,7 @@ export function QuarentenaConfigTab({ availableMarcas }: Props) {
                         updateDias(row.marca, row.canal, v);
                       }
                     }}
-                    className="w-[100px] h-8 text-sm"
+                    className="w-full sm:w-[100px] h-8 text-sm"
                   />
                 </TableCell>
                 <TableCell>

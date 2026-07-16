@@ -338,14 +338,14 @@ export function ControleEmpresasTab() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
             </div>
-            <div className="w-[120px]">
+            <div className="w-full sm:w-[120px]">
               <Input
                 placeholder="Marca"
                 value={filterMarca}
                 onChange={(e) => setFilterMarca(e.target.value)}
               />
             </div>
-            <div className="w-[80px]">
+            <div className="w-full sm:w-[80px]">
               <Input
                 placeholder="UF"
                 value={filterUF}
