@@ -13,7 +13,7 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Calendar, Filter, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { cn } from "@/lib/utils";
 
