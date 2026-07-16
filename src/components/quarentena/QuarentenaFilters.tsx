@@ -94,7 +94,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
 
         {/* Canal */}
         <Select value={(filters as any).canal || "all"} onValueChange={v => update({ canal: v === "all" ? undefined : v } as any)}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Canal" />
           </SelectTrigger>
           <SelectContent>
@@ -106,7 +106,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
 
         {/* Status */}
         <Select value={filters.status} onValueChange={v => update({ status: v })}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
