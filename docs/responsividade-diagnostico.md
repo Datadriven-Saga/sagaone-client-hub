@@ -164,8 +164,7 @@ Pré-requisito para tudo. Sem baseline, não há como provar melhoria nem detect
 
 Prepara tokens e primitivos sem tocar em telas existentes.
 
-- [ ] `tailwind.config.ts`: `container.padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' }`.
-- [x] `tailwind.config.ts`: `container.padding` responsivo aplicado.
+- [x] `tailwind.config.ts`: `container.padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' }` aplicado.
 - [x] **Tipografia fluida com limites seguros** em `src/index.css` `@layer components` — `.h1`, `.h2`, `.h3`, `.body-lg`, `.body` usando `clamp(min, preferred, max)`. Os `min` são ancorados no pior caso (viewport 320–360px) e os `max` evitam quebras indesejadas em ultra-wide:
   - `.h1` → `clamp(1.5rem, 1.2rem + 1.6vw, 2.25rem)` (24px → 36px)
   - `.h2` → `clamp(1.25rem, 1.05rem + 1vw, 1.75rem)` (20px → 28px)
@@ -188,7 +187,7 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 - [ ] ~~Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo~~ — **cancelado**: `!p-0` é requisito explícito do usuário (divs devem encostar nas bordas). Padding interno responsivo será resolvido dentro do body do modal, não no wrapper.
 - [x] **Formulários densos em coluna única no mobile**: no `CriarProspeccaoModal` todos os `grid grid-cols-2` / `grid-cols-3` de campos foram colapsados via sweep para `grid-cols-1 sm:grid-cols-2` / `grid-cols-1 sm:grid-cols-2 md:grid-cols-3`. Grid do stepper (3 cols) e grid do marketing (2 cards pequenos) mantidos por decisão de UI.
 - [x] Botão fechar (X) do `Dialog`: `h-11 w-11` em mobile / `sm:h-8 sm:w-8` desktop (`src/components/ui/dialog.tsx`).
-- [ ] Ícones de ação em tabelas ganham `.touch-target` só em mobile (via classe condicional `md:before:hidden` para não alterar layout desktop).
+- [x] Ícones de ação em tabelas ganham `.touch-target` só em mobile — aplicado direto na variante `size="icon"` do `Button` (`src/components/ui/button.tsx`), via `touch-target md:before:hidden`. Propaga automaticamente para todas as tabelas sem tocar arquivo a arquivo; desktop inalterado.
 - [x] Trocar `vh` → `dvh` em `max-h` de modais e `calc(100vh-...)` de telas full-screen (sweep em toda a `src/`).
 - [~] **Prevenção de teclado virtual em modais longos**: hook `useScrollIntoViewOnFocus()` disponível em `src/hooks/useScrollIntoViewOnFocus.ts` (delay 300ms, ≤ 768px). Aplicação campo-a-campo nos modais longos ainda pendente.
 
@@ -231,7 +230,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
   - view "coluna única" com `snap-x snap-mandatory` **+ indicadores persistentes de navegação**: uma **barra de abas de status fixa no topo** (sticky) mostrando todas as colunas como chips (`<TabsList>` compacta), com o chip ativo destacado, sincronizada com o scroll via `IntersectionObserver`. Clicar em um chip faz `scrollIntoView({ inline: 'start', behavior: 'smooth' })` na coluna correspondente. Adicionar também **paginação por pontos** (`•••••`) abaixo do header como reforço visual — o usuário sempre sabe onde está e quantas colunas existem.
   - drag-and-drop só em desktop; em mobile, ação **"Mover para →"** no card via **`IconButton` de três pontinhos (⋮)** posicionado no canto superior direito do card com `size="touch"` (44×44) e ícone visual `w-4 h-4`. Ao tocar, abre um `Sheet` ou `DropdownMenu` com a lista de colunas destino — reaproveita o fluxo já implementado em `KanbanCard.tsx` (Contato realizado → mover).
   - `title` em textos truncados dos cards (acessibilidade + tooltip nativo).
-- [ ] `DashboardWhatsAppTab`: `hintLines` do card de custo empilhados verticalmente em < 360px (`text-[11px]`).
+- [x] `DashboardWhatsAppTab`: `hintLines` já empilhados verticalmente (`flex flex-col`) com `text-[11px] sm:text-xs leading-tight` — cobre < 360px sem estourar o card.
 - [x] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` aplicado (`src/components/DashboardLayout.tsx`).
 - [ ] Grid de KPIs: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` consistente.
 
