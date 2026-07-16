@@ -184,7 +184,7 @@ Prepara tokens e primitivos sem tocar em telas existentes.
 
 #### Fase 2 — Modais e hitboxes (risco baixo · 1 dia · 1 PR)
 
-- [ ] Migrar para `ResponsiveDialogContent`: `CriarProspeccaoModal`, `SimulacaoEventoModal`, `SimulacaoPriWhatsAppModal`, `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog`. (Pendente — migração modal-a-modal com risco. `CriarProspeccaoModal` já teve grids `grid-cols-2/3` colapsados para `grid-cols-1 sm:grid-cols-2 [md:grid-cols-3]` como preparação.)
+- [~] Migrar para `ResponsiveDialogContent`: **migrados** `SimulacaoPriWhatsAppModal`, `SimulacaoEventoModal`, `DescarteLeadModal` (header/footer slots + body rolável com `max-h-[90dvh]` real). **Pendentes**: `Templates`, `AvatarBuilder`, `ContatoRealizadoDialog` (layout `flex-col p-0` custom — precisa refatoração dedicada). `CriarProspeccaoModal` fica fora por requisito explícito `!p-0`.
 - [ ] ~~Substituir `!p-0` do `CriarProspeccaoModal` por padding responsivo~~ — **cancelado**: `!p-0` é requisito explícito do usuário (divs devem encostar nas bordas). Padding interno responsivo será resolvido dentro do body do modal, não no wrapper.
 - [x] **Formulários densos em coluna única no mobile**: no `CriarProspeccaoModal` todos os `grid grid-cols-2` / `grid-cols-3` de campos foram colapsados via sweep para `grid-cols-1 sm:grid-cols-2` / `grid-cols-1 sm:grid-cols-2 md:grid-cols-3`. Grid do stepper (3 cols) e grid do marketing (2 cards pequenos) mantidos por decisão de UI.
 - [x] Botão fechar (X) do `Dialog`: `h-11 w-11` em mobile / `sm:h-8 sm:w-8` desktop (`src/components/ui/dialog.tsx`).
