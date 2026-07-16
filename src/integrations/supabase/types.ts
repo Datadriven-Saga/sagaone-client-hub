@@ -7160,6 +7160,10 @@ export type Database = {
           tipo_acesso: Database["public"]["Enums"]["tipo_acesso"]
         }[]
       }
+      get_contato_status_por_evento: {
+        Args: { p_contato_id: string; p_prospeccao_id: string }
+        Returns: string
+      }
       get_contato_timeline: {
         Args: { p_contato_id: string; p_limit?: number; p_offset?: number }
         Returns: {
@@ -7230,6 +7234,18 @@ export type Database = {
         }[]
       }
       get_email_by_profile_id: { Args: { p_id: string }; Returns: string }
+      get_evento_base_contatos: {
+        Args: {
+          p_disparo?: string
+          p_empresa_id: string
+          p_limit?: number
+          p_offset?: number
+          p_prospeccao_id: string
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       get_kanban_columns: {
         Args: {
           p_date_end?: string
