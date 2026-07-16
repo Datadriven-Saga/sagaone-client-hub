@@ -2584,7 +2584,7 @@ export default function Templates() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[750px] h-[85vh] max-h-[750px] flex flex-col overflow-hidden pb-3">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-[750px] h-[85dvh] max-h-[750px] flex flex-col overflow-hidden pb-3">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>{duplicatingTemplate ? "Novo Template (Duplicado)" : "Novo Template"}</DialogTitle>
           </DialogHeader>
@@ -2649,7 +2649,7 @@ export default function Templates() {
 
       {/* Expanded Body Text Editor */}
       <Dialog open={expandedBodyOpen} onOpenChange={setExpandedBodyOpen}>
-        <DialogContent className="sm:max-w-[800px] h-[80vh] max-h-[700px] flex flex-col">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-auto sm:max-w-[800px] h-[80dvh] max-h-[700px] flex flex-col">
           <DialogHeader>
             <DialogTitle>Editar Corpo do Texto</DialogTitle>
           </DialogHeader>
