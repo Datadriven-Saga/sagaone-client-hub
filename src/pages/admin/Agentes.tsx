@@ -1671,7 +1671,7 @@ export default function AdminAgentes() {
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Filtro por Nome do Agente (dropdown) */}
                       <Select value={filterNomeAgente} onValueChange={handleFilterNomeAgente}>
-                        <SelectTrigger className="w-[140px] h-9">
+                        <SelectTrigger className="w-full sm:w-[140px] h-9">
                           <Bot className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
                           <SelectValue placeholder="Agente" />
                         </SelectTrigger>
@@ -1709,7 +1709,7 @@ export default function AdminAgentes() {
 
                       {/* Filtro por UF */}
                       <Select value={filterUF} onValueChange={handleFilterUF}>
-                        <SelectTrigger className="w-[100px] h-9">
+                        <SelectTrigger className="w-full sm:w-[100px] h-9">
                           <MapPin className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
                           <SelectValue placeholder="UF" />
                         </SelectTrigger>
@@ -1725,7 +1725,7 @@ export default function AdminAgentes() {
 
                       {/* Filtro por Marca */}
                       <Select value={filterMarca} onValueChange={handleFilterMarca}>
-                        <SelectTrigger className="w-[160px] h-9">
+                        <SelectTrigger className="w-full sm:w-[160px] h-9">
                           <Store className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
                           <SelectValue placeholder="Marca" />
                         </SelectTrigger>
@@ -1741,7 +1741,7 @@ export default function AdminAgentes() {
 
                       {/* Filtro por Status */}
                       <Select value={filterStatus} onValueChange={handleFilterStatus}>
-                        <SelectTrigger className="w-[130px] h-9">
+                        <SelectTrigger className="w-full sm:w-[130px] h-9">
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1763,7 +1763,7 @@ export default function AdminAgentes() {
 
                       {/* Filtro por Empresa */}
                       <Select value={filterEmpresa} onValueChange={handleFilterEmpresa}>
-                        <SelectTrigger className="w-[180px] h-9">
+                        <SelectTrigger className="w-full sm:w-[180px] h-9">
                           <Building2 className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
                           <SelectValue placeholder="Empresa" />
                         </SelectTrigger>

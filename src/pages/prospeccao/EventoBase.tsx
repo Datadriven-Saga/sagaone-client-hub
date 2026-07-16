@@ -2199,7 +2199,7 @@ export default function EventoBase() {
                 onValueChange={setSelectedReplacementTemplate}
                 disabled={loadingTemplates || isReplacingTemplate}
               >
-                <SelectTrigger className="w-[300px] h-9 bg-background">
+                <SelectTrigger className="w-full sm:w-[300px] h-9 bg-background">
                   <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -2246,7 +2246,7 @@ export default function EventoBase() {
                 onValueChange={setSelectedReplacementTemplate}
                 disabled={loadingTemplates || isReplacingTemplate}
               >
-                <SelectTrigger className="w-[300px] h-9 bg-background">
+                <SelectTrigger className="w-full sm:w-[300px] h-9 bg-background">
                   <SelectValue placeholder={loadingTemplates ? "Carregando..." : "Selecione um template aprovado"} />
                 </SelectTrigger>
                 <SelectContent>
