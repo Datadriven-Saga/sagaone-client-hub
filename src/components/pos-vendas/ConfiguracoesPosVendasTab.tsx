@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { usePatyAgentes } from "@/hooks/pos-vendas/usePosVendasData";
+import { useAutoScrollFocusInContainer } from "@/hooks/useScrollIntoViewOnFocus";
 
 // ---------- Types ----------
 type Loja = { dealer_id: string; marca: string; uf: string; nome: string };
@@ -158,6 +159,7 @@ function isRangesDirty(a: ConfigState, b: ConfigState) {
 }
 
 export function ConfiguracoesPosVendasTab() {
+  const containerRef = useAutoScrollFocusInContainer<HTMLDivElement>();
   const { activeCompany } = useCompany();
   const { agentes: patyAgentes, loading: loadingAgentes } = usePatyAgentes();
   const patyAgente = useMemo(() => {
