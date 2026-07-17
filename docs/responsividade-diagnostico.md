@@ -252,6 +252,39 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 - [ ] Atualizar este documento marcando o que foi entregue e anexar o relatório final de métricas.
 - [ ] Rodar `bun run responsivo:audit` uma última vez e arquivar o relatório em `docs/historico/responsividade-<data>.md`.
 
+---
+
+## 7. Status pós-execução (2026-07-17)
+
+### 7.1 Concluído
+
+- Fase 0 (instrumentação) e Fase 1 (fundações) — 100%.
+- Fase 2 — modais, botão X `h-11`, `.touch-target` em ícones, sweep `vh → dvh`. Aplicação campo-a-campo do `useScrollIntoViewOnFocus` fica pendente (ver 7.2).
+- Fase 3 — Ondas A, B e C de tabelas concluídas; `FilterBar` mobile via `Sheet` entregue; `overflow-x:hidden` global removido.
+- Fase 4 — Kanban mobile com chip-nav sticky + `snap-x`, `KanbanCard` com botão "Mover lead" (substitui o ⋮ previsto no plano; mesma função). `DashboardWhatsAppTab` com KPIs em `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5` e `hintLines` responsivos.
+- Fase 5 — Tokens tipográficos `.h1` aplicados nas landings. Sweep parcial de `w-[Npx]` (36 → 25).
+
+### 7.2 Pendências rastreadas (próxima onda)
+
+Requerem priorização explícita antes de nova execução por serem alto custo de refactor por tela:
+
+1. **Renderização condicional via JS (`useBreakpoint('md')`)** nas tabelas de alto volume: `admin/LogsDisparos`, `admin/LogsCadeiras`, `admin/Quarentena`, `admin/Webhooks`, `RecepcaoTable`. Hoje usam toggle CSS (`hidden md:*`) que renderiza as duas árvores.
+2. **`useScrollIntoViewOnFocus` campo-a-campo** em modais longos (`CriarProspeccaoModal` — 4700+ linhas, `SimulacaoEventoModal`, `ConfiguracoesPosVendasTab`). Hook e padrão já prontos; falta plugar nos ~40 `Input`/`Textarea` mais baixos do body.
+3. **Sweep final de `w-[Npx]`** — reduzir 25 → ≤ 20. Ocorrências restantes são majoritariamente `TableHead` (reserva de coluna) e popovers Radix. Precisa auditoria caso-a-caso.
+4. **Audit final autenticado** — `bun run responsivo:audit` só cobre `/login` neste ambiente (`LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged`). Rodar em ambiente com sessão válida e arquivar em `docs/historico/responsividade-<data>.md`.
+
+### 7.3 Baseline mais recente (2026-07-17)
+
+Rodada limitada a rota pública `/login` (única acessível sem sessão neste ambiente):
+
+| Viewport | Overflow-X | Hitbox < 44 |
+|---|---|---|
+| 360×800 | ✅ | 3 |
+| 390×844 | ✅ | 3 |
+| 768–1920 | ✅ | 0 |
+
+Nenhum overflow horizontal detectado após remoção do `overflow-x:hidden` global. Os 3 hitboxes pequenos em mobile correspondem a links do rodapé do login (não bloqueadores).
+
 ### 4.1.1 Resumo cronograma
 
 | Fase | Escopo | Duração | Bloqueia próxima? |
