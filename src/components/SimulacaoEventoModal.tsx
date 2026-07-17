@@ -100,6 +100,7 @@ export function SimulacaoEventoModal({
 }: SimulacaoEventoModalProps) {
   const isDisparo = mode === "disparo";
   const autoCanal = detectCanal(canalEvento);
+  const containerRef = useAutoScrollFocusInContainer<HTMLDivElement>();
   
   const [canal, setCanal] = useState<Canal>(autoCanal);
 
@@ -290,7 +291,7 @@ export function SimulacaoEventoModal({
           ) : undefined
         }
       >
-        <div className="space-y-5">
+        <div ref={containerRef} className="space-y-5">
           {/* Event info when in dispatch mode */}
           {isDisparo && eventoNome && (
             <Card className="border-primary/20 bg-primary/5">
