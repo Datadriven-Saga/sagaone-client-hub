@@ -50,6 +50,20 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
   const [nomeEdit, setNomeEdit] = useState('');
   const [savingNome, setSavingNome] = useState(false);
 
+  const isNomePlaceholder = (nome?: string | null) => {
+    if (!nome) return true;
+    const n = nome.trim().toLowerCase();
+    if (!n) return true;
+    return [
+      'lead sem nome',
+      'sem nome',
+      'cliente sem nome',
+      'nome não informado',
+      'nao informado',
+      'não informado',
+    ].includes(n);
+  };
+
   const canRegisterOptOut = permissions.canRegisterExternalOptOut === true;
 
   // Canal herdado do canal da prospecção
@@ -80,7 +94,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
           empresa_marca: (data as any).empresas?.marca ?? null,
           empresa_uf: (data as any).empresas?.uf ?? null,
         });
-        setNomeEdit(data.nome || '');
+        setNomeEdit(isNomePlaceholder(data.nome) ? '' : (data.nome || ''));
       }
     };
     fetchContato();
@@ -352,7 +366,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <Label htmlFor="atd-nome">Nome do Cliente</Label>
-                      {!(contatoData?.nome && contatoData.nome.trim()) ? (
+                      {isNomePlaceholder(contatoData?.nome) ? (
                       <div className="flex gap-2 mt-1">
                         <Input
                           id="atd-nome"

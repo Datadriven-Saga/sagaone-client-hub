@@ -1,51 +1,31 @@
+## Contexto
 
-# Continuação do plano de responsividade — itens pendentes
+No `AtendimentoModal`, o campo "Nome do Cliente" só fica editável quando `contatos.nome` está vazio. Porém, em vários leads o valor gravado é literalmente a string `"Lead sem nome"` (placeholder salvo em base) — nesse caso o campo aparece como texto estático, sem possibilidade de edição, como mostra o vídeo.
 
-Baseado em `docs/responsividade-diagnostico.md`, os itens ainda não concluídos estão distribuídos nas Fases 2, 3, 4 e 5. Abaixo, agrupei por onda mergeável, em ordem de risco crescente.
+## Objetivo
 
-## Onda 1 — Fase 4: Kanban mobile e KPIs (risco baixo)
+Permitir editar o nome sempre que o lead estiver sem nome real, incluindo os casos em que o valor gravado é um placeholder tipo `"Lead sem nome"`, `"lead sem nome"`, `"sem nome"` ou variações com espaços/caixa.
 
-1. **KanbanCard — ação "Mover" via ícone ⋮ no card (mobile only)**
-   - Adicionar `IconButton` (⋮, `size="icon"` com `.touch-target`) no canto superior direito do card, visível só em `< md`.
-   - Ao tocar, abre `DropdownMenu`/`Sheet` reaproveitando a lista de colunas destino já existente no fluxo "Mover lead" atual.
-   - Não desativar drag-and-drop em desktop; em mobile o DnD já é impraticável e o botão passa a ser a via oficial.
-2. **Tooltips nativos em texto truncado do KanbanCard**
-   - Confirmar `title={item.title}` no título (o doc marca como feito, revalidar) e adicionar em `description`/`assignee` quando truncados.
-3. **Grid de KPIs consistente**
-   - Padronizar `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` em `DashboardWhatsAppTab` e demais dashboards com KPIs (Ligação, Resumo). Trocar `flex` + `w-[Npx]` remanescentes por grid.
+## Alterações
 
-## Onda 2 — Fase 3: performance de tabelas grandes + Onda C
+**`src/components/AtendimentoModal.tsx`**
 
-4. **Renderização condicional via JS para tabelas volumosas**
-   - Em `admin/LogsDisparos`, `admin/LogsCadeiras`, `admin/Quarentena`, `admin/Webhooks` e `RecepcaoTable`, substituir o toggle CSS (`hidden md:*`) por `useBreakpoint('md')` decidindo entre `<Table>` completa (desktop) e lista de `<Card>` (mobile). Evita reconciliar duas árvores.
-   - Manter tabelas < 50 linhas com o toggle CSS atual (mais simples).
-5. **Onda C — varredura das telas restantes**
-   - Sweep automatizado: adicionar `overflow-x-auto` + `.scroll-fade-x` em qualquer `<Table>` ainda sem wrapper responsivo, garantindo que nenhuma rota volte a apresentar scroll horizontal na página inteira depois da remoção do `overflow-x:hidden` global.
+1. Criar helper local `isNomePlaceholder(nome?: string)` que retorna `true` quando:
+   - `nome` é vazio/`null`/`undefined`, OU
+   - `nome.trim().toLowerCase()` bate com um dos placeholders: `"lead sem nome"`, `"sem nome"`, `"cliente sem nome"`, `"nome não informado"`, `"não informado"`.
+2. Trocar a condição atual `!(contatoData?.nome && contatoData.nome.trim())` (linha 355) por `isNomePlaceholder(contatoData?.nome)` para renderizar o input+botão de salvar nesse cenário.
+3. Ao carregar `contatoData` (linha ~83, `setNomeEdit`), se `isNomePlaceholder(data.nome)` for `true`, inicializar `nomeEdit` como string vazia (em vez de repetir o placeholder no input) para que o usuário digite o nome do zero.
+4. Manter o restante do fluxo `handleSalvarNome` intacto: salva em `contatos.nome`, dispara `lead-nome-updated` e atualiza o `contatoData` local. O título do modal (`Lead sem nome`) já reage via `contatoData.nome`, então passará a exibir o nome real após salvar.
 
-## Onda 3 — Fase 2 tail: teclado virtual em modais longos
+## Fora do escopo
 
-6. **Aplicar `useScrollIntoViewOnFocus` nos formulários longos**
-   - `CriarProspeccaoModal` (campos de texto/datetime), `SimulacaoEventoModal` e `ConfiguracoesPosVendasTab`. Passar `ref` nos `Input`/`Textarea` mais baixos do body do modal, sem alterar layout.
+- Não alterar Kanban, card de lista ou webhooks.
+- Não mexer em `bulk_upsert_contatos` nem no valor default gravado na importação (débito conhecido — só tratamos na UI).
+- Sem migração de dados dos leads já gravados com `"Lead sem nome"`.
 
-## Onda 4 — Fase 5: cleanup, doc e audit final
+## Validação
 
-7. **Última varredura de `w-[Npx]`**
-   - Alvo: reduzir de ~25 para ≤ 20 ocorrências problemáticas. Focar em botões/badges que apareçam em telas < 360px; deixar `TableHead`/popovers documentados como exceção.
-8. **Rodar `bun run responsivo:audit`**
-   - Comparar métricas com baseline; arquivar em `docs/historico/responsividade-<data>.md`.
-9. **Atualizar `docs/responsividade-diagnostico.md`**
-   - Marcar checkboxes concluídos, anexar relatório final e listar exceções remanescentes.
-
-## Fora de escopo desta execução
-
-- Refactor de `contatos.status` (débito estrutural).
-- Novas features de UX no Kanban além do botão "Mover".
-- Qualquer mudança em RPC/RLS/edge functions.
-
-## Detalhes técnicos
-
-- Nenhum arquivo em `supabase/` será tocado.
-- `KanbanBoard` já expõe `moveItem` (usado pelo fluxo atual de "Mover lead"); a Onda 1 apenas adiciona um segundo entry-point no card via ⋮ com o mesmo callback.
-- Para a Onda 2, o hook `useBreakpoint('md')` já existe (`src/hooks/useBreakpoint.ts`).
-- Nenhum default de primitivo shadcn muda; tudo entra como classes utilitárias ou variantes já criadas nas Fases 1–2.
-- Cada onda é uma PR independente; se qualquer onda quebrar visualmente uma tela, ela é revertida sem afetar as demais.
+- Abrir lead com `nome = "Lead sem nome"`: campo aparece como input vazio + botão Salvar habilitado ao digitar.
+- Abrir lead com `nome = null`: comportamento igual ao anterior (já funcionava).
+- Abrir lead com nome real (ex.: "João Silva"): continua como texto estático, sem input.
+- Após salvar, título do modal e header (`Lead sem nome`) atualizam para o novo nome sem precisar reabrir.
