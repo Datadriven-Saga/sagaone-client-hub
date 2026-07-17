@@ -404,7 +404,8 @@ export function ConfiguracoesPosVendasTab() {
         janela_antecipacao_dias: config.antecedencia_dias,
         ativo: posVendasAtivo,
       };
-      await callExternalWebhook(WEBHOOK_CONFIG_GERAIS, payloadConfig);
+      const respConfig = await callExternalWebhook(WEBHOOK_CONFIG_GERAIS, payloadConfig);
+      assertExternalSuccess(respConfig, "Salvar configurações");
       setOriginal((prev) => (prev ? { ...prev, ...pickConfigSlice(config) } : cloneConfig(config)));
       setUsouDefault(false);
       setFlashConfig(true);
@@ -434,7 +435,8 @@ export function ConfiguracoesPosVendasTab() {
           km_max: f.km_max,
         })),
       };
-      await callExternalWebhook(WEBHOOK_UPSERT_RANGES, payloadRanges);
+      const respRanges = await callExternalWebhook(WEBHOOK_UPSERT_RANGES, payloadRanges);
+      assertExternalSuccess(respRanges, "Salvar faixas");
       setOriginal((prev) => (prev ? { ...prev, faixas: config.faixas.map((f) => ({ ...f })) } : cloneConfig(config)));
       setFlashRanges(true);
       toast.success("Faixas de KM salvas com sucesso.");
