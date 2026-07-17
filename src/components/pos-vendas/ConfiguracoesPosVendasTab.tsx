@@ -74,6 +74,34 @@ async function callExternalWebhook(webhook_slug: string, payload: Record<string,
   return data;
 }
 
+// Valida que a resposta do webhook externo confirma sucesso.
+// Lança erro se o fluxo externo retornou erro ou não confirmou explicitamente sucesso.
+function assertExternalSuccess(resp: any, contexto: string) {
+  const src = Array.isArray(resp) ? resp[0] : resp?.data ?? resp;
+  if (src == null) {
+    throw new Error(`${contexto}: fluxo externo não retornou confirmação.`);
+  }
+  const hasErrorFlag =
+    !!src?.error ||
+    src?.status === "error" ||
+    src?.success === false ||
+    src?.ok === false;
+  if (hasErrorFlag) {
+    throw new Error(String(src?.message || src?.error || `${contexto}: fluxo externo retornou erro.`));
+  }
+  const okFlag =
+    src?.success === true ||
+    src?.ok === true ||
+    src?.status === "success" ||
+    src?.status === "ok" ||
+    src?.status === 200 ||
+    src?.updated === true ||
+    src?.saved === true;
+  if (!okFlag) {
+    throw new Error(`${contexto}: fluxo externo não confirmou sucesso.`);
+  }
+}
+
 function parseBuscaResponse(raw: any): { config: ConfigState; ativo: boolean } | null {
   if (!raw) return null;
   // Aceita tanto objeto direto quanto array [{...}] ou { data: {...} }
