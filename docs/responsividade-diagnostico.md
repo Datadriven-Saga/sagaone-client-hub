@@ -1,7 +1,7 @@
 # Diagnóstico de Responsividade — SagaOne
 
 > Diagnóstico + **plano executável em fases**. Nenhuma alteração de código feita ainda.
-> Data: 2026-07-14 · Última revisão: 2026-07-14 (v3 — critérios objetivos, rollback e observabilidade)
+> Data: 2026-07-14 · Última revisão: 2026-07-17 (v4 — status pós-execução das Fases 0–3 e parcial 4–5)
 > Escopo: Mobile (≤ 480px), Tablet (481–1024px), Desktop (≥ 1025px, incluindo ultra-wide ≥ 1920px).
 > Escopo do trabalho: **apenas apresentação** (Tailwind, componentes UI, layout). Nenhuma mudança de RPC, RLS, edge function ou regra de negócio.
 
