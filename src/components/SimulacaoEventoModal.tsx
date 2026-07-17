@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useAutoScrollFocusInContainer } from "@/hooks/useScrollIntoViewOnFocus";
 
 // ── WhatsApp rates ──
 const TAXAS_WA = {
