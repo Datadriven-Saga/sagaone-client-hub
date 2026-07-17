@@ -420,15 +420,31 @@ export function ConfiguracoesPosVendasTab() {
 
   async function handleTogglePosVendas(next: boolean) {
     if (!loja || togglingStatus) return;
-    const prev = posVendasAtivo;
-    setPosVendasAtivo(next);
     setTogglingStatus(true);
     try {
-      await callExternalWebhook(WEBHOOK_ALTERA_STATUS, { dealer_id: Number(loja.dealer_id), ativo: next });
+      const resp: any = await callExternalWebhook(WEBHOOK_ALTERA_STATUS, {
+        dealer_id: Number(loja.dealer_id),
+        ativo: next,
+      });
+      // Só considera sucesso se o fluxo externo confirmar
+      const src = Array.isArray(resp) ? resp[0] : resp?.data ?? resp;
+      const okFlag =
+        src?.success === true ||
+        src?.ok === true ||
+        src?.status === "success" ||
+        src?.status === "ok" ||
+        (typeof src?.ativo === "boolean" && src.ativo === next) ||
+        (typeof src?.pos_vendas_ativo === "boolean" && src.pos_vendas_ativo === next);
+      const hasErrorFlag =
+        !!src?.error || src?.status === "error" || src?.success === false || src?.ok === false;
+      if (hasErrorFlag || !okFlag) {
+        throw new Error(src?.message || src?.error || "Fluxo externo não confirmou a alteração.");
+      }
+      setPosVendasAtivo(next);
       toast.success(next ? "Pós-vendas ativado para esta loja." : "Pós-vendas desativado para esta loja.");
     } catch (e: any) {
-      setPosVendasAtivo(prev);
-      toast.error("Não foi possível alterar o status do pós-vendas.");
+      // Mantém o estado anterior (nada foi alterado)
+      toast.error(e?.message ? `Não foi possível alterar o status: ${e.message}` : "Não foi possível alterar o status do pós-vendas.");
     } finally {
       setTogglingStatus(false);
     }
