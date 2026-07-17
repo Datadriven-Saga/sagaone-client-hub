@@ -1,78 +1,51 @@
-## Objetivo
 
-Fazer com que a coluna "Status Lead" da tela `/prospeccao/eventos/:id/base` **e o Kanban** (`/prospeccao/atendimento`) mostrem o status do lead **naquele evento**, não o status global `contatos.status`. Sem alterar schema — deriva do último registro em `logs_movimentacao_contatos` filtrado por `prospeccao_id`.
+# Continuação do plano de responsividade — itens pendentes
 
-## Diagnóstico
+Baseado em `docs/responsividade-diagnostico.md`, os itens ainda não concluídos estão distribuídos nas Fases 2, 3, 4 e 5. Abaixo, agrupei por onda mergeável, em ordem de risco crescente.
 
-- `contatos.status` é global — 1 lead compartilha status entre eventos.
-- `logs_movimentacao_contatos` tem `contato_id`, `prospeccao_id`, `status_novo`, `data_movimentacao`. 100% das linhas têm `prospeccao_id` preenchido (1.434.104 / 1.434.104). Base sólida para derivação.
-- **Kanban também usa status global** — confirmado em `get_kanban_columns` e `get_contatos_paginated`: filtram por `c.status::text = v_status`.
-- **Tela EventoBase (`src/pages/prospeccao/EventoBase.tsx` ~L910–978)** também lê `contatos.status` direto (`select('...status...')`, `.eq('status', statusFilter)`, contagem filtrada). Precisa entrar no escopo.
+## Onda 1 — Fase 4: Kanban mobile e KPIs (risco baixo)
 
-## Estratégia
+1. **KanbanCard — ação "Mover" via ícone ⋮ no card (mobile only)**
+   - Adicionar `IconButton` (⋮, `size="icon"` com `.touch-target`) no canto superior direito do card, visível só em `< md`.
+   - Ao tocar, abre `DropdownMenu`/`Sheet` reaproveitando a lista de colunas destino já existente no fluxo "Mover lead" atual.
+   - Não desativar drag-and-drop em desktop; em mobile o DnD já é impraticável e o botão passa a ser a via oficial.
+2. **Tooltips nativos em texto truncado do KanbanCard**
+   - Confirmar `title={item.title}` no título (o doc marca como feito, revalidar) e adicionar em `description`/`assignee` quando truncados.
+3. **Grid de KPIs consistente**
+   - Padronizar `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` em `DashboardWhatsAppTab` e demais dashboards com KPIs (Ligação, Resumo). Trocar `flex` + `w-[Npx]` remanescentes por grid.
 
-Introduzir função SQL `get_contato_status_por_evento(contato_id, prospeccao_id) → text`:
+## Onda 2 — Fase 3: performance de tabelas grandes + Onda C
 
-- Retorna `status_novo` do log mais recente de `(contato_id, prospeccao_id)`.
-- Fallback: `Novo` (status inicial ao vincular).
-- `STABLE SECURITY DEFINER`, `search_path=public`.
+4. **Renderização condicional via JS para tabelas volumosas**
+   - Em `admin/LogsDisparos`, `admin/LogsCadeiras`, `admin/Quarentena`, `admin/Webhooks` e `RecepcaoTable`, substituir o toggle CSS (`hidden md:*`) por `useBreakpoint('md')` decidindo entre `<Table>` completa (desktop) e lista de `<Card>` (mobile). Evita reconciliar duas árvores.
+   - Manter tabelas < 50 linhas com o toggle CSS atual (mais simples).
+5. **Onda C — varredura das telas restantes**
+   - Sweep automatizado: adicionar `overflow-x-auto` + `.scroll-fade-x` em qualquer `<Table>` ainda sem wrapper responsivo, garantindo que nenhuma rota volte a apresentar scroll horizontal na página inteira depois da remoção do `overflow-x:hidden` global.
 
-Trocar leituras nas RPCs / queries que hoje usam `c.status` no contexto de "status neste evento".
+## Onda 3 — Fase 2 tail: teclado virtual em modais longos
 
-## Escopo de mudança
+6. **Aplicar `useScrollIntoViewOnFocus` nos formulários longos**
+   - `CriarProspeccaoModal` (campos de texto/datetime), `SimulacaoEventoModal` e `ConfiguracoesPosVendasTab`. Passar `ref` nos `Input`/`Textarea` mais baixos do body do modal, sem alterar layout.
 
-### 1. Nova função SQL + índice
-- `get_contato_status_por_evento(p_contato_id uuid, p_prospeccao_id uuid) returns text`.
-- Índice composto: `logs_movimentacao_contatos (contato_id, prospeccao_id, data_movimentacao DESC)`.
+## Onda 4 — Fase 5: cleanup, doc e audit final
 
-### 2. Nova RPC para tela EventoBase
-- `get_evento_base_contatos(p_empresa_id, p_prospeccao_id, p_limit, p_offset, p_search, p_status, p_disparo)`:
-  - Devolve `{ total, contatos: [...] }`.
-  - `status` de cada contato calculado pelo helper por evento.
-  - Filtro de status aplicado sobre o status derivado.
-  - Filtro `disparo` (`pendente`/`disparado`) preservado a partir de `eventos_prospeccao.data_disparo_ia`.
-- Substituir a query direta em `EventoBase.tsx` (~L910–978) por essa RPC (tanto a listagem quanto a contagem, unificadas).
+7. **Última varredura de `w-[Npx]`**
+   - Alvo: reduzir de ~25 para ≤ 20 ocorrências problemáticas. Focar em botões/badges que apareçam em telas < 360px; deixar `TableHead`/popovers documentados como exceção.
+8. **Rodar `bun run responsivo:audit`**
+   - Comparar métricas com baseline; arquivar em `docs/historico/responsividade-<data>.md`.
+9. **Atualizar `docs/responsividade-diagnostico.md`**
+   - Marcar checkboxes concluídos, anexar relatório final e listar exceções remanescentes.
 
-### 3. Kanban
-- `get_kanban_columns` e `get_contatos_paginated`: computar `status` via helper por evento (CTE `pares` fazendo JOIN em `eventos_prospeccao` + `get_contato_status_por_evento`), e agrupar/filtrar por esse status derivado.
-- Com filtro multi-evento, o mesmo lead pode aparecer em colunas diferentes (comportamento correto por evento). Documentar.
-- Sem `p_prospeccao_ids` já é bloqueado pela regra `kanban-default-filter-and-timeout-prevention` — nada a fazer.
+## Fora de escopo desta execução
 
-### 4. Dropdown de status
-- `get_prospeccao_status_options`: passar a distinct de status derivado por evento (não mais `c.status`), garantindo que o filtro reflita o que existe naquele evento.
+- Refactor de `contatos.status` (débito estrutural).
+- Novas features de UX no Kanban além do botão "Mover".
+- Qualquer mudança em RPC/RLS/edge functions.
 
-### 5. Escrita (mover lead / mudar status)
-- Continua via `mutate_contato_status_atomic`: grava log com `prospeccao_id` e atualiza `contatos.status`. Nenhuma mudança de comportamento. `contatos.status` passa a ser apenas "último status conhecido em qualquer evento" e não é mais fonte de verdade da UI de leitura.
+## Detalhes técnicos
 
-### 6. Webhook Mobi
-- `trg_dispatch_movimentacao_lead_webhook` lê de `logs_movimentacao_contatos` — não afetado.
-
-## Impactos e riscos
-
-- **Métricas/relatórios** que hoje contam por `contatos.status` (ex.: `get_resumo_stats`, funil) continuam globais — fora do escopo desta fase.
-- **Performance**: helper chamado por linha via CTE. Índice composto novo cobre o lookup (~O(log n)). Validar EXPLAIN em empresa grande (BMW MOTOS / FIAT SIA); se regressão, migrar para `DISTINCT ON` server-side em vez do helper por linha.
-- **Duplicação visual no Kanban** com multi-evento: intencional.
-- **Contatos sem log naquele evento**: fallback `Novo`.
-- Reversível: basta reverter as RPCs.
-
-## Validação obrigatória
-
-1. Evento 1222 / BMW MOTOS: lead com status global ≠ status no evento → Base mostra status do evento.
-2. Kanban com 1 evento filtrado: lead na coluna certa daquele evento.
-3. Kanban com 2 eventos filtrados: lead com status divergente aparece 2x, um em cada coluna.
-4. Mover lead: log com `prospeccao_id` correto, webhook Mobi 1x.
-5. Filtro "Status" na Base filtra pelo status derivado.
-6. Dropdown `get_prospeccao_status_options` reflete só status realmente presentes no evento.
-7. EXPLAIN das novas RPCs sem regressão relevante.
-
-## Fora de escopo
-
-- `get_resumo_stats` e demais relatórios/funil por evento.
-- Adicionar coluna `status` em `eventos_prospeccao` (caminho C).
-- Limpeza de `contatos.status`.
-
-## Confirmações antes de implementar
-
-1. Ok deixar `contatos.status` como "último status em qualquer evento" (não é mais fonte de verdade da UI, mas continua sendo escrito para integrações)?
-2. Ok o Kanban mostrar o mesmo lead em colunas diferentes quando filtrar múltiplos eventos com status divergentes?
-3. Escopo desta fase: **Base + Kanban + dropdown de status**. Relatórios/funil ficam para depois. Confirma?
+- Nenhum arquivo em `supabase/` será tocado.
+- `KanbanBoard` já expõe `moveItem` (usado pelo fluxo atual de "Mover lead"); a Onda 1 apenas adiciona um segundo entry-point no card via ⋮ com o mesmo callback.
+- Para a Onda 2, o hook `useBreakpoint('md')` já existe (`src/hooks/useBreakpoint.ts`).
+- Nenhum default de primitivo shadcn muda; tudo entra como classes utilitárias ou variantes já criadas nas Fases 1–2.
+- Cada onda é uma PR independente; se qualquer onda quebrar visualmente uma tela, ela é revertida sem afetar as demais.
