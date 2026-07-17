@@ -55,6 +55,9 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
     return nome.trim().toLowerCase() === 'lead sem nome';
   };
 
+  const nomeAtualDoLead = contatoData?.nome || item?.title || '';
+  const nomeEhLeadSemNome = isNomePlaceholder(nomeAtualDoLead);
+
   const canRegisterOptOut = permissions.canRegisterExternalOptOut === true;
 
   // Canal herdado do canal da prospecção
@@ -357,7 +360,7 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <Label htmlFor="atd-nome">Nome do Cliente</Label>
-                      {isNomePlaceholder(contatoData?.nome) ? (
+                      {nomeEhLeadSemNome ? (
                       <div className="flex gap-2 mt-1">
                         <Input
                           id="atd-nome"
@@ -372,14 +375,14 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
                           disabled={
                             savingNome ||
                             !nomeEdit.trim() ||
-                            nomeEdit.trim() === (contatoData?.nome || '').trim()
+                            nomeEdit.trim() === nomeAtualDoLead.trim()
                           }
                         >
                           {savingNome ? 'Salvando...' : 'Salvar'}
                         </Button>
                       </div>
                       ) : (
-                        <p className="text-sm font-medium mt-1">{contatoData.nome}</p>
+                        <p className="text-sm font-medium mt-1">{nomeAtualDoLead}</p>
                       )}
                     </div>
                     <div>
