@@ -436,7 +436,7 @@ export function ConfiguracoesPosVendasTab() {
 
   // ---------- Render ----------
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} className="space-y-4">
       {/* Bloco 1 - Loja */}
       <Card>
         <CardHeader className="pb-3">
