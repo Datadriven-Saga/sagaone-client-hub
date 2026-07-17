@@ -54,14 +54,32 @@ export function AtendimentoModal({ isOpen, onClose, item, columnId }: Atendiment
     if (!nome) return true;
     const n = nome.trim().toLowerCase();
     if (!n) return true;
-    return [
+    const exactMatches = [
       'lead sem nome',
       'sem nome',
+      'sem nome no contato',
       'cliente sem nome',
       'nome não informado',
-      'nao informado',
+      'nome nao informado',
       'não informado',
-    ].includes(n);
+      'nao informado',
+      'cliente',
+      'cliente saga',
+      'n/d',
+      'nd',
+      'n/a',
+      'na',
+      '-',
+      '--',
+      'null',
+      'undefined',
+    ];
+    if (exactMatches.includes(n)) return true;
+    // "SEM NOME 26 05", "SEM NOME 23/06", "SEM NOME 20 05 2026" etc.
+    if (/^sem nome( \d{1,2}[\/ -]\d{1,2}([\/ -]\d{2,4})?)?$/.test(n)) return true;
+    // "Lead", "Lead 123"
+    if (/^lead( \d+)?$/.test(n)) return true;
+    return false;
   };
 
   const canRegisterOptOut = permissions.canRegisterExternalOptOut === true;
