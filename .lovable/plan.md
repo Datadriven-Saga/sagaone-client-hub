@@ -1,54 +1,33 @@
 ## Objetivo
 
-Ampliar a lista de placeholders reconhecidos como "lead sem nome" no `AtendimentoModal`, para que o campo "Nome do Cliente" fique editável em todos os casos onde o valor gravado é um marcador (não um nome real). Cobre ~41 mil leads já existentes sem tocar em backend, importação ou banco.
+Simplificar a regra: o campo **Nome do Cliente** no `AtendimentoModal` fica editável **apenas** quando o nome do lead for exatamente `Lead sem nome` (com tolerância a maiúsculas/minúsculas e espaços em branco nas bordas). Em qualquer outro caso — nome real ou outros placeholders — o campo continua como texto fixo, sem edição.
 
-## Onde alterar
+## Alteração
 
-Apenas `src/components/AtendimentoModal.tsx`, no helper `isNomePlaceholder` (linhas 53-64).
+Arquivo: `src/components/AtendimentoModal.tsx`
 
-## Nova regra de detecção
+Substituir a função `isNomePlaceholder` (linhas 53-83), que hoje reconhece uma lista grande de variações (`Cliente Saga`, `SEM NOME 23/06`, `N/D`, `-`, etc.), por uma regra mínima:
 
-Um nome é considerado placeholder quando, após `trim()` + `toLowerCase()`, se encaixa em qualquer um destes critérios:
+```ts
+const isNomePlaceholder = (nome?: string | null) => {
+  if (!nome) return false;
+  return nome.trim().toLowerCase() === 'lead sem nome';
+};
+```
 
-1. Vazio, `null` ou `undefined`.
-2. Match exato com a lista:
-   - `lead sem nome`
-   - `sem nome`
-   - `sem nome no contato`
-   - `cliente sem nome`
-   - `nome não informado`
-   - `cliente`
-   - `cliente saga`
-   - `não informado`
-   - `n/d`
-   - `nd`
-   - `n/a`
-   - `na`
-   - `-`
-   - `null`
-   - `undefined`
-3. Match por regex `^sem nome( \d{1,2}[\/ -]\d{1,2}([\/ -]\d{2,4})?)?$` — pega `SEM NOME`, `SEM NOME 26 05`, `SEM NOME 23/06`, `SEM NOME 20 05 2026`, etc.
-4. Match por regex `^lead( \d+)?$` — pega `Lead`, `Lead 123`.
-
-## Comportamento resultante
-
-- Leads com `Lead sem nome`, `Cliente Saga`, `Cliente`, `SEM NOME 23 06`, `-`, `N/D` etc. → aparecem com `<Input>` + botão **Salvar**, campo iniciando vazio para o usuário digitar o nome real.
-- Leads com nome real (ex.: `João Silva`) → continuam como texto fixo, sem edição (comportamento atual preservado).
-- Ao salvar, `handleSalvarNome` atualiza `contatos.nome`, dispara `lead-nome-updated` e mostra toast — sem mudanças aqui.
+Nada mais muda:
+- O input, o botão **Salvar** e o `handleSalvarNome` continuam iguais.
+- O `useEffect` que preenche `nomeEdit` continua chamando `isNomePlaceholder` e vai começar vazio quando o nome for `Lead sem nome`, permitindo digitar o nome real.
+- Nome real (ex.: `João Silva`) e outros placeholders antigos voltam a aparecer como texto fixo.
 
 ## Fora de escopo
 
-- Não altera `process-import`, `bulk_upsert_contatos`, `create-base-ligacao` nem qualquer edge function.
-- Não faz migração de dados existentes (nomes placeholder continuam gravados como estão até o usuário editar).
-- Não altera CPF, celular ou e-mail (continuam somente leitura).
-- Não altera nenhum outro componente que exiba `contato.nome`.
+- Não altera nenhuma edge function, RPC, importação ou banco.
+- Não altera CPF, celular, e-mail nem outros campos do modal.
+- Não muda comportamento do card do Kanban nem de outras telas.
 
-## Teste manual pós-implementação
+## Teste manual
 
-Abrir o `AtendimentoModal` para leads com cada um dos valores abaixo e confirmar que aparece o input editável:
-- `Lead sem nome`
-- `Cliente Saga` / `Cliente SAGA` / `Cliente`
-- `SEM NOME` / `SEM NOME 23 06`
-- `-` / `N/D`
-
-E confirmar que um lead com nome real (ex.: `Maria Souza`) continua aparecendo como texto, sem input.
+1. Abrir um lead com nome `Lead sem nome` → aparece input editável + botão **Salvar**; salvar atualiza `contatos.nome`.
+2. Abrir um lead com nome real (`Maria Souza`) → aparece somente o texto, sem edição.
+3. Abrir um lead com `Cliente Saga`, `SEM NOME 23/06`, `-`, `N/D` → aparece somente o texto, sem edição (comportamento antigo restaurado).
