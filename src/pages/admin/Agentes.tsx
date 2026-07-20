@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
 import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
@@ -1629,8 +1628,7 @@ export default function AdminAgentes() {
 
   return (
     <DashboardLayout title="Agentes - Administração">
-      <ScrollIndicator className="flex-1 h-full">
-        <div className="space-y-6 pb-6">
+      <div className="space-y-6 pb-6">
           {/* Header com seta de voltar e ações */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -3168,8 +3166,7 @@ export default function AdminAgentes() {
             </TabsContent>
 
           </Tabs>
-        </div>
-      </ScrollIndicator>
+      </div>
     </DashboardLayout>
   );
 }
