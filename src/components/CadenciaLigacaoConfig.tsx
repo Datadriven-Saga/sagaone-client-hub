@@ -563,20 +563,20 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
 
       {/* Sub-tabs: Cadência | Testar Ligação | Envio de Mensagem */}
       <Tabs defaultValue="cadencia" className="min-w-0 w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger value="cadencia" className="whitespace-nowrap px-1 sm:px-3">
-            <CalendarClock className="hidden sm:inline-block h-4 w-4 mr-1.5" />
-            Cadência
+        <TabsList className="!grid !grid-cols-3 h-auto w-full p-1">
+          <TabsTrigger value="cadencia" className="w-full min-w-0 px-1 sm:px-3 text-xs sm:text-sm">
+            <CalendarClock className="hidden sm:inline-block h-4 w-4 mr-1.5 shrink-0" />
+            <span className="truncate">Cadência</span>
           </TabsTrigger>
-          <TabsTrigger value="testar" className="whitespace-nowrap px-1 sm:px-3">
-            <PhoneCall className="hidden sm:inline-block h-4 w-4 mr-1.5" />
-            <span className="sm:hidden">Testar</span>
-            <span className="hidden sm:inline">Testar Ligação</span>
+          <TabsTrigger value="testar" className="w-full min-w-0 px-1 sm:px-3 text-xs sm:text-sm">
+            <PhoneCall className="hidden sm:inline-block h-4 w-4 mr-1.5 shrink-0" />
+            <span className="sm:hidden truncate">Testar</span>
+            <span className="hidden sm:inline truncate">Testar Ligação</span>
           </TabsTrigger>
-          <TabsTrigger value="envio-mensagem" className="whitespace-nowrap px-1 sm:px-3">
-            <MessageSquare className="hidden sm:inline-block h-4 w-4 mr-1.5" />
-            <span className="sm:hidden">Mensagem</span>
-            <span className="hidden sm:inline">Envio de Mensagem</span>
+          <TabsTrigger value="envio-mensagem" className="w-full min-w-0 px-1 sm:px-3 text-xs sm:text-sm">
+            <MessageSquare className="hidden sm:inline-block h-4 w-4 mr-1.5 shrink-0" />
+            <span className="sm:hidden truncate">Mensagem</span>
+            <span className="hidden sm:inline truncate">Envio de Mensagem</span>
           </TabsTrigger>
         </TabsList>
 
