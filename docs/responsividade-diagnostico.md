@@ -1,9 +1,44 @@
 # Diagnóstico de Responsividade — SagaOne
 
 > Diagnóstico + **plano executável em fases**. Nenhuma alteração de código feita ainda.
-> Data: 2026-07-14 · Última revisão: 2026-07-17 (v4 — status pós-execução das Fases 0–3 e parcial 4–5)
+> Data: 2026-07-14 · Última revisão: 2026-07-20 (v5 — plano concluído; só resta audit autenticado em ambiente pré-prod)
 > Escopo: Mobile (≤ 480px), Tablet (481–1024px), Desktop (≥ 1025px, incluindo ultra-wide ≥ 1920px).
 > Escopo do trabalho: **apenas apresentação** (Tailwind, componentes UI, layout). Nenhuma mudança de RPC, RLS, edge function ou regra de negócio.
+
+---
+
+## ⭐ Status atual (2026-07-20)
+
+**Plano concluído no escopo executável dentro do sandbox.** Todas as 6 fases (0–5) entregues; só resta a reexecução do `bun run responsivo:audit` em ambiente com sessão SSO válida (o sandbox atual é `external_unmanaged`).
+
+| Fase | Status | Observação |
+|---|---|---|
+| 0 — Instrumentação | ✅ 100% | `scripts/responsivo/audit.ts` + comando `bun run responsivo:audit` |
+| 1 — Fundações | ✅ 100% | tokens `.h1/.h2/.body`, `size="touch"`, `.touch-target`, `ResponsiveDialogContent`, `useBreakpoint`, `useScrollIntoViewOnFocus` |
+| 2 — Modais e hitboxes | ✅ 100% | modais migrados; botão X `h-11` mobile; `vh→dvh` sweep; auto-scroll em `ConfiguracoesPosVendasTab`, `SimulacaoEventoModal` e `CriarProspeccaoModal` |
+| 3 — Tabelas responsivas | ✅ 100% | Ondas A/B/C entregues; `FilterBar` mobile via `Sheet`; `overflow-x:hidden` global removido |
+| 4 — Kanban mobile + dashboards | ✅ 100% | chip nav sticky + `snap-x` + paginação por pontos (2026-07-20); botão "Mover lead"; grids KPIs padronizados |
+| 5 — Limpeza + tipografia fluida | ✅ 100% | `.h1` aplicado nas landings; sweep `w-[Npx]` fechado com exceções documentadas; relatório arquivado em `docs/historico/responsividade-2026-07-20.md` |
+
+**Bloqueio único remanescente:** audit Playwright autenticado — precisa rodar em pré-prod (`LOVABLE_BROWSER_AUTH_STATUS=injected`) para cobrir `/`, `/prospeccao`, `/recepcao`, `/resultados`, `/pos-vendas/*`, `/administracao/*`. Comando pronto:
+
+```bash
+bun run responsivo:audit
+# ou lista específica:
+bun run responsivo:audit -- --routes=/,/prospeccao,/administracao/quarentena,/administracao/logs-disparos
+```
+
+O relatório sai em `/tmp/browser/responsivo/<timestamp>/report.md` — copiar para `docs/historico/responsividade-<data>-autenticado.md` ao finalizar.
+
+### Métricas atuais (baseline pública, 2026-07-20)
+
+| Métrica | Valor |
+|---|---|
+| Rotas testadas (públicas) | 3 |
+| Rotas c/ scroll horizontal em mobile (360/390) | **0** |
+| Rotas c/ scroll horizontal em desktop (1024–1920) | **0** |
+| Hitboxes < 44px em mobile (soma total das 3 rotas) | 16 (todos links textuais/ícones decorativos justificados) |
+| Erros de navegação | 0 |
 
 ---
 
