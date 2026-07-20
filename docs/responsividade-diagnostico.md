@@ -250,7 +250,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
     - `min-w-[160px]` (botão em modal) → `w-full sm:w-auto sm:min-w-[160px]`
 - [x] Restringido `.dark [style*="background: linear-gradient"]` — agora `.dark [data-dark-gradient-adjust]`, escopo opt-in via atributo. Evita efeito colateral silencioso em qualquer inline gradient.
 - [ ] Atualizar este documento marcando o que foi entregue e anexar o relatório final de métricas.
-- [ ] Rodar `bun run responsivo:audit` uma última vez e arquivar o relatório em `docs/historico/responsividade-<data>.md`.
+- [x] Rodar `bun run responsivo:audit` uma última vez e arquivar o relatório em `docs/historico/responsividade-2026-07-20.md` (2026-07-20 — cobertura pública; rotas autenticadas dependem de ambiente com sessão SSO).
 
 ---
 
@@ -271,7 +271,7 @@ Requerem priorização explícita antes de nova execução por serem alto custo 
 1. ~~**Renderização condicional via JS (`useBreakpoint('md')`)** nas tabelas de alto volume~~ — **descartado após auditoria (2026-07-17)**: `admin/LogsDisparos`, `admin/LogsCadeiras`, `admin/Quarentena`, `admin/Webhooks` e `RecepcaoTable` usam apenas `hidden md:table-cell` para esconder colunas — árvore única, sem duplicação de reconciliação. Ganho de performance era hipotético. Reabrir apenas se aparecer jank específico em produção.
 2. **`useAutoScrollFocusInContainer` aplicado** em `ConfiguracoesPosVendasTab` e `SimulacaoEventoModal` (2026-07-17). Nova variante container-level do hook (`src/hooks/useScrollIntoViewOnFocus.ts`) instala um único `focusin` listener e rola qualquer input/textarea/select focado, dispensando refs campo-a-campo. Pendente somente em `CriarProspeccaoModal` (mesmo padrão de 1 ref no body é aplicável quando priorizado).
 3. **Sweep final de `w-[Npx]`** — auditoria confirmou que as 25 ocorrências restantes são `TableHead` (reserva deliberada de coluna), popovers Radix, skeletons e um `sm:w-[21px]` de SVG no Login. Nenhuma quebra layout em mobile. **Fechado** com exceções documentadas.
-4. **Audit final autenticado** — `bun run responsivo:audit` só cobre `/login` neste ambiente (`LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged`). Rodar em ambiente com sessão válida e arquivar em `docs/historico/responsividade-<data>.md`.
+4. **Audit final autenticado** — rodada pública arquivada em `docs/historico/responsividade-2026-07-20.md` (0 overflow, 16 hitboxes pequenos justificados). Rotas autenticadas continuam pendentes de execução em ambiente com sessão SSO válida (`LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged` no sandbox).
 
 ### 7.3 Baseline mais recente (2026-07-17)
 
