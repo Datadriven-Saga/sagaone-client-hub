@@ -1,58 +1,59 @@
+# Plano: Reset de leads herdados no evento SUPER AÇÃO TOYOTA T7
 
-# Recomendação: Passo 1 primeiro, depois Passo 2
+## Regra definitiva (exemplo Roberto)
 
-## Minha sugestão
+> Se o Roberto está como responsável de um lead no T7, mas o Roberto **não faz parte da equipe do evento T7**, o lead do Roberto volta para **Novo, sem responsável**. Assim as prospectoras da equipe do T7 podem solicitar esse lead.
 
-**Fazer Passo 1 hoje** (data fix no evento T7) e **validar visualmente no Kanban do T7**. Só depois, num segundo turno, aplicar o Passo 2 (mudar as funções de fallback + esconder responsável fora da equipe). Assim, se algo estranho aparecer, a gente reverte apenas 1 INSERT em `logs_movimentacao_contatos` sem ter mexido em função crítica que serve outros eventos.
+Isso vale independente de o Roberto estar em outros eventos — o critério é só "pertence ou não à equipe do T7".
 
-## O que EXATAMENTE o Passo 1 toca (e o que NÃO toca)
+## Escopo (o que muda)
 
-Regra do filtro é uma só, e é muito estrita:
+Evento alvo: `04b7c015-a189-4b32-98bc-beae52ea3294` (SUPER AÇÃO TOYOTA T7).
 
-> Só entram no reset os `(contato_id, prospeccao_id='04b7c015-…')` que **não têm nenhum registro** em `logs_movimentacao_contatos` para esse `prospeccao_id`. Ou seja, o Kanban do T7 nunca tocou nesses leads — o status/responsável exibido veio 100% do global.
+Universo: leads vinculados ao T7 em `eventos_prospeccao` que **não têm nenhum log** em `logs_movimentacao_contatos` para esse `prospeccao_id` (~1436 leads).
 
-### NÃO mexemos em (leads "oficiais" do T7)
+Para cada lead desse universo:
 
-Todos que têm ao menos 1 log neste evento — total **~727 leads**:
+1. Inserir 1 log em `logs_movimentacao_contatos`:
+   - `contato_id` = lead
+   - `prospeccao_id` = T7
+   - `status_novo` = `'Novo'`
+   - `status_anterior` = status derivado atual (informativo)
+   - `usuario_id` = NULL
+   - `observacoes` = `'Reset de herança T7 — lead sem histórico neste evento'`
 
-- 330 Atribuído + 168 Descartado + 100 Convidado + 100 Em Espera (log deste evento bate com global) — intocados.
-- 27 Atribuído no evento / Em Espera global — intocados (log deste evento manda).
-- 25 Atribuído no evento / Descartado global — intocados.
-- 3 Atribuído no evento / Convidado global — intocados.
-- **1 Confirmado real (Francisco de Assis Moraes)** — intocado.
+2. `UPDATE contatos SET responsavel_email = NULL` **quando** o `responsavel_email` atual do lead não pertence à equipe do T7 (não está em `prospeccao_equipe_membros` para nenhuma equipe do T7). O status global (`contatos.status`) **não** é alterado.
 
-### MEXEMOS em (herança de outros eventos) — total **~1436 leads**
+## O que NÃO muda
 
-Todos com `(sem log neste evento)`:
+- ~727 leads oficiais do T7 (com log próprio no evento) — intocados.
+- `contatos.status` global — inalterado.
+- Outros eventos do lead — inalterados; se Roberto trabalha o mesmo lead em outro evento, aquele Kanban continua mostrando Roberto como responsável (a leitura por evento usa os logs do próprio evento — o global só é fallback).
+- Funções `get_contato_status_por_evento` / `get_kanban_columns_limited` — não alteradas neste passo.
+- Webhook Mobi — não dispara (só reage a `Confirmado/Check-in/Descartado`).
 
-- 672 aparecendo como Atribuído
-- 389 aparecendo como Em Espera
-- 254 aparecendo como Descartado
-- 96 aparecendo como Convidado
-- 25 aparecendo como Confirmado (os que você viu — jose.rfilho etc.)
+## Riscos e mitigação
 
-Para cada um desses, inserimos **1 log** no evento T7 com `status_novo='Novo'`, `usuario_id=NULL`, `observacoes='Reset herança T7'`. Depois disso o Kanban do T7 mostra eles como Novo, sem responsável fantasma.
+- **Risco:** limpar `responsavel_email` global impacta a leitura de outros eventos que ainda usam esse campo como fallback (leads sem log próprio em outros eventos). **Mitigação:** só limpamos quando o responsável não está na equipe do T7 — na prática, esse responsável já não faz sentido para o T7. Nos outros eventos, se ele também estiver "fantasma" (sem log próprio lá), o lead vira Novo lá também — o que é o comportamento correto, porque significa que ninguém realmente trabalhou aquele lead lá.
+- **Rollback do reset de status:** `DELETE FROM logs_movimentacao_contatos WHERE prospeccao_id = '04b7c015-…' AND observacoes = 'Reset de herança T7 — lead sem histórico neste evento'`.
+- **Rollback do responsável:** faço snapshot em CTE antes do UPDATE — se precisar reverter, restauramos a partir do snapshot (posso deixar num `.csv` em `/mnt/documents/` antes de rodar).
 
-## O que pode quebrar (auditoria de riscos)
+## Validação após executar
 
-1. **Webhook Mobi**: o trigger `trg_dispatch_movimentacao_lead_webhook` só dispara para `status_novo ∈ {Confirmado, Check-in, Descartado}`. Estamos inserindo `Novo` → **não dispara nada** para o Mobi. ✅
-2. **`contatos.status` global**: **não é alterado**. Eventos anteriores (`FECHA QUARTEIRÃO`, `DIA DAS MÃES`, etc.) continuam vendo o lead como Confirmado lá, porque a leitura deles usa os logs **daqueles** eventos, que continuam intocados. ✅
-3. **Responsável (`contatos.responsavel_email` global)**: também não é alterado. No T7, para esconder responsável fora da equipe, isso vai no Passo 2 (filtro na RPC do Kanban). Enquanto o Passo 2 não sai, os leads resetados vão aparecer como Novo mas ainda com o nome do vendedor herdado ao lado — visualmente estranho, mas dado consistente. Se quiser, no Passo 1 já jogamos `NULL` em `responsavel_email` **apenas para os leads resetados que não estão em outro evento ativo**, para não impactar outros Kanbans. Me diz se prefere assim.
-4. **`get_contato_status_por_evento` / `get_kanban_columns_limited`**: continuam como estão. O Passo 1 sozinho não muda função nenhuma — se novos leads forem adicionados amanhã ao T7 vindos de eventos antigos, o problema reapareceria (por isso o Passo 2 é o fix definitivo).
-5. **Relatórios agregados**: usam `contatos.status` global ainda — não são afetados pelo Passo 1.
+1. Abrir Kanban do T7:
+   - Coluna **Novo** aumentou em ~1436.
+   - **Confirmado** = 1 (Francisco de Assis Moraes).
+   - Colunas Atribuído / Em Espera / Descartado / Convidado só mostram os leads oficiais (~727 no total).
+   - Nenhum lead novo aparece com Roberto (ou qualquer responsável fora da equipe do T7).
+2. Conferir 3 leads que estavam "Confirmado fantasma" (ex.: `jose.rfilho`) — devem aparecer em Novo, sem responsável.
+3. Abrir a fila de solicitação da equipe do T7 — os leads liberados devem estar disponíveis.
 
-## Ordem sugerida
+## Passo 2 (num plano separado depois de validar)
 
-1. Rodar Passo 1 (INSERTs seletivos). Você abre o Kanban do T7 e valida: Confirmado = 1, colunas com contagem esperada.
-2. Se ok → rodar Passo 2 (ajuste da RPC de fallback + filtro do responsável por equipe). Isso evita a herança voltar em novos leads.
-3. Documentar no memory que fallback de `contatos.status` no `get_contato_status_por_evento` é PROIBIDO quando não há log próprio.
+Ajustar `get_contato_status_por_evento` / `get_kanban_columns_limited` para nunca herdar `contatos.status` e `responsavel_email` global quando não há log próprio do evento **e** o responsável global não faz parte da equipe do evento. Assim a herança fantasma nunca reaparece em nenhum evento.
 
-## Pergunta antes de executar
+## Execução
 
-No Passo 1, para os leads resetados, você quer que eu **também zere o `responsavel_email`**?
+Um único bloco SQL (INSERTs em `logs_movimentacao_contatos` + UPDATE seletivo em `contatos.responsavel_email`), rodado via ferramenta de dados. Antes do UPDATE eu gero um CSV de snapshot com `(contato_id, responsavel_email_antigo)` para permitir rollback fino.
 
-- (a) **Não** — mantém o email atual (fica visual estranho até Passo 2). Mais seguro, zero risco de mexer em outros eventos.
-- (b) **Sim, mas só quando o lead não está ativo em nenhum outro evento** (`Novo/Atribuído/Contatado/Em Espera/Convidado` em outra prospecção). Zera com segurança.
-- (c) **Sim, sempre** — zera para todos os 1436. **NÃO recomendo**, porque afeta outros eventos ativos.
-
-Me confirma (a), (b) ou (c) e se prefere aplicar Passo 1 agora e Passo 2 depois (recomendado) ou os dois juntos.
+Confirma para eu executar.
