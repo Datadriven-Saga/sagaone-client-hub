@@ -439,7 +439,7 @@ export const DashboardLigacaoTab = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {metricsConfig.map((metric) => {
           const value = displayMetrics[metric.key];
           const sub = metric.subLabel(displayMetrics);

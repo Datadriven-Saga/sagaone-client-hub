@@ -435,7 +435,7 @@ export const MetricasLigacaoTab = ({ selectedAgentPhone, initialEventId }: Metri
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-2xl font-bold text-green-600">
                 {pctFmt(safeDiv(aggregatedMetrics.atendidos, aggregatedMetrics.total))}

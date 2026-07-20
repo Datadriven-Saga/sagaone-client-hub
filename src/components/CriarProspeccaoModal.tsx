@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
+import { useAutoScrollFocusInContainer } from "@/hooks/useScrollIntoViewOnFocus";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,6 +63,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
+  const scrollBodyRef = useAutoScrollFocusInContainer<HTMLDivElement>();
   const { canCreateIALigacao, canCreateEventos, canUploadBase } = useUserAccessType();
   const { isEnabledForEmpresa } = useFeatureFlags();
   const [cadenciaCompletaFlagEnabled, setCadenciaCompletaFlagEnabled] = useState(false);
@@ -4733,9 +4735,11 @@ ${localEvento}`;
         </div>
         
         {/* Conteúdo com scroll */}
-        <ScrollIndicator className="flex-1 min-h-0 px-0 py-2">
-          {renderStepContent()}
-        </ScrollIndicator>
+        <div ref={scrollBodyRef} className="flex-1 min-h-0 flex flex-col">
+          <ScrollIndicator className="flex-1 min-h-0 px-0 py-2">
+            {renderStepContent()}
+          </ScrollIndicator>
+        </div>
 
         {/* Footer fixo */}
         <div className="flex-shrink-0 px-0 py-0 border-t bg-background">
