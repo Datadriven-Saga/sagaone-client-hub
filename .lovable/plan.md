@@ -1,59 +1,228 @@
-# Plano: Reset de leads herdados no evento SUPER AÇÃO TOYOTA T7
+# Plano definitivo: restaurar status dos leads com responsável afetados pelo reset
 
-## Regra definitiva (exemplo Roberto)
+## Objetivo
+Corrigir os leads que foram indevidamente jogados para **Novo** pelo reset de herança, sem mexer nos leads que estão sem responsável.
 
-> Se o Roberto está como responsável de um lead no T7, mas o Roberto **não faz parte da equipe do evento T7**, o lead do Roberto volta para **Novo, sem responsável**. Assim as prospectoras da equipe do T7 podem solicitar esse lead.
+Regra final definida:
 
-Isso vale independente de o Roberto estar em outros eventos — o critério é só "pertence ou não à equipe do T7".
+```text
+Se o lead tem responsável atual e o reset mudou ele para Novo,
+voltamos esse lead para o status anterior correto.
 
-## Escopo (o que muda)
+Se o lead está sem responsável,
+não mexemos agora.
+```
 
-Evento alvo: `04b7c015-a189-4b32-98bc-beae52ea3294` (SUPER AÇÃO TOYOTA T7).
+## O que aconteceu
+Foi executado um reset em massa em:
 
-Universo: leads vinculados ao T7 em `eventos_prospeccao` que **não têm nenhum log** em `logs_movimentacao_contatos` para esse `prospeccao_id` (~1436 leads).
+```text
+2026-07-20 17:50:47 UTC
+observacoes = 'Reset de herança — lead sem histórico neste evento'
+status_novo = 'Novo'
+usuario_id = NULL
+```
 
-Para cada lead desse universo:
+Esse reset atingiu:
 
-1. Inserir 1 log em `logs_movimentacao_contatos`:
-   - `contato_id` = lead
-   - `prospeccao_id` = T7
-   - `status_novo` = `'Novo'`
-   - `status_anterior` = status derivado atual (informativo)
-   - `usuario_id` = NULL
-   - `observacoes` = `'Reset de herança T7 — lead sem histórico neste evento'`
+```text
+75.174 leads
+70 eventos
+```
 
-2. `UPDATE contatos SET responsavel_email = NULL` **quando** o `responsavel_email` atual do lead não pertence à equipe do T7 (não está em `prospeccao_equipe_membros` para nenhuma equipe do T7). O status global (`contatos.status`) **não** é alterado.
+Mas nem todos devem ser corrigidos agora, porque muitos estão sem responsável.
 
-## O que NÃO muda
+## Escopo da correção
+Aplicar correção somente em leads que atendem aos 4 critérios:
 
-- ~727 leads oficiais do T7 (com log próprio no evento) — intocados.
-- `contatos.status` global — inalterado.
-- Outros eventos do lead — inalterados; se Roberto trabalha o mesmo lead em outro evento, aquele Kanban continua mostrando Roberto como responsável (a leitura por evento usa os logs do próprio evento — o global só é fallback).
-- Funções `get_contato_status_por_evento` / `get_kanban_columns_limited` — não alteradas neste passo.
-- Webhook Mobi — não dispara (só reage a `Confirmado/Check-in/Descartado`).
+```text
+1. O log é do reset indevido de 2026-07-20 17:50:47.
+2. status_novo = 'Novo'.
+3. status_anterior existe e é diferente de 'Novo'.
+4. contato.responsavel_email está preenchido hoje.
+```
 
-## Riscos e mitigação
+Resultado do dry-run global:
 
-- **Risco:** limpar `responsavel_email` global impacta a leitura de outros eventos que ainda usam esse campo como fallback (leads sem log próprio em outros eventos). **Mitigação:** só limpamos quando o responsável não está na equipe do T7 — na prática, esse responsável já não faz sentido para o T7. Nos outros eventos, se ele também estiver "fantasma" (sem log próprio lá), o lead vira Novo lá também — o que é o comportamento correto, porque significa que ninguém realmente trabalhou aquele lead lá.
-- **Rollback do reset de status:** `DELETE FROM logs_movimentacao_contatos WHERE prospeccao_id = '04b7c015-…' AND observacoes = 'Reset de herança T7 — lead sem histórico neste evento'`.
-- **Rollback do responsável:** faço snapshot em CTE antes do UPDATE — se precisar reverter, restauramos a partir do snapshot (posso deixar num `.csv` em `/mnt/documents/` antes de rodar).
+```text
+20.773 leads serão corrigidos
+43 eventos serão afetados
+```
 
-## Validação após executar
+Distribuição por status que será restaurado:
 
-1. Abrir Kanban do T7:
-   - Coluna **Novo** aumentou em ~1436.
-   - **Confirmado** = 1 (Francisco de Assis Moraes).
-   - Colunas Atribuído / Em Espera / Descartado / Convidado só mostram os leads oficiais (~727 no total).
-   - Nenhum lead novo aparece com Roberto (ou qualquer responsável fora da equipe do T7).
-2. Conferir 3 leads que estavam "Confirmado fantasma" (ex.: `jose.rfilho`) — devem aparecer em Novo, sem responsável.
-3. Abrir a fila de solicitação da equipe do T7 — os leads liberados devem estar disponíveis.
+```text
+Atribuído: 16.428
+Em Espera: 3.028
+Convidado: 817
+Descartado: 419
+Confirmado: 48
+Opt Out: 23
+Check-in: 9
+Venda: 1
+```
 
-## Passo 2 (num plano separado depois de validar)
+## Eventos já confirmados no problema
+Entre os eventos afetados aparecem os casos citados:
 
-Ajustar `get_contato_status_por_evento` / `get_kanban_columns_limited` para nunca herdar `contatos.status` e `responsavel_email` global quando não há log próprio do evento **e** o responsável global não faz parte da equipe do evento. Assim a herança fantasma nunca reaparece em nenhum evento.
+- Toyota Nápoles / T7
+- Toyota Anápolis
+- Toyota Asa Norte
+- Toyota Colorado
+- RAM / JEEP Exclusive Day
+- Outros eventos afetados pelo mesmo reset
 
-## Execução
+A correção será global para o mesmo incidente, mas limitada à regra acima.
 
-Um único bloco SQL (INSERTs em `logs_movimentacao_contatos` + UPDATE seletivo em `contatos.responsavel_email`), rodado via ferramenta de dados. Antes do UPDATE eu gero um CSV de snapshot com `(contato_id, responsavel_email_antigo)` para permitir rollback fino.
+## Como corrigir sem quebrar produção
 
-Confirma para eu executar.
+### Estratégia segura
+Não vamos atualizar `contatos.status` diretamente.
+
+Vamos remover somente o log artificial do reset para os leads-alvo. Como o status por evento é derivado da última movimentação em `logs_movimentacao_contatos`, ao remover o log indevido o sistema volta a enxergar o status anterior real daquele evento.
+
+Exemplo:
+
+```text
+Antes:
+Atribuído -> Em Espera -> Novo   [reset indevido]
+
+Depois:
+Atribuído -> Em Espera
+
+Resultado na tela:
+Em Espera
+```
+
+## O que será alterado
+Somente registros em:
+
+```text
+logs_movimentacao_contatos
+```
+
+A alteração será:
+
+```text
+DELETE dos logs de reset indevidos
+apenas para leads com responsável atual preenchido
+e status_anterior diferente de Novo
+```
+
+## O que NÃO será alterado
+
+```text
+contatos.status global
+contatos.responsavel_email
+contatos.vendedor_nome
+bulk_upsert_contatos
+get_contato_status_por_evento
+Kanban/UI
+RLS
+webhooks
+importação
+cadência/templates
+```
+
+## Responsáveis
+Não vamos tentar reconstruir responsável.
+
+Como sua regra agora é que eles **já estão com responsável**, vamos preservar o responsável atual e corrigir apenas o status.
+
+Quem estiver sem responsável fica sem alteração.
+
+## Risco
+
+### Baixo para produção
+Porque:
+
+- Não altera estrutura do banco.
+- Não mexe em função crítica.
+- Não atualiza `contatos` em massa.
+- Não muda código do site.
+- Não toca no importador.
+- Não executa reset global novo.
+
+### Principal risco
+Se algum lead com responsável atual realmente deveria estar Novo, ele voltará para o status anterior do reset.
+
+Mitigação: isso só acontece se ele foi incluído exatamente no reset indevido das 17:50:47. Ou seja, estamos desfazendo uma ação artificial e identificável.
+
+## Custo e complexidade
+
+```text
+Complexidade técnica: baixa/média
+Risco operacional: baixo
+Tempo de execução: curto
+Impacto no site: não deve parar o site
+```
+
+O cuidado maior é fazer em lotes e guardar backup dos IDs removidos.
+
+## Execução proposta
+
+### Passo 1 — Backup
+Gerar CSV com todos os logs que serão removidos:
+
+```text
+log_id
+contato_id
+prospeccao_id
+status_anterior
+status_novo
+responsavel_email
+created_at
+observacoes
+```
+
+### Passo 2 — Amostra de validação
+Antes de deletar tudo, validar alguns exemplos dos eventos principais:
+
+- T7
+- Anápolis
+- Asa Norte
+- Colorado
+- Nápoles
+
+Para cada lead amostrado:
+
+```text
+status atual exibido: Novo
+responsável atual: preenchido
+status que voltará: status_anterior do reset
+```
+
+### Passo 3 — Correção em lote
+Remover os logs de reset indevidos para os 20.773 leads-alvo.
+
+### Passo 4 — Validação pós-correção
+Recontar os mesmos eventos e confirmar:
+
+```text
+- os leads com responsável voltaram para Atribuído / Em Espera / Convidado / etc.
+- os leads sem responsável permaneceram como estavam
+- Novo reduziu apenas onde era reset indevido
+- responsáveis não foram alterados
+```
+
+### Passo 5 — Prevenção
+Depois da correção, localizar e neutralizar o caminho que executou esse reset com a observação antiga:
+
+```text
+'Reset de herança — lead sem histórico neste evento'
+```
+
+A função atual `reset_leads_evento_sem_log` grava outra observação, então esse reset parece ter vindo de SQL/script anterior ou execução manual. Precisamos impedir que isso rode de novo.
+
+## Critério de sucesso
+
+```text
+20.773 leads com responsável atual voltam ao status anterior ao reset.
+0 leads sem responsável são alterados.
+0 alteração em responsável.
+0 alteração em contatos.status global.
+0 alteração no código do site.
+```
+
+## Próximo passo
+Se aprovado, eu executo primeiro o backup + amostra de validação, mostro os números finais e então aplico a correção cirúrgica.
