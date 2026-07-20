@@ -63,6 +63,7 @@ export const CriarProspeccaoModal = ({ isOpen, onOpenChange, onProspeccaoCriada,
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
+  const scrollBodyRef = useAutoScrollFocusInContainer<HTMLDivElement>();
   const { canCreateIALigacao, canCreateEventos, canUploadBase } = useUserAccessType();
   const { isEnabledForEmpresa } = useFeatureFlags();
   const [cadenciaCompletaFlagEnabled, setCadenciaCompletaFlagEnabled] = useState(false);
