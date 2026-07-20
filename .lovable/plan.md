@@ -1,228 +1,107 @@
-# Plano definitivo: restaurar status dos leads com responsável afetados pelo reset
+# Plano — Histórico limpo + Ketley enxergando leads
 
-## Objetivo
-Corrigir os leads que foram indevidamente jogados para **Novo** pelo reset de herança, sem mexer nos leads que estão sem responsável.
+Dois pontos, tratados em fronts independentes. Nada será alterado antes de aprovação e cada front tem dry-run.
 
-Regra final definida:
+---
 
-```text
-Se o lead tem responsável atual e o reset mudou ele para Novo,
-voltamos esse lead para o status anterior correto.
+## Cenário atual (auditado agora)
 
-Se o lead está sem responsável,
-não mexemos agora.
-```
-
-## O que aconteceu
-Foi executado um reset em massa em:
+Logs artificiais criados hoje em `logs_movimentacao_contatos` com `usuario_id = NULL`:
 
 ```text
-2026-07-20 17:50:47 UTC
-observacoes = 'Reset de herança — lead sem histórico neste evento'
-status_novo = 'Novo'
-usuario_id = NULL
+75.174  Reset de herança — lead sem histórico neste evento
+20.776  Correção automática — desfaz reset indevido para Novo mantendo responsável atual
+ 1.436  Reset de herança T7 — lead sem histórico neste evento
+ 1.381  Correção automática — desfaz reset T7 indevido para Novo mantendo responsável atual
+    83  auto-trigger (fallback de migracao)
 ```
 
-Esse reset atingiu:
+Esses registros são a fonte de duas dores:
+- Poluem a **timeline** do lead ("Alterado pelo sistema").
+- Servem, ao mesmo tempo, de **fonte de verdade** do status por evento hoje (a "Correção automática" é o que segura os leads em Atribuído/Em Espera/etc.). Portanto **não podemos apagar do `logs_movimentacao_contatos`** — apagar volta tudo para "Novo".
+
+Sobre Ketley (`ketley.d1de4a79@...`): perfil ativo, cadeira ativa, membro da equipe do evento Colorado, 15 leads em "Novo" **por evento**. Não vê porque `get_kanban_columns_limited` (usado pelo SDR) filtra por `contatos.status` global — os 15 leads têm status global diferente de "Novo" (herdado de outro evento). O Admin já usa status por evento (`get_contato_status_por_evento`) e enxerga.
+
+---
+
+## Front A — Histórico sem "Alterado pelo sistema"
+
+**Objetivo:** o usuário nunca mais vê linhas de sistema na timeline do lead, sem perder o efeito do status por evento.
+
+**Estratégia (não destrutiva):** manter `logs_movimentacao_contatos` intacto. Atuar em duas camadas:
+
+1. **RPC `get_contato_timeline`** — adicionar filtro que oculta eventos de sistema:
+   ```sql
+   WHERE contato_id = p_contato_id
+     AND NOT (
+       tipo = 'status_change'
+       AND (usuario_id IS NULL OR usuario_nome ILIKE 'Sistema%')
+       AND (
+         descricao ILIKE '%Reset de herança%'
+         OR descricao ILIKE '%Correção automática%'
+         OR descricao ILIKE '%auto-trigger%'
+       )
+     )
+   ```
+   Efeito imediato em toda UI que consome a timeline (`ContatoTimeline.tsx`). Sem migração de dados.
+
+2. **Limpeza cosmética em `contato_timeline`** (opcional, roda depois de validar) — `DELETE` só das linhas do dia 2026-07-20 que casam com o mesmo predicado acima. Reduz o tamanho da tabela. Backup em CSV antes.
+
+**O que NÃO muda:**
+- `logs_movimentacao_contatos` (mantém a "Correção automática" — é ela que sustenta o status por evento hoje).
+- `contatos.status`, `responsavel_email`, kanban, webhooks, importador, cadência.
+
+**Dry-run antes de aplicar:**
+- Contar quantas linhas por lead ficariam ocultas (esperado: ~1 linha "reset" + ~1 "correção" para ~20k leads).
+- Amostrar 5 leads reais e mostrar a timeline "antes/depois".
+
+---
+
+## Front B — Ketley (e outros SDRs de terceiros) enxergarem os leads
+
+**Objetivo:** SDR passa a ver as colunas do Kanban usando **status por evento**, alinhado ao Admin. Sem afetar visibilidade entre equipes, sem afetar Admin, sem tocar dados.
+
+**Alteração única — `public.get_kanban_columns_limited`:**
+- Trocar `c.status` global pela função `public.get_contato_status_por_evento(c.id, p.id)` nas 10 colunas.
+- Manter TODOS os demais filtros como estão hoje:
+  - filtro por `prospeccaoIds` (obrigatório — mantém proteção contra 57014),
+  - filtro por equipe (`prospeccao_equipe_membros`) — SDR continua vendo só sua equipe,
+  - filtros de responsável, busca, datas, `tentativas_chamada`.
+- Assinatura preservada (mesmo nome, mesmos parâmetros) — nenhum call site muda.
+
+**Por que é seguro:**
+- Read-only: função `STABLE`, não escreve nada.
+- Mesma lógica que o Admin já usa há semanas em produção.
+- Sem exposição cruzada: o filtro de equipe é aplicado antes do status.
+- Reversível em segundos (basta recriar a versão anterior).
+
+**Dry-run antes de aplicar:**
+1. Executar as duas versões (atual vs. proposta) em paralelo para a `empresa_id` da Ketley + evento Colorado e comparar contagens por coluna.
+2. Repetir para 3 SDRs de outras empresas (amostragem cega) para garantir que a contagem só **sobe** onde havia lead escondido — nunca inventa lead fora da equipe.
+3. Só então aplicar via `supabase--migration`.
+
+---
+
+## Ordem de execução
 
 ```text
-75.174 leads
-70 eventos
+1. Front A passo 1  (RPC get_contato_timeline)   — migração pequena, efeito UI imediato
+2. Front B          (RPC get_kanban_columns_limited) — migração pequena, destrava Ketley
+3. Front A passo 2  (limpeza cosmética em contato_timeline) — opcional, roda depois de 24h
 ```
 
-Mas nem todos devem ser corrigidos agora, porque muitos estão sem responsável.
-
-## Escopo da correção
-Aplicar correção somente em leads que atendem aos 4 critérios:
-
-```text
-1. O log é do reset indevido de 2026-07-20 17:50:47.
-2. status_novo = 'Novo'.
-3. status_anterior existe e é diferente de 'Novo'.
-4. contato.responsavel_email está preenchido hoje.
-```
-
-Resultado do dry-run global:
-
-```text
-20.773 leads serão corrigidos
-43 eventos serão afetados
-```
-
-Distribuição por status que será restaurado:
-
-```text
-Atribuído: 16.428
-Em Espera: 3.028
-Convidado: 817
-Descartado: 419
-Confirmado: 48
-Opt Out: 23
-Check-in: 9
-Venda: 1
-```
-
-## Eventos já confirmados no problema
-Entre os eventos afetados aparecem os casos citados:
-
-- Toyota Nápoles / T7
-- Toyota Anápolis
-- Toyota Asa Norte
-- Toyota Colorado
-- RAM / JEEP Exclusive Day
-- Outros eventos afetados pelo mesmo reset
-
-A correção será global para o mesmo incidente, mas limitada à regra acima.
-
-## Como corrigir sem quebrar produção
-
-### Estratégia segura
-Não vamos atualizar `contatos.status` diretamente.
-
-Vamos remover somente o log artificial do reset para os leads-alvo. Como o status por evento é derivado da última movimentação em `logs_movimentacao_contatos`, ao remover o log indevido o sistema volta a enxergar o status anterior real daquele evento.
-
-Exemplo:
-
-```text
-Antes:
-Atribuído -> Em Espera -> Novo   [reset indevido]
-
-Depois:
-Atribuído -> Em Espera
-
-Resultado na tela:
-Em Espera
-```
-
-## O que será alterado
-Somente registros em:
-
-```text
-logs_movimentacao_contatos
-```
-
-A alteração será:
-
-```text
-DELETE dos logs de reset indevidos
-apenas para leads com responsável atual preenchido
-e status_anterior diferente de Novo
-```
-
-## O que NÃO será alterado
-
-```text
-contatos.status global
-contatos.responsavel_email
-contatos.vendedor_nome
-bulk_upsert_contatos
-get_contato_status_por_evento
-Kanban/UI
-RLS
-webhooks
-importação
-cadência/templates
-```
-
-## Responsáveis
-Não vamos tentar reconstruir responsável.
-
-Como sua regra agora é que eles **já estão com responsável**, vamos preservar o responsável atual e corrigir apenas o status.
-
-Quem estiver sem responsável fica sem alteração.
-
-## Risco
-
-### Baixo para produção
-Porque:
-
-- Não altera estrutura do banco.
-- Não mexe em função crítica.
-- Não atualiza `contatos` em massa.
-- Não muda código do site.
-- Não toca no importador.
-- Não executa reset global novo.
-
-### Principal risco
-Se algum lead com responsável atual realmente deveria estar Novo, ele voltará para o status anterior do reset.
-
-Mitigação: isso só acontece se ele foi incluído exatamente no reset indevido das 17:50:47. Ou seja, estamos desfazendo uma ação artificial e identificável.
-
-## Custo e complexidade
-
-```text
-Complexidade técnica: baixa/média
-Risco operacional: baixo
-Tempo de execução: curto
-Impacto no site: não deve parar o site
-```
-
-O cuidado maior é fazer em lotes e guardar backup dos IDs removidos.
-
-## Execução proposta
-
-### Passo 1 — Backup
-Gerar CSV com todos os logs que serão removidos:
-
-```text
-log_id
-contato_id
-prospeccao_id
-status_anterior
-status_novo
-responsavel_email
-created_at
-observacoes
-```
-
-### Passo 2 — Amostra de validação
-Antes de deletar tudo, validar alguns exemplos dos eventos principais:
-
-- T7
-- Anápolis
-- Asa Norte
-- Colorado
-- Nápoles
-
-Para cada lead amostrado:
-
-```text
-status atual exibido: Novo
-responsável atual: preenchido
-status que voltará: status_anterior do reset
-```
-
-### Passo 3 — Correção em lote
-Remover os logs de reset indevidos para os 20.773 leads-alvo.
-
-### Passo 4 — Validação pós-correção
-Recontar os mesmos eventos e confirmar:
-
-```text
-- os leads com responsável voltaram para Atribuído / Em Espera / Convidado / etc.
-- os leads sem responsável permaneceram como estavam
-- Novo reduziu apenas onde era reset indevido
-- responsáveis não foram alterados
-```
-
-### Passo 5 — Prevenção
-Depois da correção, localizar e neutralizar o caminho que executou esse reset com a observação antiga:
-
-```text
-'Reset de herança — lead sem histórico neste evento'
-```
-
-A função atual `reset_leads_evento_sem_log` grava outra observação, então esse reset parece ter vindo de SQL/script anterior ou execução manual. Precisamos impedir que isso rode de novo.
+Cada passo entra em migração separada, com rollback documentado no próprio arquivo.
 
 ## Critério de sucesso
 
 ```text
-20.773 leads com responsável atual voltam ao status anterior ao reset.
-0 leads sem responsável são alterados.
-0 alteração em responsável.
-0 alteração em contatos.status global.
-0 alteração no código do site.
+- Timeline do lead não mostra mais linhas "Reset de herança" ou "Correção automática"
+- Ketley e demais SDRs veem os leads que já estão nas equipes deles, coluna Novo por evento
+- Contagens do Admin permanecem idênticas
+- Nenhuma mudança em contatos, responsáveis, webhooks, cadências ou importador
+- Rollback em <2 min por front (recriar RPC anterior)
 ```
 
-## Próximo passo
-Se aprovado, eu executo primeiro o backup + amostra de validação, mostro os números finais e então aplico a correção cirúrgica.
+## Próximo passo se aprovar
+
+Rodo os dois dry-runs (A e B), colo os números aqui e só depois abro as migrações.
