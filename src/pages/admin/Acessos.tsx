@@ -23,6 +23,7 @@ import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { MasterUsersCard } from "@/components/admin/MasterUsersCard";
 import { useDebounce } from "@/hooks/useDebounce";
+import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
 
 import { Database } from "@/integrations/supabase/types";
 
