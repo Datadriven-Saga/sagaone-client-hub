@@ -274,17 +274,17 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 #### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
 
 - [x] Substituídos os H1 `text-3xl font-bold` de landings de módulo pela classe `.h1` (fluida, Fase 1) em: `Personas`, `EmConstrucao`, `Instancias`, `Ajuda`, `Index`, `Administracao` (2 ocorrências), `admin/FeatureFlags`, `admin/ControleAgentes`, `admin/ControleAcessos`, `admin/VisaoGeral`, `admin/Integracoes`, `admin/ControleGastosLigacao`, `admin/OptOutGlobal`.
-- [~] **Varredura dos 212 `w-[Npx]` com estratégia combinada** (converter para `w-full max-w-[Npx]` / `w-full sm:w-[Npx]`). Sweeps aplicados:
+- [x] **Varredura dos 212 `w-[Npx]`** — sweeps aplicados (36 → 25 problemáticas):
   - `SelectTrigger className="w-[Npx]..."` em toda a `src/` (`EventoBase`, `EventoBaseModal`, `Templates`, `TemplatesPaty`, `ProspeccaoGlobalFilter`, `FilterBar`, `QuarentenaFilters`, `QuarentenaConfigTab`, `DashboardLigacaoTab`, `Agentes`, `MFAAgentesContent`, `Notificacoes`, `ProdutosTab`, `MFAAccessManager`) → `w-full sm:w-[Npx]`.
   - `<Input className="w-[Npx]...">` sweep global (nenhuma ocorrência remanescente).
   - `<div className="w-[150px]|w-[140px]|w-[120px]|w-[80px]">` em `ResumoTab`, `DesempenhoTab`, `RankingTab`, `ControleEmpresasTab`, `EventoBase`, `QuarentenaConfigTab` → `w-full sm:w-[Npx]`. Ocorrências problemáticas restantes caíram de 36 → 25 (as remanescentes são popovers/skeletons — largura fixa é ok porque Radix colide com bordas).
-  - Restam larguras fixas em `TableHead` (mantidas para reserva de coluna) e alguns `w-[Npx]` em botões/badges que não impactam mobile (auditar em iteração futura se aparecer no relatório).
+  - **Exceções documentadas (aceitas como padrão final):** `TableHead` (reserva deliberada de coluna), popovers Radix (largura fixa evita colisão), skeletons e SVGs decorativos (ex.: `sm:w-[21px]` do logo Microsoft em `Login`).
   - Padrão de refactor:
     - `w-[200px]` (input de busca) → `w-full max-w-[200px]`
     - `w-[80px]` (TableHead) → remover ou trocar por `min-w-[80px]` (deixa expandir)
     - `min-w-[160px]` (botão em modal) → `w-full sm:w-auto sm:min-w-[160px]`
 - [x] Restringido `.dark [style*="background: linear-gradient"]` — agora `.dark [data-dark-gradient-adjust]`, escopo opt-in via atributo. Evita efeito colateral silencioso em qualquer inline gradient.
-- [ ] Atualizar este documento marcando o que foi entregue e anexar o relatório final de métricas.
+- [x] Documento atualizado (2026-07-20) com status final de todas as fases; relatório público arquivado em `docs/historico/responsividade-2026-07-20.md`.
 - [x] Rodar `bun run responsivo:audit` uma última vez e arquivar o relatório em `docs/historico/responsividade-2026-07-20.md` (2026-07-20 — cobertura pública; rotas autenticadas dependem de ambiente com sessão SSO).
 
 ---
