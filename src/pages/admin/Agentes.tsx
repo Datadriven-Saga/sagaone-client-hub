@@ -1654,17 +1654,19 @@ export default function AdminAgentes() {
 
           {/* Tabs Principais */}
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-            <div className="w-full overflow-x-auto">
-              <TabsList className="inline-flex w-max sm:grid sm:w-full sm:max-w-2xl sm:grid-cols-3">
-                <TabsTrigger value="agentes" className="whitespace-nowrap px-2 sm:px-3 text-xs sm:text-sm">
-                  <span className="sm:hidden">Agentes IA</span>
-                  <span className="hidden sm:inline">Agentes de IA</span>
+            <div className="w-full">
+              <TabsList className="!grid !grid-cols-3 w-full p-1">
+                <TabsTrigger value="agentes" className="w-full min-w-0 px-1 sm:px-3 text-xs sm:text-sm">
+                  <span className="sm:hidden truncate">Agentes IA</span>
+                  <span className="hidden sm:inline truncate">Agentes de IA</span>
                 </TabsTrigger>
-                <TabsTrigger value="controle" className="whitespace-nowrap px-2 sm:px-3 text-xs sm:text-sm">
-                  <span className="sm:hidden">Controle</span>
-                  <span className="hidden sm:inline">Controle de Agentes</span>
+                <TabsTrigger value="controle" className="w-full min-w-0 px-1 sm:px-3 text-xs sm:text-sm">
+                  <span className="sm:hidden truncate">Controle</span>
+                  <span className="hidden sm:inline truncate">Controle de Agentes</span>
                 </TabsTrigger>
-                <TabsTrigger value="cadencia-ligacao" className="whitespace-nowrap px-2 sm:px-3 text-xs sm:text-sm">Ligação</TabsTrigger>
+                <TabsTrigger value="cadencia-ligacao" className="w-full min-w-0 px-1 sm:px-3 text-xs sm:text-sm">
+                  <span className="truncate">Ligação</span>
+                </TabsTrigger>
               </TabsList>
             </div>
 
