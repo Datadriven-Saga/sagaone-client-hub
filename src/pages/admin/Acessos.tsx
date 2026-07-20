@@ -23,6 +23,7 @@ import { useMfaMaster } from "@/hooks/useMfaMaster";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
 import { MasterUsersCard } from "@/components/admin/MasterUsersCard";
 import { useDebounce } from "@/hooks/useDebounce";
+import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
 
 import { Database } from "@/integrations/supabase/types";
 
@@ -846,12 +847,86 @@ const Acessos = () => {
         {/* Filtros */}
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Search className="h-4 w-4" />
-              Filtros
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              <span className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Filtros
+              </span>
+              <MobileFiltersSheet
+                triggerClassName="md:hidden"
+                desktopWrapperClassName="hidden"
+                activeCount={
+                  (filterSearch ? 1 : 0) +
+                  (filterTipoAcesso !== "all" ? 1 : 0) +
+                  (filterEmpresaId !== "all" ? 1 : 0) +
+                  (filterStatus !== "all" ? 1 : 0)
+                }
+                onClear={() => {
+                  setFilterSearch("");
+                  setFilterTipoAcesso("all");
+                  setFilterEmpresaId("all");
+                  setFilterStatus("all");
+                  setCurrentPage(1);
+                }}
+              >
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Pesquisar</label>
+                  <Input
+                    placeholder="Buscar por nome, email, CPF ou telefone..."
+                    value={filterSearch}
+                    onChange={(e) => setFilterSearch(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Tipo de Acesso</label>
+                  <Select value={filterTipoAcesso} onValueChange={setFilterTipoAcesso}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="Administrador">Administrador</SelectItem>
+                      <SelectItem value="TI">TI</SelectItem>
+                      <SelectItem value="Master">Master</SelectItem>
+                      <SelectItem value="Diretor">Diretor</SelectItem>
+                      <SelectItem value="Proprietário">Proprietário</SelectItem>
+                      <SelectItem value="Gerente de Loja">Gerente de Loja</SelectItem>
+                      <SelectItem value="Gerente de Leads">Gerente de Leads</SelectItem>
+                      <SelectItem value="Coordenadora de Leads">Coordenadora de Leads</SelectItem>
+                      <SelectItem value="CRM">CRM</SelectItem>
+                      <SelectItem value="Vendedor">Vendedor</SelectItem>
+                      <SelectItem value="SDR">SDR</SelectItem>
+                      <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Empresa</label>
+                  <Select value={filterEmpresaId} onValueChange={(value) => { setFilterEmpresaId(value); setCurrentPage(1); }}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Todas" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {companies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>{company.nome_empresa}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value)}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Todos" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Inativo">Inativo</SelectItem>
+                      <SelectItem value="Suspenso">Suspenso</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </MobileFiltersSheet>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="hidden md:block">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5 md:col-span-1">
                 <label className="text-xs font-medium text-muted-foreground">Pesquisar</label>

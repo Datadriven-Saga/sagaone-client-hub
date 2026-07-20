@@ -7,6 +7,7 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
 import type { QuarentenaFilters as Filters } from "@/hooks/useQuarentenaData";
 import { DateRange } from "react-day-picker";
 
@@ -35,12 +36,36 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
   };
 
   const hasActiveFilters = filters.search || filters.marcas.length > 0 || filters.lojas.length > 0 || filters.status !== "all" || filters.dateRange?.from || (filters as any).canal;
+  const activeCount =
+    (filters.search ? 1 : 0) +
+    filters.marcas.length +
+    filters.lojas.length +
+    (filters.status !== "all" ? 1 : 0) +
+    (filters.dateRange?.from ? 1 : 0) +
+    ((filters as any).canal ? 1 : 0);
+  const clearAll = () =>
+    onFiltersChange({ search: "", marcas: [], lojas: [], status: "all", dateRange: undefined, canal: undefined } as any);
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search */}
+      <div className="flex items-center gap-2 sm:hidden">
         <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar..."
+            value={filters.search}
+            onChange={e => update({ search: e.target.value })}
+            className="pl-9 h-10"
+          />
+        </div>
+      </div>
+      <MobileFiltersSheet
+        activeCount={activeCount}
+        onClear={clearAll}
+        desktopWrapperClassName="flex flex-col sm:flex-row gap-3"
+      >
+        {/* Search — só desktop; mobile já tem o input acima */}
+        <div className="relative flex-1 hidden sm:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar telefone, evento, marca ou loja..."
@@ -53,7 +78,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
         {/* Marca multi-select */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[160px] justify-between">
+            <Button variant="outline" className="w-full sm:w-[160px] justify-between">
               {filters.marcas.length > 0 ? `${filters.marcas.length} marca(s)` : "Marca"}
             </Button>
           </PopoverTrigger>
@@ -74,7 +99,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
         {/* Loja multi-select */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[160px] justify-between">
+            <Button variant="outline" className="w-full sm:w-[160px] justify-between">
               {filters.lojas.length > 0 ? `${filters.lojas.length} loja(s)` : "Loja"}
             </Button>
           </PopoverTrigger>
@@ -123,7 +148,7 @@ export function QuarentenaFilters({ filters, onFiltersChange, availableMarcas, a
           onDateChange={(d) => update({ dateRange: d })}
           placeholder="Período"
         />
-      </div>
+      </MobileFiltersSheet>
 
       {/* Active filter badges */}
       {hasActiveFilters && (

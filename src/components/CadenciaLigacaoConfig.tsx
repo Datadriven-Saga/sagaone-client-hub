@@ -562,19 +562,21 @@ export function CadenciaLigacaoConfig({ className }: CadenciaLigacaoConfigProps)
       </Card>
 
       {/* Sub-tabs: Cadência | Testar Ligação | Envio de Mensagem */}
-      <Tabs defaultValue="cadencia" className="min-w-0">
-        <TabsList className="flex-nowrap overflow-x-auto">
-          <TabsTrigger value="cadencia" className="min-w-max whitespace-nowrap">
-            <CalendarClock className="h-4 w-4 mr-1.5" />
+      <Tabs defaultValue="cadencia" className="min-w-0 w-full">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsTrigger value="cadencia" className="whitespace-nowrap px-1 sm:px-3">
+            <CalendarClock className="hidden sm:inline-block h-4 w-4 mr-1.5" />
             Cadência
           </TabsTrigger>
-          <TabsTrigger value="testar" className="min-w-max whitespace-nowrap">
-            <PhoneCall className="h-4 w-4 mr-1.5" />
-            Testar Ligação
+          <TabsTrigger value="testar" className="whitespace-nowrap px-1 sm:px-3">
+            <PhoneCall className="hidden sm:inline-block h-4 w-4 mr-1.5" />
+            <span className="sm:hidden">Testar</span>
+            <span className="hidden sm:inline">Testar Ligação</span>
           </TabsTrigger>
-          <TabsTrigger value="envio-mensagem" className="min-w-max whitespace-nowrap">
-            <MessageSquare className="h-4 w-4 mr-1.5" />
-            Envio de Mensagem
+          <TabsTrigger value="envio-mensagem" className="whitespace-nowrap px-1 sm:px-3">
+            <MessageSquare className="hidden sm:inline-block h-4 w-4 mr-1.5" />
+            <span className="sm:hidden">Mensagem</span>
+            <span className="hidden sm:inline">Envio de Mensagem</span>
           </TabsTrigger>
         </TabsList>
 
