@@ -7579,6 +7579,13 @@ export type Database = {
           telefone: string
         }[]
       }
+      reset_leads_evento_sem_log: {
+        Args: { p_prospeccao_id: string }
+        Returns: {
+          logs_inseridos: number
+          responsaveis_limpos: number
+        }[]
+      }
       resolve_login_otp_user: {
         Args: { _email: string }
         Returns: {
