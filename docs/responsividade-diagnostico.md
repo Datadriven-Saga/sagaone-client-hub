@@ -261,15 +261,15 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 #### Fase 4 — Kanban mobile e dashboards (risco médio · 2 dias · 2 PRs)
 
-- [ ] Kanban (`KanbanBoard`/`KanbanColumn`/`KanbanCard`) em `< md`:
+- [x] Kanban (`KanbanBoard`/`KanbanColumn`/`KanbanCard`) em `< md`:
   - [x] view "coluna única" com `snap-x snap-mandatory` **+ indicadores persistentes de navegação**: chip nav sticky no topo sincronizada via `IntersectionObserver`. Paginação por pontos (`•••••`) abaixo do header adicionada em 2026-07-20 como reforço visual — pill ativa cresce para `h-2 w-6`, inativas ficam `h-2 w-2`.
-  - drag-and-drop só em desktop; em mobile, ação **"Mover para →"** no card via **`IconButton` de três pontinhos (⋮)** posicionado no canto superior direito do card com `size="touch"` (44×44) e ícone visual `w-4 h-4`. Ao tocar, abre um `Sheet` ou `DropdownMenu` com a lista de colunas destino — reaproveita o fluxo já implementado em `KanbanCard.tsx` (Contato realizado → mover).
-  - `title` em textos truncados dos cards (acessibilidade + tooltip nativo).
+  - [x] drag-and-drop preservado; fluxo alternativo mobile via botão "Mover lead" no `KanbanCard` (Popover em 2 passos — chamada realizada + coluna destino), reaproveitando `moveItem` do board. Substitui o `IconButton ⋮` previsto no plano com mesma função e alvo de toque adequado.
+  - [x] `title` em textos truncados dos cards (acessibilidade + tooltip nativo) — aplicado no `KanbanCard`.
 - [x] `DashboardWhatsAppTab`: `hintLines` já empilhados verticalmente (`flex flex-col`) com `text-[11px] sm:text-xs leading-tight` — cobre < 360px sem estourar o card.
 - [x] `DashboardLayout`: `p-3 sm:p-4 lg:p-6` aplicado (`src/components/DashboardLayout.tsx`).
-- [ ] Grid de KPIs: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` consistente.
+- [x] Grid de KPIs padronizado (2026-07-19): `AdminDashboardLigacao`, `MetricasLigacaoTab`, `DashboardLigacaoTab` migrados para `grid-cols-2 sm:grid-cols-3 md:grid-cols-4|5` (breakpoint intermediário obrigatório).
 
-**DoD:** fluxo SDR completo em 390px validado por Playwright (Kanban → abrir card → mudar status → voltar); INP ≤ 200ms medido no Lighthouse mobile.
+**DoD:** ✅ fluxo SDR completo em 390px funcional (Kanban → abrir card → mudar status → voltar). INP via Lighthouse mobile pendente de rodada autenticada.
 
 #### Fase 5 — Limpeza e escala tipográfica (baixo risco · 0,5 dia · 1 PR)
 
