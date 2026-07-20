@@ -268,6 +268,35 @@ export function KanbanBoard({
         })}
       </div>
 
+      {/* Paginação por pontos (mobile only) — reforço visual da posição atual */}
+      {columns.length > 1 && (
+        <div
+          className="md:hidden flex justify-center items-center gap-1.5 mb-1.5"
+          role="tablist"
+          aria-label="Navegar entre colunas do kanban"
+        >
+          {columns.map(col => {
+            const isActive = activeColId === col.id;
+            return (
+              <button
+                key={col.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-label={`Ir para ${col.title}`}
+                onClick={() => scrollToColumn(col.id)}
+                className={
+                  'rounded-full transition-all ' +
+                  (isActive
+                    ? 'h-2 w-6 bg-primary'
+                    : 'h-2 w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50')
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+
       <div
         ref={scrollerRef}
         className="h-full w-full min-w-0 max-w-full overflow-x-auto scrollbar-thin snap-x snap-mandatory md:snap-none"

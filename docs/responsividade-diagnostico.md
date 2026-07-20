@@ -227,7 +227,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 #### Fase 4 — Kanban mobile e dashboards (risco médio · 2 dias · 2 PRs)
 
 - [ ] Kanban (`KanbanBoard`/`KanbanColumn`/`KanbanCard`) em `< md`:
-  - view "coluna única" com `snap-x snap-mandatory` **+ indicadores persistentes de navegação**: uma **barra de abas de status fixa no topo** (sticky) mostrando todas as colunas como chips (`<TabsList>` compacta), com o chip ativo destacado, sincronizada com o scroll via `IntersectionObserver`. Clicar em um chip faz `scrollIntoView({ inline: 'start', behavior: 'smooth' })` na coluna correspondente. Adicionar também **paginação por pontos** (`•••••`) abaixo do header como reforço visual — o usuário sempre sabe onde está e quantas colunas existem.
+  - [x] view "coluna única" com `snap-x snap-mandatory` **+ indicadores persistentes de navegação**: chip nav sticky no topo sincronizada via `IntersectionObserver`. Paginação por pontos (`•••••`) abaixo do header adicionada em 2026-07-20 como reforço visual — pill ativa cresce para `h-2 w-6`, inativas ficam `h-2 w-2`.
   - drag-and-drop só em desktop; em mobile, ação **"Mover para →"** no card via **`IconButton` de três pontinhos (⋮)** posicionado no canto superior direito do card com `size="touch"` (44×44) e ícone visual `w-4 h-4`. Ao tocar, abre um `Sheet` ou `DropdownMenu` com a lista de colunas destino — reaproveita o fluxo já implementado em `KanbanCard.tsx` (Contato realizado → mover).
   - `title` em textos truncados dos cards (acessibilidade + tooltip nativo).
 - [x] `DashboardWhatsAppTab`: `hintLines` já empilhados verticalmente (`flex flex-col`) com `text-[11px] sm:text-xs leading-tight` — cobre < 360px sem estourar o card.
