@@ -846,12 +846,43 @@ const Acessos = () => {
         {/* Filtros */}
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Search className="h-4 w-4" />
-              Filtros
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              <span className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Filtros
+              </span>
+              <MobileFiltersSheet
+                triggerClassName="md:hidden"
+                desktopWrapperClassName="hidden"
+                activeCount={
+                  (filterSearch ? 1 : 0) +
+                  (filterTipoAcesso !== "all" ? 1 : 0) +
+                  (filterEmpresaId !== "all" ? 1 : 0) +
+                  (filterStatus !== "all" ? 1 : 0)
+                }
+                onClear={() => {
+                  setFilterSearch("");
+                  setFilterTipoAcesso("all");
+                  setFilterEmpresaId("all");
+                  setFilterStatus("all");
+                  setCurrentPage(1);
+                }}
+              >
+                <MobileAcessosFilters
+                  filterSearch={filterSearch}
+                  setFilterSearch={setFilterSearch}
+                  filterTipoAcesso={filterTipoAcesso}
+                  setFilterTipoAcesso={setFilterTipoAcesso}
+                  filterEmpresaId={filterEmpresaId}
+                  setFilterEmpresaId={(v) => { setFilterEmpresaId(v); setCurrentPage(1); }}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  companies={companies}
+                />
+              </MobileFiltersSheet>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="hidden md:block">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5 md:col-span-1">
                 <label className="text-xs font-medium text-muted-foreground">Pesquisar</label>
