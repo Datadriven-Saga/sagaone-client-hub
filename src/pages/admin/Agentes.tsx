@@ -1654,11 +1654,17 @@ export default function AdminAgentes() {
 
           {/* Tabs Principais */}
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-            <div className="w-full overflow-x-auto -mx-1 px-1">
+            <div className="w-full overflow-x-auto">
               <TabsList className="inline-flex w-max sm:grid sm:w-full sm:max-w-2xl sm:grid-cols-3">
-                <TabsTrigger value="agentes" className="whitespace-nowrap">Agentes de IA</TabsTrigger>
-                <TabsTrigger value="controle" className="whitespace-nowrap">Controle de Agentes</TabsTrigger>
-                <TabsTrigger value="cadencia-ligacao" className="whitespace-nowrap">Ligação</TabsTrigger>
+                <TabsTrigger value="agentes" className="whitespace-nowrap px-2 sm:px-3 text-xs sm:text-sm">
+                  <span className="sm:hidden">Agentes IA</span>
+                  <span className="hidden sm:inline">Agentes de IA</span>
+                </TabsTrigger>
+                <TabsTrigger value="controle" className="whitespace-nowrap px-2 sm:px-3 text-xs sm:text-sm">
+                  <span className="sm:hidden">Controle</span>
+                  <span className="hidden sm:inline">Controle de Agentes</span>
+                </TabsTrigger>
+                <TabsTrigger value="cadencia-ligacao" className="whitespace-nowrap px-2 sm:px-3 text-xs sm:text-sm">Ligação</TabsTrigger>
               </TabsList>
             </div>
 
