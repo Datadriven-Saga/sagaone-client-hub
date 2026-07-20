@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
+import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
 
 import { CadenciaLigacaoConfig } from "@/components/CadenciaLigacaoConfig";
 import {
@@ -1655,11 +1656,13 @@ export default function AdminAgentes() {
 
           {/* Tabs Principais */}
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-            <TabsList className="grid w-full sm:max-w-2xl grid-cols-3">
-              <TabsTrigger value="agentes">Agentes de IA</TabsTrigger>
-              <TabsTrigger value="controle">Controle de Agentes</TabsTrigger>
-              <TabsTrigger value="cadencia-ligacao">Ligação</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto -mx-1 px-1">
+              <TabsList className="inline-flex w-max sm:grid sm:w-full sm:max-w-2xl sm:grid-cols-3">
+                <TabsTrigger value="agentes" className="whitespace-nowrap">Agentes de IA</TabsTrigger>
+                <TabsTrigger value="controle" className="whitespace-nowrap">Controle de Agentes</TabsTrigger>
+                <TabsTrigger value="cadencia-ligacao" className="whitespace-nowrap">Ligação</TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Tab Agentes de IA */}
             <TabsContent value="agentes" className="space-y-6 mt-6">
