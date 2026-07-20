@@ -316,7 +316,7 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 **Restou apenas 1 item, bloqueado por ambiente:**
 
-1. **Audit Playwright autenticado** — sandbox é `LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged` (Supabase externo/BYO, sem sessão injetável). Rodar `bun run responsivo:audit` em pré-prod/prod com usuário SSO válido, cobrindo as 15 rotas padrão do script. Arquivar em `docs/historico/responsividade-<data>-autenticado.md`.
+1. **Audit Playwright autenticado** — sandbox é `LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged` (Supabase externo/BYO, sem sessão injetável). Rodar `bun run responsivo:audit` em pré-prod/prod com usuário SSO válido, cobrindo as 15 rotas padrão do script. Arquivar em `docs/historico/responsividade-<data>-autenticado.md`. Runbook completo em [`docs/operacoes/responsividade-audit-autenticado.md`](./operacoes/responsividade-audit-autenticado.md).
 
 **Itens descartados após auditoria:**
 
