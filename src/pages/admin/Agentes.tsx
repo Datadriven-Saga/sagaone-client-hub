@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
+import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
 
 import { CadenciaLigacaoConfig } from "@/components/CadenciaLigacaoConfig";
 import {
@@ -1655,11 +1656,13 @@ export default function AdminAgentes() {
 
           {/* Tabs Principais */}
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-            <TabsList className="grid w-full sm:max-w-2xl grid-cols-3">
-              <TabsTrigger value="agentes">Agentes de IA</TabsTrigger>
-              <TabsTrigger value="controle">Controle de Agentes</TabsTrigger>
-              <TabsTrigger value="cadencia-ligacao">Ligação</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto -mx-1 px-1">
+              <TabsList className="inline-flex w-max sm:grid sm:w-full sm:max-w-2xl sm:grid-cols-3">
+                <TabsTrigger value="agentes" className="whitespace-nowrap">Agentes de IA</TabsTrigger>
+                <TabsTrigger value="controle" className="whitespace-nowrap">Controle de Agentes</TabsTrigger>
+                <TabsTrigger value="cadencia-ligacao" className="whitespace-nowrap">Ligação</TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Tab Agentes de IA */}
             <TabsContent value="agentes" className="space-y-6 mt-6">
@@ -1667,8 +1670,20 @@ export default function AdminAgentes() {
               <Card className="border-muted">
                 <CardContent className="pt-4 pb-4">
                   <div className="flex flex-col gap-3">
-                    {/* Linha principal de filtros */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    {/* Linha principal de filtros — em mobile fica dentro de um Sheet */}
+                    <MobileFiltersSheet
+                      onClear={clearAllFilters}
+                      activeCount={
+                        (searchTerm ? 1 : 0) +
+                        (filterNumero ? 1 : 0) +
+                        (filterMarca !== "all" ? 1 : 0) +
+                        (filterUF !== "all" ? 1 : 0) +
+                        (filterStatus !== "all" ? 1 : 0) +
+                        (filterEmpresa !== "all" ? 1 : 0) +
+                        (filterNomeAgente !== "all" ? 1 : 0)
+                      }
+                      desktopWrapperClassName="flex flex-wrap items-center gap-2"
+                    >
                       {/* Filtro por Nome do Agente (dropdown) */}
                       <Select value={filterNomeAgente} onValueChange={handleFilterNomeAgente}>
                         <SelectTrigger className="w-full sm:w-[140px] h-9">
@@ -1777,17 +1792,17 @@ export default function AdminAgentes() {
                         </SelectContent>
                       </Select>
 
-                      {/* Botão limpar filtros */}
+                      {/* Botão limpar filtros — visível apenas em desktop (mobile usa o Sheet) */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={clearAllFilters}
-                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                        className="hidden md:inline-flex h-9 px-3 text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-4 w-4 mr-1" />
                         Limpar
                       </Button>
-                    </div>
+                    </MobileFiltersSheet>
 
                     {/* Indicador de filtros ativos */}
                     {(searchTerm ||
