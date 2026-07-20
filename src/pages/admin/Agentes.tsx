@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControleAgentesContent } from "@/components/admin/ControleAgentesContent";
 import { MobileFiltersSheet } from "@/components/ui/mobile-filters-sheet";
