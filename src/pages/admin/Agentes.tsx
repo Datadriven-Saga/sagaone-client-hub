@@ -1670,8 +1670,20 @@ export default function AdminAgentes() {
               <Card className="border-muted">
                 <CardContent className="pt-4 pb-4">
                   <div className="flex flex-col gap-3">
-                    {/* Linha principal de filtros */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    {/* Linha principal de filtros — em mobile fica dentro de um Sheet */}
+                    <MobileFiltersSheet
+                      onClear={clearAllFilters}
+                      activeCount={
+                        (searchTerm ? 1 : 0) +
+                        (filterNumero ? 1 : 0) +
+                        (filterMarca !== "all" ? 1 : 0) +
+                        (filterUF !== "all" ? 1 : 0) +
+                        (filterStatus !== "all" ? 1 : 0) +
+                        (filterEmpresa !== "all" ? 1 : 0) +
+                        (filterNomeAgente !== "all" ? 1 : 0)
+                      }
+                      desktopWrapperClassName="flex flex-wrap items-center gap-2"
+                    >
                       {/* Filtro por Nome do Agente (dropdown) */}
                       <Select value={filterNomeAgente} onValueChange={handleFilterNomeAgente}>
                         <SelectTrigger className="w-full sm:w-[140px] h-9">
@@ -1780,17 +1792,17 @@ export default function AdminAgentes() {
                         </SelectContent>
                       </Select>
 
-                      {/* Botão limpar filtros */}
+                      {/* Botão limpar filtros — visível apenas em desktop (mobile usa o Sheet) */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={clearAllFilters}
-                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                        className="hidden md:inline-flex h-9 px-3 text-muted-foreground hover:text-foreground"
                       >
                         <X className="h-4 w-4 mr-1" />
                         Limpar
                       </Button>
-                    </div>
+                    </MobileFiltersSheet>
 
                     {/* Indicador de filtros ativos */}
                     {(searchTerm ||
