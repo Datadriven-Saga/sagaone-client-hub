@@ -4735,9 +4735,11 @@ ${localEvento}`;
         </div>
         
         {/* Conteúdo com scroll */}
-        <ScrollIndicator className="flex-1 min-h-0 px-0 py-2">
-          {renderStepContent()}
-        </ScrollIndicator>
+        <div ref={scrollBodyRef} className="flex-1 min-h-0 flex flex-col">
+          <ScrollIndicator className="flex-1 min-h-0 px-0 py-2">
+            {renderStepContent()}
+          </ScrollIndicator>
+        </div>
 
         {/* Footer fixo */}
         <div className="flex-shrink-0 px-0 py-0 border-t bg-background">
