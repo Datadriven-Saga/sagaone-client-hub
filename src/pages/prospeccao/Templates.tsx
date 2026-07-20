@@ -1407,11 +1407,11 @@ export default function Templates() {
   // Função removida - variáveis agora gerenciadas apenas via TemplateVariablesEditor
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center gap-2 mb-6">
+    <div className="flex items-center justify-center gap-1 sm:gap-2 mb-4 sm:mb-6 flex-wrap">
       {[1, 2, 3].map((step) => (
         <div key={step} className="flex items-center">
           <div 
-            className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors ${
+            className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-colors ${
               step < currentStep 
                 ? "bg-primary border-primary text-primary-foreground"
                 : step === currentStep 
@@ -1425,13 +1425,13 @@ export default function Templates() {
               <span className="text-sm font-medium">{step}</span>
             )}
           </div>
-          <span className={`ml-2 text-sm font-medium ${
-            step === currentStep ? "text-foreground" : "text-muted-foreground"
+          <span className={`ml-1.5 sm:ml-2 text-xs sm:text-sm font-medium ${
+            step === currentStep ? "text-foreground inline" : "text-muted-foreground hidden sm:inline"
           }`}>
             {step === 1 ? "Definição" : step === 2 ? "Formato" : "Conteúdo"}
           </span>
           {step < 3 && (
-            <div className={`w-16 h-0.5 mx-2 ${
+            <div className={`w-6 sm:w-16 h-0.5 mx-1.5 sm:mx-2 ${
               step < currentStep ? "bg-primary" : "bg-muted-foreground/30"
             }`} />
           )}

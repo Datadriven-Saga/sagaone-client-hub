@@ -4685,25 +4685,25 @@ ${localEvento}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent hideCloseButton className="max-w-none w-[calc((100vw-2rem)*0.8)] h-auto max-h-[calc(100dvh-4rem)] sm:max-w-[calc((100vw-2rem)*0.8)] lg:w-[calc((100vw-2rem)*0.65)] lg:max-w-[calc((100vw-2rem)*0.65)] xl:w-[calc((100vw-2rem)*0.55)] xl:max-w-[calc((100vw-2rem)*0.55)] flex flex-col !p-0 sm:!p-0 gap-0 overflow-hidden">
+      <DialogContent hideCloseButton className="max-w-none w-[calc(100vw-1rem)] h-auto max-h-[calc(100dvh-2rem)] sm:w-[calc((100vw-2rem)*0.8)] sm:max-w-[calc((100vw-2rem)*0.8)] sm:max-h-[calc(100dvh-4rem)] lg:w-[calc((100vw-2rem)*0.65)] lg:max-w-[calc((100vw-2rem)*0.65)] xl:w-[calc((100vw-2rem)*0.55)] xl:max-w-[calc((100vw-2rem)*0.55)] flex flex-col !p-0 sm:!p-0 gap-0 overflow-hidden">
         {/* Header fixo */}
         <div className="flex-shrink-0 px-0 py-2 border-b bg-background">
-          <div className="grid grid-cols-3 items-center gap-4 px-4">
-            <DialogHeader className="flex-shrink-0 justify-self-start">
-              <DialogTitle className="flex items-center gap-3 text-lg">
-                <span>{currentStepName}</span>
+          <div className="flex flex-col sm:grid sm:grid-cols-3 items-center gap-2 sm:gap-4 px-3 sm:px-4">
+            <DialogHeader className="flex-shrink-0 w-full sm:w-auto sm:justify-self-start">
+              <DialogTitle className="flex items-center gap-3 text-base sm:text-lg truncate">
+                <span className="truncate">{currentStepName}</span>
               </DialogTitle>
             </DialogHeader>
 
             {/* Step indicator */}
-            <div className="flex items-center justify-center gap-1">
+            <div className="flex items-center justify-center gap-1 flex-wrap">
               {steps.map((step, index) => (
                 <div key={step} className="flex items-center">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div 
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
                             index === currentStep 
                               ? 'bg-primary text-primary-foreground' 
                               : index < currentStep 
@@ -4721,16 +4721,16 @@ ${localEvento}`;
                   </TooltipProvider>
                   {index < steps.length - 1 && (
                     index < currentStep ? (
-                      <div className="w-5 h-0.5 mx-1 bg-primary/50" />
+                      <div className="w-3 sm:w-5 h-0.5 mx-0.5 sm:mx-1 bg-primary/50" />
                     ) : (
-                      <div className="w-5 mx-1 border-t border-dashed border-muted-foreground/40" />
+                      <div className="w-3 sm:w-5 mx-0.5 sm:mx-1 border-t border-dashed border-muted-foreground/40" />
                     )
                   )}
                 </div>
               ))}
             </div>
 
-            <div className="justify-self-end" />
+            <div className="hidden sm:block sm:justify-self-end" />
           </div>
         </div>
         
@@ -4743,28 +4743,28 @@ ${localEvento}`;
 
         {/* Footer fixo */}
         <div className="flex-shrink-0 px-0 py-0 border-t bg-background">
-          <div className="flex justify-between gap-2 px-4 py-3">
-            <Button type="button" variant="outline" onClick={handleCancel} disabled={loading}>
+          <div className="flex justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3">
+            <Button type="button" variant="outline" size="sm" onClick={handleCancel} disabled={loading}>
               Cancelar
             </Button>
             
             <div className="flex gap-2">
               {!isFirstStep && (
-                <Button type="button" variant="outline" onClick={handlePreviousStep} disabled={loading}>
+                <Button type="button" variant="outline" size="sm" onClick={handlePreviousStep} disabled={loading}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Voltar
                 </Button>
               )}
               
               {isLastStep ? (
-                <Button onClick={handleSubmit} disabled={loading}>
+                <Button size="sm" onClick={handleSubmit} disabled={loading}>
                   {loading 
                     ? (loadingMessage || (editingProspeccao ? "Salvando..." : "Criando..."))
                     : (editingProspeccao ? "Salvar Alterações" : "Criar Evento")
                   }
                 </Button>
               ) : (
-                <Button type="button" onClick={handleNextStep} disabled={loading}>
+                <Button type="button" size="sm" onClick={handleNextStep} disabled={loading}>
                   Próxima Etapa
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
