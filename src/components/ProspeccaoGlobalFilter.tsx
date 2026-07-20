@@ -250,7 +250,11 @@ export function ProspeccaoGlobalFilter({
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[480px] p-4" align="start">
+          <PopoverContent
+            className="w-[calc(100vw-1rem)] sm:w-[480px] max-h-[calc(100dvh-6rem)] overflow-y-auto p-3 sm:p-4"
+            align="start"
+            collisionPadding={8}
+          >
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Filtros</h4>
