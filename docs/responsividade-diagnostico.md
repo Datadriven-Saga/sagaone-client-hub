@@ -289,24 +289,39 @@ Objetivo: eliminar overflow horizontal **real** para permitir remoção do `over
 
 ---
 
-## 7. Status pós-execução (2026-07-17)
+## 7. Histórico de execução
+
+### 7.0 Cronologia
+
+| Data | Marco |
+|---|---|
+| 2026-07-14 | Diagnóstico + plano em 6 fases publicado |
+| 2026-07-15 | Fase 0 (audit script) e Fase 1 (fundações) mergeadas |
+| 2026-07-16 | Fase 2 — modais, `.touch-target`, sweep `vh→dvh` |
+| 2026-07-16/17 | Fase 3 — Ondas A/B/C de tabelas, `FilterBar` mobile, remoção do `overflow-x:hidden` global |
+| 2026-07-17 | Fase 4 quase completa — Kanban mobile com chip nav, "Mover lead" no `KanbanCard` |
+| 2026-07-17 | Fase 5 iniciada — `.h1` nas landings, sweep parcial `w-[Npx]` |
+| 2026-07-19 | `useAutoScrollFocusInContainer` no `CriarProspeccaoModal`; grids KPIs padronizados (breakpoint intermediário) |
+| 2026-07-20 | Paginação por pontos no `KanbanBoard`; audit público rearquivado; **plano encerrado no escopo do sandbox** |
 
 ### 7.1 Concluído
 
 - Fase 0 (instrumentação) e Fase 1 (fundações) — 100%.
-- Fase 2 — modais, botão X `h-11`, `.touch-target` em ícones, sweep `vh → dvh`. Aplicação campo-a-campo do `useScrollIntoViewOnFocus` fica pendente (ver 7.2).
+- Fase 2 — modais, botão X `h-11`, `.touch-target` em ícones, sweep `vh → dvh`. `useAutoScrollFocusInContainer` aplicado em `ConfiguracoesPosVendasTab`, `SimulacaoEventoModal` e `CriarProspeccaoModal` (1 ref no body — dispensa refactor campo a campo).
 - Fase 3 — Ondas A, B e C de tabelas concluídas; `FilterBar` mobile via `Sheet` entregue; `overflow-x:hidden` global removido.
-- Fase 4 — Kanban mobile com chip-nav sticky + `snap-x`, `KanbanCard` com botão "Mover lead" (substitui o ⋮ previsto no plano; mesma função). `DashboardWhatsAppTab` com KPIs em `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5` e `hintLines` responsivos.
-- Fase 5 — Tokens tipográficos `.h1` aplicados nas landings. Sweep parcial de `w-[Npx]` (36 → 25).
+- Fase 4 — Kanban mobile com chip-nav sticky + `snap-x` + **paginação por pontos** (2026-07-20); `KanbanCard` com botão "Mover lead"; grids KPIs padronizados (`AdminDashboardLigacao`, `MetricasLigacaoTab`, `DashboardLigacaoTab`).
+- Fase 5 — Tokens tipográficos `.h1` aplicados nas landings; sweep `w-[Npx]` fechado (36 → 25 com exceções justificadas); `.dark [data-dark-gradient-adjust]` opt-in.
 
-### 7.2 Pendências rastreadas (próxima onda)
+### 7.2 Pendências rastreadas
 
-Requerem priorização explícita antes de nova execução por serem alto custo de refactor por tela:
+**Restou apenas 1 item, bloqueado por ambiente:**
 
-1. ~~**Renderização condicional via JS (`useBreakpoint('md')`)** nas tabelas de alto volume~~ — **descartado após auditoria (2026-07-17)**: `admin/LogsDisparos`, `admin/LogsCadeiras`, `admin/Quarentena`, `admin/Webhooks` e `RecepcaoTable` usam apenas `hidden md:table-cell` para esconder colunas — árvore única, sem duplicação de reconciliação. Ganho de performance era hipotético. Reabrir apenas se aparecer jank específico em produção.
-2. **`useAutoScrollFocusInContainer` aplicado** em `ConfiguracoesPosVendasTab` e `SimulacaoEventoModal` (2026-07-17). Nova variante container-level do hook (`src/hooks/useScrollIntoViewOnFocus.ts`) instala um único `focusin` listener e rola qualquer input/textarea/select focado, dispensando refs campo-a-campo. Pendente somente em `CriarProspeccaoModal` (mesmo padrão de 1 ref no body é aplicável quando priorizado).
-3. **Sweep final de `w-[Npx]`** — auditoria confirmou que as 25 ocorrências restantes são `TableHead` (reserva deliberada de coluna), popovers Radix, skeletons e um `sm:w-[21px]` de SVG no Login. Nenhuma quebra layout em mobile. **Fechado** com exceções documentadas.
-4. **Audit final autenticado** — rodada pública arquivada em `docs/historico/responsividade-2026-07-20.md` (0 overflow, 16 hitboxes pequenos justificados). Rotas autenticadas continuam pendentes de execução em ambiente com sessão SSO válida (`LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged` no sandbox).
+1. **Audit Playwright autenticado** — sandbox é `LOVABLE_BROWSER_AUTH_STATUS=external_unmanaged` (Supabase externo/BYO, sem sessão injetável). Rodar `bun run responsivo:audit` em pré-prod/prod com usuário SSO válido, cobrindo as 15 rotas padrão do script. Arquivar em `docs/historico/responsividade-<data>-autenticado.md`.
+
+**Itens descartados após auditoria:**
+
+- ~~Renderização condicional via JS (`useBreakpoint('md')`) nas tabelas de alto volume~~ — descartado 2026-07-17: tabelas usam `hidden md:table-cell` (árvore única). Reabrir só se aparecer jank em produção.
+- ~~Sweep exaustivo dos 25 `w-[Npx]` remanescentes~~ — fechado com exceções documentadas (TableHead, popovers Radix, skeletons, SVGs decorativos).
 
 ### 7.3 Baseline mais recente (2026-07-17)
 
