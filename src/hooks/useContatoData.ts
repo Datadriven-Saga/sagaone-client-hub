@@ -9,6 +9,8 @@ import { setContatoStatus } from '@/lib/contatoStatusApi';
 
 export interface Contato {
   id: string;
+  prospeccao_id?: string;
+  prospeccaoId?: string;
   lead_id?: number;
   nome: string;
   telefone: string;
