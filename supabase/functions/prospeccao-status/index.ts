@@ -258,15 +258,15 @@ serve(async (req) => {
       );
     }
 
-    // Buscar prospeccao_id associada ao contato (via eventos_prospeccao)
-    const { data: eventoProspeccao } = await supabaseClient
+    // Buscar prospeccoes associadas ao contato (fallback só é seguro quando há vínculo único).
+    const { data: eventosProspeccao } = await supabaseClient
       .from('eventos_prospeccao')
       .select('prospeccao_id')
       .eq('contato_id', contato.id)
-      .limit(1)
-      .single();
+      .order('created_at', { ascending: false });
     
-    const prospeccaoId = eventoProspeccao?.prospeccao_id || null;
+    const prospeccoesDoContato = Array.isArray(eventosProspeccao) ? eventosProspeccao : [];
+    const prospeccaoId = prospeccoesDoContato.length === 1 ? prospeccoesDoContato[0]?.prospeccao_id || null : null;
 
     if (req.method === 'GET') {
       // Consultar status do contato
@@ -344,9 +344,44 @@ serve(async (req) => {
 
       const statusAnterior = contato.status;
 
-      // PR 0: prospeccao_id final — body tem prioridade sobre fallback
+      // PR 0: prospeccao_id final — body tem prioridade; fallback apenas para vínculo único.
       const prospeccaoIdFinal: string | null =
         (typeof bodyProspeccaoId === 'string' && bodyProspeccaoId) ? bodyProspeccaoId : prospeccaoId;
+
+      if (!prospeccaoIdFinal && prospeccoesDoContato.length > 1) {
+        console.warn('❌ prospeccao-status: movimento sem prospeccao_id em lead multi-evento', {
+          contato_id: contato.id,
+          lead_id: contato.lead_id,
+          vinculos: prospeccoesDoContato.length,
+        });
+        return new Response(
+          JSON.stringify({
+            error: 'prospeccao_id é obrigatório para leads vinculados a mais de um evento',
+            contato_id: contato.id,
+            lead_id: contato.lead_id,
+            vinculos_evento: prospeccoesDoContato.length,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      if (prospeccaoIdFinal && !prospeccoesDoContato.some((v: any) => v.prospeccao_id === prospeccaoIdFinal)) {
+        return new Response(
+          JSON.stringify({
+            error: 'Contato não está vinculado ao evento informado',
+            contato_id: contato.id,
+            lead_id: contato.lead_id,
+            prospeccao_id: prospeccaoIdFinal,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
 
       // PR 0: usuario do log
       const usuarioIdParaLog: string | null = isAdminToken
@@ -407,6 +442,7 @@ serve(async (req) => {
       console.log(`   ├─ Status anterior: ${statusAnterior}`);
       console.log(`   ├─ Status recebido: ${novo_status}`);
       console.log(`   └─ Status normalizado: ${statusNormalizado}`);
+      console.log(`   └─ Prospecção do log: ${prospeccaoIdFinal ?? 'sem vínculo/evento'}`);
 
       // PR 0: webhooks síncronos com timeout. UPDATE+log já estão persistidos.
       let webhookStatus: WebhookStatus = 'not_invoked';
