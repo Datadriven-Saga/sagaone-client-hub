@@ -1375,7 +1375,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     if (isLimitedUser && atLimitLeads && fromStatus === 'novos' && toStatus === 'atribuidos') {
       toast({
         title: "Limite de leads atingido",
-        description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de pegar novos leads.`,
+        description: pendentesScopeProspeccaoId
+          ? `Você já possui ${LEAD_LIMIT} leads em "Atribuído" neste evento. Finalize atendimentos deste evento antes de pegar novos leads.`
+          : `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de pegar novos leads.`,
         variant: "destructive"
       });
       return false;
