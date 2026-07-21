@@ -1,92 +1,40 @@
-## Diagnóstico de Eventos — nova tela gerencial
 
-Rota: `/administracao/diagnostico-eventos` (dentro de Administração). Acesso: `canAccessAdminConfig` (Admin/TI/Master).
+## Diagnóstico
 
-### Estrutura
+Duas causas confirmadas nos toasts da tela:
 
-```text
-Breadcrumb: Administração / Diagnóstico de Eventos
-Header: título + subtítulo + botão "Exportar" (CSV)
+1. **"CREATE TABLE AS is not allowed in a non-volatile function"** — em `public.get_diagnostico_eventos_leads` (migração `20260721202247_...`) a função está declarada `STABLE`, mas o corpo executa:
+   ```sql
+   CREATE TEMP TABLE IF NOT EXISTS _tmp_diag ON COMMIT DROP AS SELECT 1 WHERE false;
+   ```
+   Postgres proíbe DDL em funções não-voláteis. Essa linha é resíduo/desnecessária.
 
-Barra de filtros (independentes, combináveis):
-- Usuário terceiro (multi)
-- Loja / Empresa (multi)
-- Evento / Prospecção (multi)
-- Cadeira / external_access_seat (multi)
-- Range de datas (data_inicio..data_fim do evento) — padrão: últimos 60 dias
-- Botões: Filtrar / Limpar
+2. **"canceling statement due to statement timeout"** em `get_diagnostico_eventos_kpis` — sem filtros, o CTE `leads_scope` faz `JOIN eventos_prospeccao × contatos × prospeccoes` para toda a base (exceto EMPRESA ADMIN) e chama `get_contato_status_por_evento(...)` linha a linha. Isso extrapola o `statement_timeout` do role `authenticated`.
 
-KPIs (cards):
-- Total de Leads (contatos vinculados no escopo)
-- Eventos Ativos (com sub-linha: encerrados · pausados)
-- Leads Atribuídos (com sub-linha: não atribuídos)
-- Leads por Loja (média)
-- Eventos Expirados (data_fim < hoje e não encerrados) com leads pendentes
+## Correções
 
-Barra "Status dos Leads": chips com contagem por status derivado por evento
-(Novo, Atribuído, Em Espera, Convidado, Descartado, Confirmado, Check-in, Vendas, Opt-out) + barra proporcional.
+### 1. Migração SQL
 
-Tabela "Leads dos Eventos":
-Colunas: checkbox · Lead (nome/telefone) · Evento · Loja · Atribuído a · Cadeira · Status · Data Final · Ações (kebab)
-Busca por lead (nome/telefone), paginação server-side (25/50/100).
+- Remover o `CREATE TEMP TABLE ...` de `get_diagnostico_eventos_leads`.
+- Recriar `get_diagnostico_eventos_kpis` e `get_diagnostico_eventos_leads` com:
+  - Guarda de escopo: exigir **pelo menos um filtro** entre `empresa_ids`, `prospeccao_ids`, `terceiro_ids`, `seat_ids` ou intervalo de datas. Sem filtro, retornar KPIs zerados / `rows: []` — evita full scan.
+  - Aplicar `data_de/data_ate` como **janela default de 60 dias** quando nenhum filtro estruturado for informado mas o usuário abrir a tela (garantia extra).
+  - Trocar chamada por linha de `get_contato_status_por_evento` por **subquery lateral única** que lê o último log em `logs_movimentacao_contatos` por `(contato_id, prospeccao_id)`, caindo em `contatos.status` só quando não há log — mesma regra da função, sem overhead de N chamadas PLPGSQL.
 
-Barra de ações em lote (aparece com seleção):
-- Reatribuir (modal 1b)
-- Alterar Data (modal 1c — altera data_fim do evento pai)
-- Alterar Lead (modal edição rápida)
-- Encerrar Evento (modal 1d — marca leads não atribuídos como Descartado)
-- Cancelar seleção
-```
+### 2. Frontend (`src/hooks/useDiagnosticoEventos.ts` + `DiagnosticoEventos.tsx`)
 
-### Modais
+- Não chamar `fetchKpis`/`fetchLeads` no mount sem filtros.
+- Mostrar estado inicial "Selecione um filtro para carregar o diagnóstico".
+- Exibir a mensagem de erro real vinda da RPC (quando `filtros_obrigatorios`) em vez do toast genérico.
 
-- **Reatribuir**: lista de leads selecionados + busca de novo responsável (mostra cadeira e leads ativos). Confirma via RPC que grava logs em `logs_movimentacao_contatos` e `eventos_prospeccao` (status Atribuído).
-- **Alterar Data Final**: campo data atual (read-only) + nova data + aviso "afetará N leads". Atualiza `prospeccoes.data_fim`.
-- **Encerrar Evento**: mostra totais (leads, atribuídos, pendentes). Ao confirmar: `prospeccoes.encerrado_at = now()` e leads sem responsável viram Descartado (log por evento).
-- **Alterar Lead**: edição inline de dados básicos do contato.
+## O que NÃO alterar
 
-### Backend (migração)
+- Assinaturas públicas das RPCs (mesmos nomes/args) — só corpo/comportamento.
+- `get_contato_status_por_evento` continua sendo a fonte canônica de status por evento (usada em outros lugares).
+- Guarda `is_admin_diagnostico` e GRANTs.
 
-Novas RPCs `SECURITY DEFINER` com guarda de `canAccessAdminConfig` via `has_role`/checagem de perfil:
+## Teste
 
-- `get_diagnostico_eventos_kpis(filtros jsonb)` → retorna KPIs + breakdown de status por evento (usa `get_contato_status_por_evento`).
-- `get_diagnostico_eventos_leads(filtros jsonb, page, page_size)` → lista paginada.
-- `bulk_reatribuir_leads(lead_ids uuid[], prospeccao_id uuid, novo_user_id uuid)` → grava logs por evento.
-- `bulk_alterar_data_fim(prospeccao_ids uuid[], nova_data date)`.
-- `encerrar_evento_diagnostico(prospeccao_id uuid)` → seta `encerrado_at`, marca pendentes como Descartado via `logs_movimentacao_contatos`.
-
-Todas com log de auditoria em `logs_prospeccoes` (actor = admin real, motivo = "diagnostico-eventos").
-
-### Frontend
-
-Arquivos novos:
-- `src/pages/admin/DiagnosticoEventos.tsx` — página principal.
-- `src/components/admin/diagnostico/DiagnosticoFilters.tsx`
-- `src/components/admin/diagnostico/DiagnosticoKpis.tsx`
-- `src/components/admin/diagnostico/DiagnosticoStatusBar.tsx`
-- `src/components/admin/diagnostico/DiagnosticoLeadsTable.tsx`
-- `src/components/admin/diagnostico/ReatribuirModal.tsx`
-- `src/components/admin/diagnostico/AlterarDataModal.tsx`
-- `src/components/admin/diagnostico/EncerrarEventoModal.tsx`
-- `src/components/admin/diagnostico/AlterarLeadModal.tsx`
-- `src/hooks/useDiagnosticoEventos.ts` — filtros/queries via React Query.
-
-Alterações:
-- `src/App.tsx`: rota `/administracao/diagnostico-eventos`.
-- `src/pages/Administracao.tsx`: novo card "Diagnóstico de Eventos" (ícone `Activity`), permissão `canAccessAdminConfig`.
-
-### Regras / observações
-
-- Status na tabela usa `get_contato_status_por_evento(contato_id, prospeccao_id)` — sem `contatos.status` global.
-- "Cadeira" = registro em `external_access_seats` do responsável quando aplicável.
-- "Eventos expirados" = `data_fim < CURRENT_DATE AND encerrado_at IS NULL`.
-- Empresa sandbox `b32ae8c9-...` excluída por padrão.
-- Exportar CSV usa mesma consulta filtrada, servidor-side.
-- Segue tokens semânticos (nada de cores hardcoded).
-- Não altera `bulk_upsert_contatos`, quarentena, ou lógica de auto-atribuição.
-
-### Perguntas em aberto (posso assumir defaults se preferir)
-
-1. "Alterar Lead" em lote deve editar apenas campos comuns (nome/telefone/observação) ou abrir modal por lead? Assumindo edição individual via kebab.
-2. Ao encerrar evento com leads Atribuídos ainda ativos, apenas os "não atribuídos" viram Descartado (como no print 1d) — Atribuídos permanecem no status atual. OK?
-3. "Cadeira" exibida vem de `external_access_seats` do responsável — se o responsável for interno (não terceiro), mostrar "—". OK?
+- Abrir a tela sem filtro → estado vazio, sem toast de erro.
+- Filtrar por 1 empresa → KPIs e tabela carregam < 3 s.
+- Filtrar por 1 evento → mesma coisa; ações em lote continuam funcionando.
