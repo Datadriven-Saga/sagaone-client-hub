@@ -1276,8 +1276,20 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   const executeKanbanStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
     try {
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
+      const prospeccaoIdAlvo = resolveProspeccaoIdForLead(itemId);
+      console.log('[Kanban] executeKanbanStatusChange', {
+        itemId,
+        fromStatus,
+        toStatus,
+        novoStatusDb,
+        prospeccaoIdAlvo,
+        filtroAtivo: globalFilters.prospeccaoIds,
+      });
       if (novoStatusDb) {
-        await atualizarStatusContato(itemId, novoStatusDb);
+        await atualizarStatusContato(itemId, novoStatusDb, {
+          prospeccaoId: prospeccaoIdAlvo,
+          observacoes: 'Alteração via Kanban',
+        });
       }
       if (fromStatus === 'novos' && user?.email) {
         await atribuirResponsavel(itemId, user.email);
