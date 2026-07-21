@@ -117,11 +117,13 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     contatoId: string;
     contatoNome: string;
     fromStatus: string;
+    prospeccaoId?: string | null;
   }>({
     isOpen: false,
     contatoId: '',
     contatoNome: '',
-    fromStatus: ''
+    fromStatus: '',
+    prospeccaoId: undefined
   });
   const [convidarModal, setConvidarModal] = useState<{
     isOpen: boolean;
