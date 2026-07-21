@@ -2320,7 +2320,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       setModalContato({
         isOpen: true,
         contato: contatoCompleto,
-        columnId: coluna?.id
+        columnId: coluna?.id,
+        prospeccaoId: getProspeccaoIdFromKanbanItem(item) || resolveProspeccaoIdForLead(item.id)
       });
     }
   };
@@ -3680,7 +3681,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
 
       <DescarteLeadModal
         isOpen={descarteModal.isOpen}
-        onClose={() => setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '' })}
+        onClose={() => setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '', prospeccaoId: undefined })}
         contatoId={descarteModal.contatoId}
         contatoNome={descarteModal.contatoNome}
         onConfirm={async (motivoId, justificativa) => {
@@ -3692,7 +3693,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               .eq('id', motivoId)
               .single();
             await atualizarStatusContato(descarteModal.contatoId, 'Descartado', {
-          prospeccaoId: resolveProspeccaoIdForLead(descarteModal.contatoId),
+              prospeccaoId: resolveProspeccaoIdForLead(descarteModal.contatoId, descarteModal.prospeccaoId),
               observacoes: `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`,
             });
             
@@ -3701,7 +3702,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               description: "O lead foi movido para Descartados com sucesso.",
             });
             
-            setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '' });
+            setDescarteModal({ isOpen: false, contatoId: '', contatoNome: '', fromStatus: '', prospeccaoId: undefined });
             refreshLeadViews({ silentKanban: true });
           } catch (error) {
             console.error('Erro ao descartar lead:', error);
