@@ -1384,7 +1384,8 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           isOpen: true,
           contatoId: itemId,
           contatoNome: contatoCompleto.nome,
-          fromStatus: fromStatus
+          fromStatus: fromStatus,
+          prospeccaoId: prospeccaoIdAlvo
         });
         return false; // Não mover o card visualmente ainda
       }
