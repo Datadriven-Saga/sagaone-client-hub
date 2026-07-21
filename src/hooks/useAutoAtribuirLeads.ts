@@ -44,7 +44,7 @@ export function useAutoAtribuirLeads() {
   const isLimitedUser = isVendedor || isSDR;
 
   // Conta quantos leads pendentes o vendedor tem
-  const contarLeadsPendentes = useCallback(async () => {
+  const contarLeadsPendentes = useCallback(async (prospeccaoId?: string | null) => {
     if (!user || !isLimitedUser) {
       console.log('[AutoAtribuir] contarLeadsPendentes ignorado', {
         hasUser: !!user,
@@ -56,10 +56,12 @@ export function useAutoAtribuirLeads() {
     try {
       console.log('[AutoAtribuir] Contando leads pendentes...', {
         userId: user.id,
+        prospeccaoId: prospeccaoId ?? null,
       });
 
-      const { data, error } = await supabase.rpc("count_vendedor_leads_pendentes", {
+      const { data, error } = await (supabase as any).rpc("count_vendedor_leads_pendentes", {
         user_id_param: user.id,
+        prospeccao_id_param: prospeccaoId ?? null,
       });
       
       console.log('[AutoAtribuir] count_vendedor_leads_pendentes retorno', { data, error });
@@ -78,7 +80,7 @@ export function useAutoAtribuirLeads() {
   }, [user, isLimitedUser]);
 
   // Verifica se precisa de mais leads
-  const verificarPrecisaLeads = useCallback(async () => {
+  const verificarPrecisaLeads = useCallback(async (prospeccaoId?: string | null) => {
     if (!user || !isLimitedUser) {
       console.log('[AutoAtribuir] verificarPrecisaLeads ignorado', {
         hasUser: !!user,
@@ -90,10 +92,12 @@ export function useAutoAtribuirLeads() {
     try {
       console.log('[AutoAtribuir] Verificando se usuário precisa de leads...', {
         userId: user.id,
+        prospeccaoId: prospeccaoId ?? null,
       });
 
-      const { data, error } = await supabase.rpc("vendedor_precisa_leads", {
+      const { data, error } = await (supabase as any).rpc("vendedor_precisa_leads", {
         user_id_param: user.id,
+        prospeccao_id_param: prospeccaoId ?? null,
       });
       
       console.log('[AutoAtribuir] vendedor_precisa_leads retorno', { data, error });
@@ -193,8 +197,8 @@ export function useAutoAtribuirLeads() {
         debugContext,
       });
 
-      const leadsAntes = await contarLeadsPendentes();
-      const precisaAntes = await verificarPrecisaLeads();
+      const leadsAntes = await contarLeadsPendentes(debugProspeccaoId);
+      const precisaAntes = await verificarPrecisaLeads(debugProspeccaoId);
       const diagnosticoAntes = await logDebugSnapshot('antes');
 
       console.log('[AutoAtribuir] Estado antes da RPC', {
@@ -210,11 +214,9 @@ export function useAutoAtribuirLeads() {
         },
       });
 
-      const requestPayload = { user_id_param: user.id };
+      const requestPayload = { user_id_param: user.id, prospeccao_id_param: debugProspeccaoId };
       console.log('[AutoAtribuir] Chamando RPC auto_atribuir_leads_vendedor', requestPayload);
-      const { data, error } = await supabase.rpc("auto_atribuir_leads_vendedor", {
-        user_id_param: requestPayload.user_id_param,
-      });
+      const { data, error } = await (supabase as any).rpc("auto_atribuir_leads_vendedor", requestPayload);
       
       console.log('[AutoAtribuir] auto_atribuir_leads_vendedor retorno', { data, error });
       
@@ -226,7 +228,7 @@ export function useAutoAtribuirLeads() {
         return 0;
       }
 
-      const leadsDepois = await contarLeadsPendentes();
+      const leadsDepois = await contarLeadsPendentes(debugProspeccaoId);
       const diagnosticoDepois = await logDebugSnapshot('depois');
 
       console.log('[AutoAtribuir] Estado após RPC', {
@@ -253,7 +255,11 @@ export function useAutoAtribuirLeads() {
         if (data > 0) {
           toast.success(`${data} novo(s) lead(s) atribuído(s) a você!`);
         } else {
-          toast.info("Nenhum lead novo disponível no momento. Tente novamente mais tarde.");
+          toast.info(
+            debugProspeccaoId
+              ? "Nenhum lead novo disponível neste evento. Verifique se você atingiu o limite de 30 leads pendentes neste evento."
+              : "Nenhum lead novo disponível no momento. Tente novamente mais tarde."
+          );
         }
       }
       
