@@ -1565,7 +1565,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       
       // Atualizar contagem de leads pendentes para vendedores/SDR
       if (isLimitedUser) {
-        contarLeadsPendentes();
+        contarLeadsPendentes(pendentesScopeProspeccaoId);
       }
 
       // Webhook `movimentacao_lead_kanban` é despachado exclusivamente pelo
