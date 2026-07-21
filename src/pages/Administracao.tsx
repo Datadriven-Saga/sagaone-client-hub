@@ -19,7 +19,8 @@ import {
   Plug
   ,
   Armchair,
-  Link2
+  Link2,
+  Activity
 } from "lucide-react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useUserAccessType } from "@/hooks/useUserAccessType";
@@ -191,6 +192,13 @@ const Administracao = () => {
       description: "Limite de cadeiras por loja e histórico de criação/renovação/ativação",
       icon: Armchair,
       route: "/administracao/logs-cadeiras",
+      permissionKey: "canAccessAdminConfig",
+    },
+    {
+      title: "Diagnóstico de Eventos",
+      description: "Visão gerencial dos eventos de prospecção com reatribuição e encerramento em lote",
+      icon: Activity,
+      route: "/administracao/diagnostico-eventos",
       permissionKey: "canAccessAdminConfig",
     },
   ];
