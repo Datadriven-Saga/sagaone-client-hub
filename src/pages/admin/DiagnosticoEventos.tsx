@@ -153,16 +153,17 @@ export default function DiagnosticoEventos() {
   };
 
   useEffect(() => {
-    fetchKpis(filtros);
+    if (filterActive) fetchKpis(filtros);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filtros)]);
 
   useEffect(() => {
-    fetchLeads(filtros, page, PAGE_SIZE, search);
+    if (filterActive) fetchLeads(filtros, page, PAGE_SIZE, search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filtros), page]);
 
   useEffect(() => {
+    if (!filterActive) return;
     const t = setTimeout(() => {
       setPage(1);
       fetchLeads(filtros, 1, PAGE_SIZE, search);
