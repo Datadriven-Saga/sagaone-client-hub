@@ -1315,7 +1315,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         await atribuirResponsavel(itemId, user.email);
       }
       logStatusChange(itemId, fromStatus, toStatus);
-      if (isLimitedUser) contarLeadsPendentes();
+      if (isLimitedUser) contarLeadsPendentes(pendentesScopeProspeccaoId);
 
       // Webhook `movimentacao_lead_kanban` é despachado exclusivamente pelo
       // trigger PG após o INSERT em `logs_movimentacao_contatos`.
