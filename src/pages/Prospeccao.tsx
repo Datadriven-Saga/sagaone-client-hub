@@ -1184,14 +1184,15 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     (itemId: string): string | null => {
       const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
       const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
-      const prospeccaoId =
-        (prospeccaoIdsFiltrados.length > 0
-          ? prospeccaoIdsFiltrados.find((id) => prospeccaoIdsDoLead?.has(id)) ||
-            prospeccaoIdsFiltrados[0]
-          : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
-      return prospeccaoId ?? null;
+
+      if (prospeccaoIdsFiltrados.length > 0) {
+        const matchingFilteredId = prospeccaoIdsFiltrados.find((id) => prospeccaoIdsDoLead?.has(id));
+        return matchingFilteredId || prospeccaoIdsFiltrados[0] || null;
+      }
+
+      return prospeccaoIdsDoLead ? Array.from(prospeccaoIdsDoLead)[0] ?? null : null;
     },
-    [contatosProspeccoes, globalFilters.prospeccaoIds, prospeccoes]
+    [contatosProspeccoes, globalFilters.prospeccaoIds]
   );
 
   // DEPRECATED: o log de movimentação agora é gravado dentro do RPC
@@ -1479,7 +1480,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         if (vendaExistente) {
           // Venda já existe com todos os campos, apenas atualizar status
           console.log('Venda já existe, atualizando status apenas');
-          await atualizarStatusContato(itemId, 'Venda');
+          await atualizarStatusContato(itemId, 'Venda', {
+            prospeccaoId: resolveProspeccaoIdForLead(itemId),
+            observacoes: 'Alteração via Kanban',
+          });
           
           logStatusChange(itemId, fromStatus, toStatus);
           
@@ -1537,7 +1541,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     try {
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
       if (novoStatusDb) {
-        const statusAtualizado = await atualizarStatusContato(itemId, novoStatusDb);
+        const statusAtualizado = await atualizarStatusContato(itemId, novoStatusDb, {
+          prospeccaoId: resolveProspeccaoIdForLead(itemId),
+          observacoes: 'Alteração via Kanban',
+        });
         if (statusAtualizado === false) {
           return false;
         }
@@ -2348,7 +2355,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       // Se não tem pendingVendaStatus, o contato já está em status de venda
       // Apenas verificar e garantir que está em Venda
       if (contato.status !== 'Venda') {
-        await atualizarStatusContato(contatoId, 'Venda');
+        await atualizarStatusContato(contatoId, 'Venda', {
+          prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+          observacoes: 'Venda registrada no modal do lead',
+        });
       }
     }
 
@@ -2416,7 +2426,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             : ids?.[0]) || prospeccoes?.[0]?.id;
         })(),
         onConfirmed: async () => {
-          await atualizarStatusContato(contatoId, novoStatus);
+          await atualizarStatusContato(contatoId, novoStatus, {
+            prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+            observacoes: 'Alteração via modal do lead',
+          });
           if (contatoExistente) {
             logStatusChange(contatoId, contatoExistente.status, novoStatus);
           }
@@ -2428,7 +2441,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       return;
     }
 
-    await atualizarStatusContato(contatoId, novoStatus);
+    await atualizarStatusContato(contatoId, novoStatus, {
+      prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+      observacoes: 'Alteração via modal do lead',
+    });
     
     // Registrar movimentação (helper resolve prospeccao_id real do contato)
     const contato = contatos.find(c => c.id === contatoId);
@@ -2568,7 +2584,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       for (const contato of clientesParaAtribuir) {
         await atribuirResponsavel(contato.id, user.email!);
         // Mover para coluna "Atribuídos" (status 'Atribuído')
-        await atualizarStatusContato(contato.id, 'Atribuído');
+        await atualizarStatusContato(contato.id, 'Atribuído', {
+          prospeccaoId: resolveProspeccaoIdForLead(contato.id),
+          observacoes: 'Atribuição manual via solicitar clientes',
+        });
       }
 
       toast({
@@ -3715,7 +3734,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           const { contatoId, fromStatus } = convidarModal;
           setConvidarModal((s) => ({ ...s, isOpen: false }));
           try {
-            await atualizarStatusContato(contatoId, 'Convidado');
+            await atualizarStatusContato(contatoId, 'Convidado', {
+              prospeccaoId: convidarModal.prospeccaoIdAlvo || resolveProspeccaoIdForLead(contatoId),
+              observacoes: 'Convite preparado via Kanban',
+            });
             moveKanbanCardOptimistic(contatoId, fromStatus, 'convidados');
             logStatusChange(contatoId, fromStatus, 'convidados');
             toast({
