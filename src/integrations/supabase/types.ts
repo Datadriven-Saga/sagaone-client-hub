@@ -6902,10 +6902,12 @@ export type Database = {
         Args: { p_agente: string; p_contato_id: string }
         Returns: boolean
       }
-      auto_atribuir_leads_vendedor: {
-        Args: { user_id_param?: string }
-        Returns: number
-      }
+      auto_atribuir_leads_vendedor:
+        | { Args: { user_id_param?: string }; Returns: number }
+        | {
+            Args: { prospeccao_id_param?: string; user_id_param?: string }
+            Returns: number
+          }
       auto_provision_user_from_sso: {
         Args: { p_user_id: string }
         Returns: Json
@@ -7073,10 +7075,12 @@ export type Database = {
           prev_status: string
         }[]
       }
-      count_vendedor_leads_pendentes: {
-        Args: { user_id_param: string }
-        Returns: number
-      }
+      count_vendedor_leads_pendentes:
+        | { Args: { user_id_param: string }; Returns: number }
+        | {
+            Args: { prospeccao_id_param?: string; user_id_param: string }
+            Returns: number
+          }
       create_lead_atomic: {
         Args: {
           p_email?: string
@@ -7646,10 +7650,12 @@ export type Database = {
         Returns: boolean
       }
       validate_email_domain: { Args: { email_input: string }; Returns: boolean }
-      vendedor_precisa_leads: {
-        Args: { user_id_param?: string }
-        Returns: boolean
-      }
+      vendedor_precisa_leads:
+        | { Args: { user_id_param?: string }; Returns: boolean }
+        | {
+            Args: { prospeccao_id_param?: string; user_id_param?: string }
+            Returns: boolean
+          }
     }
     Enums: {
       canal_optout: "Whatsapp" | "Ligação" | "SMS" | "E-mail"

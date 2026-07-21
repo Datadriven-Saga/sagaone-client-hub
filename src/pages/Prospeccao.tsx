@@ -302,6 +302,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Verificar se vendedor está no limite de 30 leads
   const LEAD_LIMIT = 30;
   const atLimitLeads = isLimitedUser && (leadsPendentes ?? 0) >= LEAD_LIMIT;
+  // Escopo do limite de pendentes: quando o SDR filtra por exatamente 1 evento,
+  // o limite passa a ser por evento (regra "atribuídos deste evento").
+  const pendentesScopeProspeccaoId =
+    globalFilters.prospeccaoIds.length === 1 ? globalFilters.prospeccaoIds[0] : null;
   
   // State para métricas externas de IA Ligação
   const [metricasLigacaoExternas, setMetricasLigacaoExternas] = useState<Record<string, MetricasLigacaoExternas>>({});
@@ -997,7 +1001,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   useEffect(() => {
     if (activeTab === 'kanban' && isLimitedUser && !loadingKanban && defaultFilterLoaded) {
       verificarEAtribuirSeNecessario().then(() => {
-        contarLeadsPendentes();
+        contarLeadsPendentes(pendentesScopeProspeccaoId);
         if (globalFilters.prospeccaoIds.length > 0) {
           refreshLatestRef.current({ silentKanban: false });
         }
@@ -1311,7 +1315,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         await atribuirResponsavel(itemId, user.email);
       }
       logStatusChange(itemId, fromStatus, toStatus);
-      if (isLimitedUser) contarLeadsPendentes();
+      if (isLimitedUser) contarLeadsPendentes(pendentesScopeProspeccaoId);
 
       // Webhook `movimentacao_lead_kanban` é despachado exclusivamente pelo
       // trigger PG após o INSERT em `logs_movimentacao_contatos`.
@@ -1371,7 +1375,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     if (isLimitedUser && atLimitLeads && fromStatus === 'novos' && toStatus === 'atribuidos') {
       toast({
         title: "Limite de leads atingido",
-        description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de pegar novos leads.`,
+        description: pendentesScopeProspeccaoId
+          ? `Você já possui ${LEAD_LIMIT} leads em "Atribuído" neste evento. Finalize atendimentos deste evento antes de pegar novos leads.`
+          : `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de pegar novos leads.`,
         variant: "destructive"
       });
       return false;
@@ -1561,7 +1567,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       
       // Atualizar contagem de leads pendentes para vendedores/SDR
       if (isLimitedUser) {
-        contarLeadsPendentes();
+        contarLeadsPendentes(pendentesScopeProspeccaoId);
       }
 
       // Webhook `movimentacao_lead_kanban` é despachado exclusivamente pelo
@@ -2517,11 +2523,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           console.log('[Solicitar] Bloqueado por limite de leads', {
             leadsPendentes,
             leadLimit: LEAD_LIMIT,
+            escopo: pendentesScopeProspeccaoId ? 'por evento' : 'global',
           });
 
           toast({
             title: "Limite de leads atingido",
-            description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
+            description: pendentesScopeProspeccaoId
+              ? `Você já possui ${LEAD_LIMIT} leads em "Atribuído" neste evento. Finalize atendimentos deste evento antes de solicitar novos leads.`
+              : `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
             variant: "destructive"
           });
           return;
@@ -2541,7 +2550,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         console.log('[Solicitar] Leads atribuídos:', leadsAtribuidos);
         
         // Atualizar contagem de leads pendentes e recarregar kanban sempre
-        const leadsPendentesAtualizados = await contarLeadsPendentes();
+        const leadsPendentesAtualizados = await contarLeadsPendentes(pendentesScopeProspeccaoId);
         await fetchKanbanColumns(kanbanFilters);
 
         console.log('[Solicitar] Pós-recarga do kanban', {
@@ -3221,7 +3230,11 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
                   onStatusChange={handleStatusChange}
                   onSolicitarClientes={isLimitedUser ? solicitarClientes : undefined}
                   solicitarDisabled={atLimitLeads}
-                  solicitarTooltip={atLimitLeads ? `Você já possui ${leadsPendentes} leads pendentes (limite: ${LEAD_LIMIT}). Finalize atendimentos para solicitar novos.` : undefined}
+                  solicitarTooltip={atLimitLeads
+                    ? (pendentesScopeProspeccaoId
+                      ? `Você já possui ${leadsPendentes} leads em "Atribuído" neste evento (limite: ${LEAD_LIMIT}). Finalize atendimentos deste evento para solicitar novos.`
+                      : `Você já possui ${leadsPendentes} leads pendentes (limite: ${LEAD_LIMIT}). Finalize atendimentos para solicitar novos.`)
+                    : undefined}
                   onLoadMore={handleLoadMoreColumn}
                   columnHasMore={kanbanColumnHasMore}
                   columnLoadingMore={kanbanLoadingMore}
