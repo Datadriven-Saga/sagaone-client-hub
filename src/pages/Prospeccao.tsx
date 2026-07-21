@@ -2523,11 +2523,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           console.log('[Solicitar] Bloqueado por limite de leads', {
             leadsPendentes,
             leadLimit: LEAD_LIMIT,
+            escopo: pendentesScopeProspeccaoId ? 'por evento' : 'global',
           });
 
           toast({
             title: "Limite de leads atingido",
-            description: `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
+            description: pendentesScopeProspeccaoId
+              ? `Você já possui ${LEAD_LIMIT} leads em "Atribuído" neste evento. Finalize atendimentos deste evento antes de solicitar novos leads.`
+              : `Você já possui ${LEAD_LIMIT} leads pendentes. Finalize atendimentos antes de solicitar novos leads.`,
             variant: "destructive"
           });
           return;
