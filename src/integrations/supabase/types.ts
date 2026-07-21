@@ -7091,6 +7091,10 @@ export type Database = {
         }
         Returns: Json
       }
+      debug_auto_atribuicao_leads: {
+        Args: { prospeccao_id_param?: string; user_id_param?: string }
+        Returns: Json
+      }
       decrypt_mfa_secret: {
         Args: { encrypted_secret: string }
         Returns: string
