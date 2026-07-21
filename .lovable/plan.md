@@ -1,54 +1,96 @@
-## Ajuste — limite de leads apenas em eventos ativos
+## Plano — Logs detalhados da solicitação de leads
 
-### Causa raiz confirmada
+### Objetivo
+Instrumentar o fluxo sem mudar regra de negócio agora, para descobrir por que a Lays'la recebeu só 4 leads mesmo havendo espaço aparente no limite.
 
-`count_vendedor_leads_pendentes` conta corretamente só `Atribuído`, mas considera todos os eventos da empresa. Lays'la tem 2 Atribuídos no evento visível (SUPER AÇÃO) e 28 em dois eventos antigos (`CRM - TOYOTA AUTOSHOW`, `crm_nacional_evento_dia_s_toyota_go_anapolis`) — total 30 → travada. Auto-atribuição também sofre do mesmo problema para o cálculo de quantos leads pode buscar.
+### O que será logado no console
 
-### Regra desejada
+1. **Início da solicitação**
+   - `user_id`, email e nome do usuário.
+   - Se é SDR/Vendedor/acesso limitado.
+   - Evento(s) filtrados na tela, quando disponível.
 
-Um lead só ocupa slot do limite se estiver em status `Atribuído` **em um evento ativo** (`prospeccoes.ativo = true` e `encerrado_at IS NULL`).
+2. **Contagem antes da solicitação**
+   - Resultado da RPC `count_vendedor_leads_pendentes`.
+   - Contagem detalhada dos leads da usuária por status no evento atual:
+     - `Atribuído`
+     - `Em Espera`
+     - `Convidado`
+     - `Confirmado`
+     - `Check-in`
+     - demais status
+   - Quantidade de vagas calculada: `30 - atribuídos`.
 
-### Alteração — camada única (SQL)
+3. **Validação dos leads Novos disponíveis**
+   - Total de leads `Novo` no evento atual.
+   - Quantos são elegíveis para puxar.
+   - Quantos foram descartados por motivo, por exemplo:
+     - já tem `responsavel_email`
+     - já tem `vendedor_responsavel_id`
+     - status por evento não é `Novo`
+     - evento não está ativo/encerrado
+     - usuário não está vinculado/bypass de terceiro não aplicado
 
-Atualizar `public.count_vendedor_leads_pendentes(uuid)` (`SECURITY DEFINER`, `search_path=public`):
+4. **Chamada da solicitação**
+   - Payload enviado para `auto_atribuir_leads_vendedor`.
+   - Resposta bruta da RPC: `data`, `error`, quantidade atribuída.
 
-- Remove o ramo por `contatos.status` global (não há como amarrá-lo a um evento específico).
-- Mantém match por email/nome + `empresa_id` da empresa ativa.
-- Novo predicado único:
-  ```
-  EXISTS (
-    SELECT 1 FROM eventos_prospeccao ep
-    JOIN prospeccoes pr ON pr.id = ep.prospeccao_id
-    WHERE ep.contato_id = c.id
-      AND pr.ativo = true
-      AND pr.encerrado_at IS NULL
-      AND get_contato_status_por_evento(c.id, ep.prospeccao_id) = 'Atribuído'
-  )
-  ```
-- `COUNT(DISTINCT c.id)` para não duplicar quando o mesmo contato está `Atribuído` em vários eventos ativos (continua ocupando 1 slot).
+5. **Estado depois da solicitação**
+   - Nova contagem de pendentes.
+   - Nova distribuição por status no evento.
+   - Diferença esperada vs. realizada:
+     - vagas antes
+     - novos elegíveis antes
+     - quantidade que deveria puxar
+     - quantidade que realmente puxou
 
-`vendedor_precisa_leads` e `auto_atribuir_leads_vendedor` herdam automaticamente. Nenhuma mudança em frontend.
+### Onde implementar
 
-### Impacto imediato (medido nos dados de produção)
+1. **Frontend**
+   - Adicionar logs estruturados em `useAutoAtribuirLeads.ts`, usando `console.groupCollapsed`, `console.table` e objetos detalhados.
+   - Se possível, incluir o contexto do evento selecionado vindo da tela de Prospecção.
 
-- Lays'la (`f1f21b82…`): passa de 30 → 2 pendentes (28 dos antigos ficam de fora, dependendo de os eventos estarem inativos/encerrados). Vou confirmar antes da mudança que aqueles dois eventos estão inativos ou encerrados; se estiverem ativos, ela ainda fica travada e a decisão precisa ser reavaliada.
-- Auto-atribuição volta a puxar `30 - pendentes_ativos` leads.
+2. **Banco/RPC auxiliar de diagnóstico**
+   - Criar uma RPC somente de leitura, por exemplo `debug_auto_atribuicao_leads(user_id_param uuid, prospeccao_id_param uuid)`.
+   - Ela não atribui leads; apenas retorna JSON com:
+     - contagem por status;
+     - limite;
+     - vagas livres;
+     - leads novos elegíveis;
+     - leads bloqueados por motivo;
+     - amostra dos primeiros leads elegíveis/bloqueados.
 
-### Riscos e o que NÃO muda
+3. **Integração do log**
+   - Antes de chamar `auto_atribuir_leads_vendedor`, chamar a RPC de diagnóstico quando houver evento selecionado.
+   - Logar o JSON completo no console.
+   - Depois chamar a RPC real normalmente.
+   - Depois chamar novamente a RPC de diagnóstico para comparar antes/depois.
 
-- Zero mudança em `contatos`, `eventos_prospeccao`, `logs_movimentacao_contatos`, RLS, webhooks, triggers.
-- Rollback trivial: reaplicar versão anterior.
-- Eventos ativos com muito lead Atribuído continuam travando normalmente — comportamento correto.
-- Se um evento for reaberto (`encerrado_at` volta a NULL, `ativo=true`), os Atribuídos dele voltam a contar. Também correto.
-- Métricas/relatórios: nenhum consumidor conhecido dessa RPC além do Kanban/hook `useAutoAtribuirLeads`.
+### Importante
 
-### Validação após deploy
+- Não vou alterar ainda a regra de atribuição.
+- Não vou mover leads retroativos.
+- A mudança será apenas observabilidade para confirmar exatamente onde a seleção está parando.
 
-1. Rodar `count_vendedor_leads_pendentes` para Lays'la — esperar cair para o número de Atribuídos em eventos ativos.
-2. Chamar `auto_atribuir_leads_vendedor` num usuário de teste que tenha Atribuídos em evento encerrado e Novos em evento ativo — deve puxar.
-3. UI: clicar "Solicitar" no Kanban e verificar que puxa leads e o toast de limite só aparece quando fizer sentido.
+### Resultado esperado
+Depois disso, ao clicar em **Solicitar**, o console deve mostrar claramente:
 
-### Fora de escopo
+```text
+Solicitação iniciada
+Atribuídos atuais: X
+Vagas livres: 30 - X
+Novos no evento: Y
+Elegíveis: Z
+Bloqueados por motivo: {...}
+RPC retornou: N atribuídos
+Se N < min(vagas, elegíveis), mostrar onde a diferença apareceu
+```
 
-- Limite por evento (opção A) — não é o que foi decidido.
-- Extração de helper/testes automatizados — pendente, entra em plano à parte quando você pedir.
+Com esses dados, conseguimos separar se o problema está em:
+
+- contagem de status;
+- status por evento mal alocado;
+- filtro de elegibilidade;
+- regra de equipe/acesso de terceiros;
+- evento ativo/inativo;
+- ou na própria `auto_atribuir_leads_vendedor`.
