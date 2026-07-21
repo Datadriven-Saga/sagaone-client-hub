@@ -1001,7 +1001,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   useEffect(() => {
     if (activeTab === 'kanban' && isLimitedUser && !loadingKanban && defaultFilterLoaded) {
       verificarEAtribuirSeNecessario().then(() => {
-        contarLeadsPendentes();
+        contarLeadsPendentes(pendentesScopeProspeccaoId);
         if (globalFilters.prospeccaoIds.length > 0) {
           refreshLatestRef.current({ silentKanban: false });
         }
