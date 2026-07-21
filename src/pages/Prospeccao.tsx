@@ -2545,7 +2545,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         console.log('[Solicitar] Leads atribuídos:', leadsAtribuidos);
         
         // Atualizar contagem de leads pendentes e recarregar kanban sempre
-        const leadsPendentesAtualizados = await contarLeadsPendentes();
+        const leadsPendentesAtualizados = await contarLeadsPendentes(pendentesScopeProspeccaoId);
         await fetchKanbanColumns(kanbanFilters);
 
         console.log('[Solicitar] Pós-recarga do kanban', {
