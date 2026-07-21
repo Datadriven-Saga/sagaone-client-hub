@@ -2527,8 +2527,17 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           return;
         }
         
-        console.log('[Solicitar] Chamando atribuirLeadsAutomaticamente...');
-        const leadsAtribuidos = await atribuirLeadsAutomaticamente(true);
+        const solicitarDebugContext = {
+          source: 'Prospeccao.solicitarClientes',
+          activeCompanyId: activeCompany?.id,
+          prospeccaoIds: kanbanFilters.prospeccaoIds,
+          kanbanNovosCount: novosColumn?.count,
+          kanbanNovosLoadedItems: novosColumn?.items.length,
+          filters: kanbanFilters,
+        };
+
+        console.log('[Solicitar] Chamando atribuirLeadsAutomaticamente...', solicitarDebugContext);
+        const leadsAtribuidos = await atribuirLeadsAutomaticamente(true, solicitarDebugContext);
         console.log('[Solicitar] Leads atribuídos:', leadsAtribuidos);
         
         // Atualizar contagem de leads pendentes e recarregar kanban sempre
