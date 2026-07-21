@@ -18,6 +18,8 @@ import { KanbanCard } from './KanbanCard';
 
 export interface KanbanItem {
   id: string;
+  prospeccao_id?: string;
+  prospeccaoId?: string;
   lead_id?: number;
   title: string;
   description?: string;
@@ -50,7 +52,7 @@ interface KanbanBoardProps {
   columnCounts?: Record<string, number>; // Real DB counts per column id
   onUpdateColumns: (columns: KanbanColumnData[]) => void;
   onCardClick?: (item: KanbanItem) => void;
-  onStatusChange?: (itemId: string, fromStatus: string, toStatus: string) => Promise<boolean> | void;
+  onStatusChange?: (itemId: string, fromStatus: string, toStatus: string, item?: KanbanItem) => Promise<boolean> | void;
   onSolicitarClientes?: () => void;
   solicitarDisabled?: boolean;
   solicitarTooltip?: string;
@@ -146,7 +148,7 @@ export function KanbanBoard({
       }
     } else {
       // Call onStatusChange and check if it returns false (meaning we should NOT move the card)
-      const result = await onStatusChange?.(activeId, sourceColumn.id, targetColumn.id);
+      const result = await onStatusChange?.(activeId, sourceColumn.id, targetColumn.id, sourceItem);
       
       // If result is false, don't move the card visually
       if (result === false) {
@@ -189,7 +191,7 @@ export function KanbanBoard({
     const targetColumn = columns.find(col => col.id === targetColumnId);
     if (!sourceColumn || !sourceItem || !targetColumn || sourceColumn.id === targetColumn.id) return;
 
-    const result = await onStatusChange?.(itemId, sourceColumn.id, targetColumn.id);
+    const result = await onStatusChange?.(itemId, sourceColumn.id, targetColumn.id, sourceItem);
     if (result === false) return;
 
     const newColumns = columns.map(col => {
