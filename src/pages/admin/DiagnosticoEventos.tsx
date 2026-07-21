@@ -251,6 +251,15 @@ export default function DiagnosticoEventos() {
         </Card>
 
         {/* KPIs */}
+        {!filterActive && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Selecione ao menos um filtro</AlertTitle>
+            <AlertDescription>
+              Escolha uma loja, evento, terceiro, cadeira ou intervalo de datas para carregar o diagnóstico.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           <KpiCard icon={ClipboardList} label="Total de leads" value={loadingKpis ? "—" : kpis?.total_leads ?? 0} />
           <KpiCard icon={CalendarClock} label="Eventos ativos" value={loadingKpis ? "—" : kpis?.eventos_ativos ?? 0} hint={`${kpis?.eventos_total ?? 0} totais`} />
