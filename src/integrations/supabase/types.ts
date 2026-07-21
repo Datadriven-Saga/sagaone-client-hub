@@ -6912,6 +6912,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      bulk_alterar_data_fim_diagnostico: {
+        Args: { nova_data: string; prospeccao_ids: string[] }
+        Returns: number
+      }
+      bulk_reatribuir_leads_diagnostico: {
+        Args: { motivo?: string; novo_responsavel_id: string; pares: Json }
+        Returns: number
+      }
       bulk_update_lead_ids: { Args: { p_items: Json }; Returns: number }
       bulk_update_telefones_contatos: {
         Args: { p_empresa_id: string; p_items: Json }
@@ -7103,6 +7111,10 @@ export type Database = {
         Args: { encrypted_secret: string }
         Returns: string
       }
+      encerrar_evento_diagnostico: {
+        Args: { prospeccao_id_param: string }
+        Returns: Json
+      }
       encerrar_eventos_finalizados:
         | { Args: never; Returns: undefined }
         | {
@@ -7233,6 +7245,17 @@ export type Database = {
           vendas: number
         }[]
       }
+      get_diagnostico_eventos_kpis: { Args: { filtros?: Json }; Returns: Json }
+      get_diagnostico_eventos_leads: {
+        Args: {
+          filtros?: Json
+          page_num?: number
+          page_size?: number
+          search_term?: string
+        }
+        Returns: Json
+      }
+      get_diagnostico_filtros_opcoes: { Args: never; Returns: Json }
       get_dispatcher_backlog: {
         Args: never
         Returns: {
@@ -7511,6 +7534,7 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
+      is_admin_diagnostico: { Args: { _user_id: string }; Returns: boolean }
       is_company_owner: {
         Args: { company_id: string; user_id?: string }
         Returns: boolean
