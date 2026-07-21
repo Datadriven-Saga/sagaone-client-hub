@@ -1130,6 +1130,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
             // Fallback: build minimal contato from KanbanItem
             return {
               id: item.id,
+              prospeccao_id: item.prospeccao_id || item.prospeccaoId,
               lead_id: item.lead_id,
               nome: item.title,
               telefone: item.channel || '',
@@ -1932,6 +1933,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
 
         return {
           id: contato.id || '',
+          prospeccao_id: contato.prospeccao_id || contato.prospeccaoId,
           lead_id: contato.lead_id,
           title: contato.nome || 'Sem nome',
           description: contato.observacoes || undefined,
