@@ -1,103 +1,54 @@
-## Análise — solicitação de leads (SDR / acesso de terceiros)
+## Ajuste — limite de leads apenas em eventos ativos
 
-### 1. Onde a regra vive hoje
+### Causa raiz confirmada
 
-Três funções no Postgres formam o fluxo (todas `SECURITY DEFINER`):
+`count_vendedor_leads_pendentes` conta corretamente só `Atribuído`, mas considera todos os eventos da empresa. Lays'la tem 2 Atribuídos no evento visível (SUPER AÇÃO) e 28 em dois eventos antigos (`CRM - TOYOTA AUTOSHOW`, `crm_nacional_evento_dia_s_toyota_go_anapolis`) — total 30 → travada. Auto-atribuição também sofre do mesmo problema para o cálculo de quantos leads pode buscar.
 
-| Função | Papel |
-|---|---|
-| `count_vendedor_leads_pendentes(user_id)` | **Fonte da verdade do "limite"**. Retorna quantos leads o SDR tem "em aberto". |
-| `vendedor_precisa_leads(user_id)` | Só faz `count_... < 30`. Usada para habilitar o botão. |
-| `auto_atribuir_leads_vendedor(user_id)` | Aciona a solicitação. Calcula `30 - pendentes`; se ≤ 0, retorna `0`. |
+### Regra desejada
 
-Frontend:
-- `src/hooks/useAutoAtribuirLeads.ts` chama as 3 RPCs.
-- `src/pages/Prospeccao.tsx` (linhas 1373 e 2523) exibe o toast **"Limite de leads atingido — Você já possui 30 leads pendentes"** quando a RPC devolve `0` e a contagem bate no `LEAD_LIMIT` (30).
+Um lead só ocupa slot do limite se estiver em status `Atribuído` **em um evento ativo** (`prospeccoes.ativo = true` e `encerrado_at IS NULL`).
 
-O erro do print (image-893) **não vem do backend**: vem do frontend, disparado sempre que `auto_atribuir_leads_vendedor` retorna 0 e `leadsPendentes >= 30`.
+### Alteração — camada única (SQL)
 
-### 2. Comportamento atual (regra que define "pendente")
+Atualizar `public.count_vendedor_leads_pendentes(uuid)` (`SECURITY DEFINER`, `search_path=public`):
 
-Dentro de `count_vendedor_leads_pendentes` o SDR é considerado "com lead pendente" quando:
+- Remove o ramo por `contatos.status` global (não há como amarrá-lo a um evento específico).
+- Mantém match por email/nome + `empresa_id` da empresa ativa.
+- Novo predicado único:
+  ```
+  EXISTS (
+    SELECT 1 FROM eventos_prospeccao ep
+    JOIN prospeccoes pr ON pr.id = ep.prospeccao_id
+    WHERE ep.contato_id = c.id
+      AND pr.ativo = true
+      AND pr.encerrado_at IS NULL
+      AND get_contato_status_por_evento(c.id, ep.prospeccao_id) = 'Atribuído'
+  )
+  ```
+- `COUNT(DISTINCT c.id)` para não duplicar quando o mesmo contato está `Atribuído` em vários eventos ativos (continua ocupando 1 slot).
 
-- `responsavel_email = email do SDR` **OU** `vendedor_nome = nome do SDR`  
-  **E**
-- Status do lead está em **qualquer** um destes:
-  `Atribuído`, `Em Espera`, `Convidado`, `Confirmado`, `Check-in`  
-  (checa tanto o `contatos.status` global quanto o status derivado por evento via `get_contato_status_por_evento`).
+`vendedor_precisa_leads` e `auto_atribuir_leads_vendedor` herdam automaticamente. Nenhuma mudança em frontend.
 
-Ou seja: um lead que o SDR já convidou, confirmou ou fez check-in continua ocupando slot do limite de 30. É por isso que a Lays'la (image-892) vê 892 leads em "Novos", 0 em "Atribuídos" e mesmo assim leva **Limite atingido** — os 30 slots dela estão presos em `Em Espera / Convidado / Confirmado / Check-in`.
+### Impacto imediato (medido nos dados de produção)
 
-### 3. Fluxo atual (diagrama)
+- Lays'la (`f1f21b82…`): passa de 30 → 2 pendentes (28 dos antigos ficam de fora, dependendo de os eventos estarem inativos/encerrados). Vou confirmar antes da mudança que aqueles dois eventos estão inativos ou encerrados; se estiverem ativos, ela ainda fica travada e a decisão precisa ser reavaliada.
+- Auto-atribuição volta a puxar `30 - pendentes_ativos` leads.
 
-```text
-[SDR clica em "Solicitar"]
-        │
-        ▼
-[Front: auto_atribuir_leads_vendedor]
-        │
-        ▼
-[RPC lê count_vendedor_leads_pendentes]
-        │
-        ▼
-   pendentes >= 30 ?
-   ├── SIM → retorna 0 → Toast "Limite de leads atingido"
-   └── NÃO → seleciona (30 - pendentes) leads "Novo" elegíveis
-             │
-             ▼
-       UPDATE contatos (status='Atribuído', responsavel=SDR)
-             │
-             ▼
-       INSERT logs_movimentacao_contatos
+### Riscos e o que NÃO muda
 
-count_vendedor_leads_pendentes conta:
-  responsavel_email=SDR OR vendedor_nome=SDR
-  E
-  status ∈ { Atribuído, Em Espera, Convidado, Confirmado, Check-in }
-  (global OU por evento)
-```
+- Zero mudança em `contatos`, `eventos_prospeccao`, `logs_movimentacao_contatos`, RLS, webhooks, triggers.
+- Rollback trivial: reaplicar versão anterior.
+- Eventos ativos com muito lead Atribuído continuam travando normalmente — comportamento correto.
+- Se um evento for reaberto (`encerrado_at` volta a NULL, `ativo=true`), os Atribuídos dele voltam a contar. Também correto.
+- Métricas/relatórios: nenhum consumidor conhecido dessa RPC além do Kanban/hook `useAutoAtribuirLeads`.
 
-### 4. Comportamento desejado
+### Validação após deploy
 
-"Só conta como pendente o que está em **Atribuído**. Em Espera, Convidado, Confirmado e Check-in **não** ocupam slot."
+1. Rodar `count_vendedor_leads_pendentes` para Lays'la — esperar cair para o número de Atribuídos em eventos ativos.
+2. Chamar `auto_atribuir_leads_vendedor` num usuário de teste que tenha Atribuídos em evento encerrado e Novos em evento ativo — deve puxar.
+3. UI: clicar "Solicitar" no Kanban e verificar que puxa leads e o toast de limite só aparece quando fizer sentido.
 
-Justificativa operacional: SDR já trabalhou esses leads — não faz sentido travar a captura de novos por causa deles.
+### Fora de escopo
 
-### 5. Proposta de alteração
-
-**Escopo cirúrgico — mudar apenas a definição de "pendente".** Nenhuma mudança de UI, de webhook, de trigger ou de RLS.
-
-Alterações:
-
-1. **`public.count_vendedor_leads_pendentes(uuid)`** — reduzir o array de status para apenas `Atribuído` (global **e** por evento):
-   - `status = 'Atribuído'::status_lead`
-   - `OR EXISTS (... get_contato_status_por_evento(...) = 'Atribuído')`
-   - Mantém `DISTINCT c.id`, `SECURITY DEFINER`, `search_path=public`, filtro por empresa ativa e match por email/nome.
-
-2. **`public.vendedor_precisa_leads(uuid)`** — não muda (continua `< 30`), mas passa a refletir só `Atribuído`.
-
-3. **`public.auto_atribuir_leads_vendedor(uuid)`** — sem alteração estrutural; ele já usa `count_vendedor_leads_pendentes`, logo herda a nova regra automaticamente. O bloco de seleção de leads elegíveis (`status = 'Novo'`) continua igual.
-
-4. **Frontend** — sem mudanças. Os textos "Você já possui X leads pendentes" continuam corretos, apenas passam a refletir a nova definição.
-
-### 6. Riscos e validações antes de aplicar
-
-- **Reversibilidade:** mudança é apenas em duas funções (`count_vendedor_leads_pendentes` e, por herança, `vendedor_precisa_leads`). Rollback = re-aplicar a versão anterior. Nenhum dado é alterado.
-- **Impacto operacional:** SDRs que hoje estão "travados" (30 no limite via Em Espera/Convidado/…) vão poder puxar leads novamente. Precisa aviso à operação — pode gerar pico de solicitações.
-- **Efeito colateral em métricas:** nenhum. As tabelas `contatos`, `eventos_prospeccao` e `logs_movimentacao_contatos` não são tocadas. Dashboards que contam "pendentes" e que porventura chamem essa RPC vão passar a mostrar números menores — auditar se algum relatório depende do valor antigo.
-- **Grande Evento / Mensal:** o filtro de canal em `auto_atribuir_leads_vendedor` (linhas `pr.canal IN ('Grande Evento','Mensal')`) permanece. O comportamento de auto-atribuição continua restrito a esses canais.
-- **Cadeira de terceiros:** já valida via `prospeccao_equipe_membros`; permanece igual.
-
-### 7. Testes a executar após a mudança (build mode)
-
-1. Chamar `count_vendedor_leads_pendentes` para a Lays'la e para a Maisa — confirmar que retorna somente a contagem de "Atribuído".
-2. Chamar `vendedor_precisa_leads` — confirmar `true` para casos que hoje retornam `false` só por causa de Em Espera/Convidado.
-3. Rodar `auto_atribuir_leads_vendedor` num usuário de teste com muitos "Em Espera" e confirmar que agora atribui.
-4. UI: abrir Prospecção como SDR, clicar "Solicitar", verificar toast e contagem.
-
-### 8. O que fica de fora (não muda)
-
-- Limite de 30 continua 30 (mudança de valor pode vir depois; hoje é constante `LEAD_LIMIT` no front + literal `30` na RPC — se quisermos parametrizar, é outro plano).
-- Regras de visibilidade / equipe / cadeira externa — intocadas.
-- Trigger de webhook Mobi — intocada.
-- `get_contato_status_por_evento` — intocada.
+- Limite por evento (opção A) — não é o que foi decidido.
+- Extração de helper/testes automatizados — pendente, entra em plano à parte quando você pedir.
