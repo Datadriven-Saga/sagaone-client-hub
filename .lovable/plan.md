@@ -1,91 +1,122 @@
 
-# Plano — eliminar "por Sistema" restante na timeline
+# Plano — 3 fases, sem quebrar prod
 
-## Diagnóstico confirmado
+## Fase 1 — Corrigir `auto_atribuir_leads_vendedor` (estanca o sangramento)
 
-Lead do print (`0caf5e44…`, FABIO SOUZA FERNANDES):
+**Migração única** que reescreve a função para:
 
-```text
-contato_timeline
-  id           = d2bda900-…
-  tipo         = status_change
-  descricao    = "Status alterado de Atribuído para Novo"
-  usuario_id   = NULL
-  usuario_nome = "Sistema"
-  metadata     = { observacoes: "Reset de herança — lead sem histórico neste evento", ... }
-  created_at   = 2026-07-20 17:50:47Z
-```
+1. Materializar `leads_disponiveis` com **`(contato_id, prospeccao_id)`** — evento em que o SDR está pegando o lead fica explícito.
+2. `PERFORM set_config('app.status_change_logged','true', true);` antes do `UPDATE contatos` → suprime `trg_log_contato_status` e evita o fallback que grava no evento errado.
+3. Após o `UPDATE`, `INSERT` explícito em `logs_movimentacao_contatos` (um por par contato+evento) com:
+   - `status_anterior = 'Novo'`, `status_novo = 'Atribuído'`
+   - `prospeccao_id` = evento correto do SDR
+   - `usuario_id = user_id_param`
+   - `observacoes = 'auto-atribuição SDR/Vendedor'`
+4. Manter comportamento externo: mesma assinatura `(user_id_param uuid)`, mesmo retorno `integer` (nº atribuído), mesmo limite de 30, mesmas regras de filtro (canal `Grande Evento`/`Mensal`, membership em `prospeccao_equipe_membros`, `get_contato_status_por_evento = 'Novo'`).
 
-O filtro atual em `get_contato_timeline` casa em `descricao ILIKE '%Reset de herança%'` etc. — mas `contato_timeline.descricao` guarda só "Status alterado de X para Y". O texto "Reset de herança" vive em `metadata->>'observacoes'`. Por isso a linha escapa e aparece como "por Sistema".
+**O que NÃO alterar:** `count_vendedor_leads_pendentes`, `vendedor_precisa_leads`, `mutate_contato_status_atomic`, RLS de `contatos`, hook `useAutoAtribuirLeads`.
 
-Confirmado no banco:
-- `contato_timeline`: 203.337 linhas com `tipo=status_change`, `usuario_id IS NULL`, `usuario_nome='Sistema'`.
-- Só em 2026-07-20: **98.853** (é o dia dos resets/correções). Nos demais dias fica em ~50–100/dia (esses são triggers legítimos antigos e é seguro deixar visíveis).
+**Rollback:** re-aplicar a definição atual (guardada como snapshot na descrição da migration).
 
-Portanto: **não** podemos hidear tudo que é `usuario_nome='Sistema'` sem contexto — só o que é maintenance job de hoje.
+**Testes obrigatórios (rodo antes de responder):**
+- SDR pede leads em evento A → todos os logs novos são em A, evento B intocado.
+- Contador dos 30 continua respeitando (comparar `count_vendedor_leads_pendentes` antes/depois).
+- Zero novos logs `auto-trigger (fallback de migracao)` gerados pela chamada.
+- Amostra de 3 SDRs reais (Ketley + 2 outros com divergência global/evento) — confirmar que ficam com N leads visíveis no Kanban do evento pedido.
 
-## Correção — Front A (patch cirúrgico em `get_contato_timeline`)
+---
 
-Uma única migração alterando a RPC para checar `metadata->>'observacoes'` além da `descricao`:
+## Fase 2 — Destravar "Mover lead" para SDR/terceiros (menor risco)
+
+**Escolha:** promover `mutate_contato_status_atomic` para **`SECURITY DEFINER` com validação interna** (opção 2b do diagnóstico). É a alternativa que não mexe em RLS global de `contatos` (evita efeito colateral em importador, edges, pri.ia) e resolve o bloqueio para SDR/terceiros vindos de `user_empresas`.
+
+**Migração única:**
+
+1. `ALTER FUNCTION public.mutate_contato_status_atomic(...) SECURITY DEFINER`.
+2. `SET search_path = public` (já tem).
+3. No início da função, **validar autorização** — bloqueia se falhar:
+   - `p_usuario` deve ser `auth.uid()` ou o caller deve ter role admin/TI/master.
+   - Buscar `empresa_id` do contato e exigir `public.user_can_access_empresa(empresa_id, auth.uid()) = true`.
+   - Se `p_prospeccao IS NOT NULL`, exigir uma de: responsável pelo contato (email match), membro de `prospeccao_equipe_membros` do evento, ou admin/TI/master.
+   - Falhar com `RAISE EXCEPTION 'sem permissão'` + `ERRCODE 42501` para o FE tratar.
+4. Manter o resto igual (flag `app.status_change_logged`, INSERT em `logs_movimentacao_contatos`, RETURN).
+5. `GRANT EXECUTE` já existe para `authenticated, service_role`.
+
+**Compatibilidade:**
+- Admin/TI/master: já passavam por RLS, continuam passando pela validação interna (bypass explícito).
+- SDR/terceiros com equipe: hoje falham silenciosamente na RLS de UPDATE → agora passam pela validação interna e conseguem mover.
+- Callers automatizados (edges `prospeccao-status`, `confirm-presence`) usam service_role → passam.
+- pri.ia: continua funcionando (usa service_role).
+
+**O que NÃO alterar:** políticas RLS de `contatos`, edge `prospeccao-status` (assinatura da RPC não muda), FE (`atualizarStatusContato`, `KanbanCard.onMoveItem`), trigger `trg_dispatch_movimentacao_lead_webhook`.
+
+**Rollback:** `ALTER FUNCTION ... SECURITY INVOKER` + remover bloco de validação.
+
+**Testes obrigatórios:**
+- SDR membro da equipe move lead do Kanban → 200 OK, log gravado no evento correto, 1 webhook `movimentacao_lead_kanban`.
+- SDR **não** membro tenta mover lead do mesmo evento → 403 (`ERRCODE 42501`), sem UPDATE, sem log.
+- Admin move em qualquer empresa acessível → OK.
+- Terceiro (external seat) com equipe → OK.
+- Edge `confirm-presence` (checkin recepção) → continua funcionando via service_role.
+
+---
+
+## Fase 3 — Neutralizar logs `auto-trigger` sem apagar dados
+
+Objetivo do usuário: **preservar histórico**, desde que não afete fluxo padrão.
+
+Os logs `auto-trigger (fallback de migracao)` afetam o fluxo em **um** ponto: `get_contato_status_por_evento` pega o log mais recente com `status_novo IS NOT NULL` — se o log espúrio for o mais recente, ele "vira" o status por-evento e polui o Kanban.
+
+**Migração única — patch cirúrgico em `get_contato_status_por_evento`:**
 
 ```sql
-CREATE OR REPLACE FUNCTION public.get_contato_timeline(
-  p_contato_id uuid, p_limit int DEFAULT 20, p_offset int DEFAULT 0
-) RETURNS TABLE (...)
+CREATE OR REPLACE FUNCTION public.get_contato_status_por_evento(
+  p_contato_id uuid, p_prospeccao_id uuid
+) RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
-  SELECT id, tipo, descricao, metadata, usuario_nome, created_at
-  FROM public.contato_timeline
-  WHERE contato_id = p_contato_id
-    AND NOT (
-      tipo = 'status_change'
-      AND (usuario_id IS NULL OR usuario_nome ILIKE 'Sistema%')
-      AND (
-        descricao ILIKE '%Reset de herança%'
-        OR descricao ILIKE '%Correção automática%'
-        OR descricao ILIKE '%auto-trigger%'
-        OR descricao ILIKE '%Alterado pelo sistema%'
-        OR COALESCE(metadata->>'observacoes','') ILIKE '%Reset de herança%'
-        OR COALESCE(metadata->>'observacoes','') ILIKE '%Correção automática%'
-        OR COALESCE(metadata->>'observacoes','') ILIKE '%auto-trigger%'
-        OR COALESCE(metadata->>'observacoes','') ILIKE '%fallback de migracao%'
-      )
-    )
-  ORDER BY created_at DESC
-  LIMIT p_limit OFFSET p_offset;
+  SELECT COALESCE(
+    (SELECT lm.status_novo
+       FROM public.logs_movimentacao_contatos lm
+      WHERE lm.contato_id = p_contato_id
+        AND lm.prospeccao_id = p_prospeccao_id
+        AND lm.status_novo IS NOT NULL
+        AND COALESCE(lm.observacoes,'') NOT ILIKE 'auto-trigger%'
+        AND COALESCE(lm.observacoes,'') NOT ILIKE '%fallback de migracao%'
+      ORDER BY lm.data_movimentacao DESC
+      LIMIT 1),
+    (SELECT c.status::text FROM public.contatos c WHERE c.id = p_contato_id),
+    'Novo'
+  );
 $$;
 ```
 
-Cobre os 5 padrões auditados no banco:
+**Efeito:**
+- Kanban por-evento passa a ignorar logs espúrios — status volta ao que era antes do trigger errado.
+- Logs continuam intactos em `logs_movimentacao_contatos` (auditoria preservada).
+- Timeline já filtra esses logs (`get_contato_timeline` — feito na Fase A anterior).
+- Fluxo padrão (novo log real do SDR/vendedor via Fase 1/2) tem `observacoes` legítimo → aparece normalmente.
+
+**O que NÃO alterar:** `logs_movimentacao_contatos` (nenhum DELETE/UPDATE), `mutate_contato_status_atomic`, RLS.
+
+**Rollback:** recriar a função sem os dois `NOT ILIKE`.
+
+**Testes obrigatórios:**
+- Lead do JEEP T9 com log espúrio "auto-trigger → Atribuído" hoje → após deploy, `get_contato_status_por_evento` retorna o status anterior (o correto).
+- Lead com log real do SDR (Fase 1 aplicada) → retorna o status correto do log real.
+- Lead sem logs no evento → fallback para `contatos.status` (mantido).
+
+---
+
+## Ordem de execução
 
 ```text
-Reset de herança — lead sem histórico neste evento         (75.174)
-Correção automática — desfaz reset indevido …              (20.776)
-Reset de herança T7 …                                       (1.436)
-Correção automática — desfaz reset T7 indevido …            (1.381)
-auto-trigger (fallback de migracao)                            (86)
+1. Fase 1 — migration auto_atribuir_leads_vendedor
+2. Validar (3 SDRs reais, sem novos auto-trigger)
+3. Fase 2 — migration mutate_contato_status_atomic
+4. Validar (Ketley move lead OK, não-membro bloqueado)
+5. Fase 3 — migration get_contato_status_por_evento
+6. Validar (Kanban do JEEP T9 volta aos status reais)
+7. Report antes/depois: divergência global × por-evento nos eventos ativos
 ```
 
-## O que NÃO muda
-
-- `logs_movimentacao_contatos` (preserva status por evento).
-- `contato_timeline` (nenhum `DELETE`/`UPDATE` de linha).
-- Status changes legítimos com `usuario_nome='Sistema'` de outros dias continuam visíveis (não casam nos predicados de observação).
-- Kanban, webhooks, cadência, importador, `contatos.status`, responsáveis.
-
-## Validação (rodo antes de responder ao usuário)
-
-1. Contar quantas linhas ficariam ocultas no lead `0caf5e44…` (esperado: 1).
-2. Amostrar 5 leads distintos que tinham "por Sistema — Reset de herança" e mostrar antes/depois.
-3. Confirmar que um `status_change` legítimo de "Sistema" (dia 2026-07-13, evento de sync) continua aparecendo.
-
-## Rollback
-
-Recriar a versão anterior da função (mesma assinatura). <1 min.
-
-## Ordem
-
-```text
-1. Migração única em get_contato_timeline
-2. Validação com as 3 amostras acima
-3. Report para o usuário confirmar sumiço na UI (F5 no lead do print)
-```
+Zero mudanças em FE. Zero DELETE em tabelas. Cada fase é revertível isoladamente com uma migration.
