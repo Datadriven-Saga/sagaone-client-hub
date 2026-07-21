@@ -302,6 +302,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Verificar se vendedor está no limite de 30 leads
   const LEAD_LIMIT = 30;
   const atLimitLeads = isLimitedUser && (leadsPendentes ?? 0) >= LEAD_LIMIT;
+  // Escopo do limite de pendentes: quando o SDR filtra por exatamente 1 evento,
+  // o limite passa a ser por evento (regra "atribuídos deste evento").
+  const pendentesScopeProspeccaoId =
+    globalFilters.prospeccaoIds.length === 1 ? globalFilters.prospeccaoIds[0] : null;
   
   // State para métricas externas de IA Ligação
   const [metricasLigacaoExternas, setMetricasLigacaoExternas] = useState<Record<string, MetricasLigacaoExternas>>({});
