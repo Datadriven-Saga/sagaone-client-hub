@@ -82,12 +82,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     isOpen: boolean; 
     contato: Contato | null; 
     columnId?: string;
+    prospeccaoId?: string | null;
     requireProdutoVendido?: boolean;
-    pendingVendaStatus?: { fromStatus: string; toStatus: string };
+    pendingVendaStatus?: { fromStatus: string; toStatus: string; prospeccaoId?: string | null };
   }>({
     isOpen: false,
     contato: null,
     columnId: undefined,
+    prospeccaoId: undefined,
     requireProdutoVendido: false,
     pendingVendaStatus: undefined
   });
@@ -1181,7 +1183,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Resolve a prospeccao_id "preferida" para um lead, priorizando o filtro
   // ativo do Kanban. Usado para passar contexto ao log gravado pelo RPC.
   const resolveProspeccaoIdForLead = useCallback(
-    (itemId: string): string | null => {
+    (itemId: string, explicitProspeccaoId?: string | null): string | null => {
+      if (explicitProspeccaoId) return explicitProspeccaoId;
+
       const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
       const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
 
@@ -1194,6 +1198,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     },
     [contatosProspeccoes, globalFilters.prospeccaoIds]
   );
+
+  const getProspeccaoIdFromKanbanItem = useCallback((item?: KanbanItem | null): string | null => {
+    return item?.prospeccao_id || item?.prospeccaoId || null;
+  }, []);
+
+  const getProspeccaoIdForModalContato = useCallback((contatoId: string): string | null => {
+    return modalContato.prospeccaoId || modalContato.pendingVendaStatus?.prospeccaoId || resolveProspeccaoIdForLead(contatoId);
+  }, [modalContato.pendingVendaStatus?.prospeccaoId, modalContato.prospeccaoId, resolveProspeccaoIdForLead]);
 
   // DEPRECATED: o log de movimentação agora é gravado dentro do RPC
   // `mutate_contato_status_atomic` (chamado por `atualizarStatusContato` →
@@ -1274,10 +1286,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   // Executa apenas o "lado interno" da mudança de status para o Kanban
   // (sem voltar a passar pelas validações de descarte/convite/venda/opt-out).
   // Usado após confirmação regulatória.
-  const executeKanbanStatusChange = async (itemId: string, fromStatus: string, toStatus: string) => {
+  const executeKanbanStatusChange = async (itemId: string, fromStatus: string, toStatus: string, explicitProspeccaoId?: string | null) => {
     try {
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
-      const prospeccaoIdAlvo = resolveProspeccaoIdForLead(itemId);
+      const prospeccaoIdAlvo = resolveProspeccaoIdForLead(itemId, explicitProspeccaoId);
       console.log('[Kanban] executeKanbanStatusChange', {
         itemId,
         fromStatus,
@@ -1305,8 +1317,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
   };
 
-  const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string): Promise<boolean> => {
-    console.log('handleStatusChange called:', { itemId, fromStatus, toStatus });
+  const handleStatusChange = async (itemId: string, fromStatus: string, toStatus: string, kanbanItem?: KanbanItem): Promise<boolean> => {
+    const prospeccaoIdDoCard = getProspeccaoIdFromKanbanItem(kanbanItem);
+    const prospeccaoIdAlvo = resolveProspeccaoIdForLead(itemId, prospeccaoIdDoCard);
+    console.log('handleStatusChange called:', { itemId, fromStatus, toStatus, prospeccaoIdAlvo });
     const contatoCompleto = contatos.find(c => c.id === itemId) ?? (() => {
       const kanbanContato = Object.values(kanbanData)
         .flatMap((column) => column?.items ?? [])
@@ -1340,16 +1354,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           cpf: null,
         },
         empresaId: contatoCompleto.empresa_id || activeCompany?.id,
-        prospeccaoId: (() => {
-          const ids = contatosProspeccoes.get(itemId);
-          const filtros = globalFilters.prospeccaoIds;
-          return (filtros.length > 0
-            ? filtros.find(id => ids?.has(id)) || filtros[0]
-            : ids?.[0]) || prospeccoes?.[0]?.id;
-        })(),
+        prospeccaoId: prospeccaoIdAlvo || prospeccoes?.[0]?.id,
         onConfirmed: async () => {
           // Após confirmação regulatória, efetiva mudança interna (fluxo original).
-          await executeKanbanStatusChange(itemId, fromStatus, toStatus);
+          await executeKanbanStatusChange(itemId, fromStatus, toStatus, prospeccaoIdAlvo);
           fetchKanbanColumns(getKanbanFilters(), { silent: true });
         },
       });
@@ -1390,12 +1398,6 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
         let eventoNome = prospeccoes?.[0]?.titulo || 'Evento';
         try {
           // Buscar template e nome do evento (priorizar o filtro ativo)
-          const prospeccaoIdsDoLead = contatosProspeccoes.get(itemId);
-          const prospeccaoIdsFiltrados = globalFilters.prospeccaoIds;
-          const prospeccaoIdAlvo = (prospeccaoIdsFiltrados.length > 0
-            ? prospeccaoIdsFiltrados.find(id => prospeccaoIdsDoLead?.has(id)) || prospeccaoIdsFiltrados[0]
-            : prospeccaoIdsDoLead?.[0]) || prospeccoes?.[0]?.id;
-
           if (prospeccaoIdAlvo) {
             // Token vive em eventos_prospeccao (vínculo contato+evento)
             const { data: vinc } = await supabase
@@ -1446,13 +1448,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           eventoNome,
           templatePadrao,
           fromStatus,
-          prospeccaoIdAlvo: (() => {
-            const ids = contatosProspeccoes.get(itemId);
-            const filtros = globalFilters.prospeccaoIds;
-            return (filtros.length > 0
-              ? filtros.find(id => ids?.has(id)) || filtros[0]
-              : ids?.[0]) || prospeccoes?.[0]?.id || '';
-          })(),
+          prospeccaoIdAlvo: prospeccaoIdAlvo || prospeccoes?.[0]?.id || '',
         });
         return false; // Card só se move após escolha do usuário
       }
@@ -1527,8 +1523,9 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           isOpen: true,
           contato: { ...contatoCompleto, responsavel_email: responsavelId },
           columnId: fromStatus,
+          prospeccaoId: prospeccaoIdAlvo,
           requireProdutoVendido: true,
-          pendingVendaStatus: { fromStatus, toStatus }
+          pendingVendaStatus: { fromStatus, toStatus, prospeccaoId: prospeccaoIdAlvo }
         });
         
         toast({
@@ -1542,7 +1539,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
       if (novoStatusDb) {
         const statusAtualizado = await atualizarStatusContato(itemId, novoStatusDb, {
-          prospeccaoId: resolveProspeccaoIdForLead(itemId),
+          prospeccaoId: prospeccaoIdAlvo,
           observacoes: 'Alteração via Kanban',
         });
         if (statusAtualizado === false) {
@@ -2324,7 +2321,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
   };
 
   const handleCloseModal = () => {
-    setModalContato({ isOpen: false, contato: null, columnId: undefined, requireProdutoVendido: false, pendingVendaStatus: undefined });
+    setModalContato({ isOpen: false, contato: null, columnId: undefined, prospeccaoId: undefined, requireProdutoVendido: false, pendingVendaStatus: undefined });
   };
 
   // Handler para confirmar venda com produto
@@ -2335,12 +2332,12 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     
     // Se tem pendingVendaStatus, estamos vindo de drag-and-drop e precisamos atualizar o status
     if (modalContato.pendingVendaStatus) {
-      const { fromStatus, toStatus } = modalContato.pendingVendaStatus;
+      const { fromStatus, toStatus, prospeccaoId } = modalContato.pendingVendaStatus;
       const novoStatusDb = kanbanStatusMap[toStatus as keyof typeof kanbanStatusMap];
       
       if (novoStatusDb) {
         await atualizarStatusContato(contatoId, novoStatusDb, {
-          prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+          prospeccaoId: resolveProspeccaoIdForLead(contatoId, prospeccaoId),
           observacoes: `Produto vendido: ${produtoVendidoId}`,
         });
       }
@@ -2356,16 +2353,14 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
       // Apenas verificar e garantir que está em Venda
       if (contato.status !== 'Venda') {
         await atualizarStatusContato(contatoId, 'Venda', {
-          prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+          prospeccaoId: getProspeccaoIdForModalContato(contatoId),
           observacoes: 'Venda registrada no modal do lead',
         });
       }
     }
 
     // Find prospeccao for this contact (use the first filtered one, or first available)
-    const prospeccaoId = globalFilters.prospeccaoIds.length > 0
-      ? globalFilters.prospeccaoIds[0] 
-      : prospeccoes[0]?.id;
+    const prospeccaoId = getProspeccaoIdForModalContato(contatoId) || prospeccoes[0]?.id;
 
     // Create the sale record automatically
     if (prospeccaoId) {
@@ -2418,16 +2413,10 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
           cpf: null,
         },
         empresaId: contatoExistente?.empresa_id || activeCompany?.id,
-        prospeccaoId: (() => {
-          const ids = contatosProspeccoes.get(contatoId);
-          const filtros = globalFilters.prospeccaoIds;
-          return (filtros.length > 0
-            ? filtros.find(id => ids?.has(id)) || filtros[0]
-            : ids?.[0]) || prospeccoes?.[0]?.id;
-        })(),
+        prospeccaoId: getProspeccaoIdForModalContato(contatoId) || prospeccoes?.[0]?.id,
         onConfirmed: async () => {
           await atualizarStatusContato(contatoId, novoStatus, {
-            prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+            prospeccaoId: getProspeccaoIdForModalContato(contatoId),
             observacoes: 'Alteração via modal do lead',
           });
           if (contatoExistente) {
@@ -2442,7 +2431,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
     }
 
     await atualizarStatusContato(contatoId, novoStatus, {
-      prospeccaoId: resolveProspeccaoIdForLead(contatoId),
+      prospeccaoId: getProspeccaoIdForModalContato(contatoId),
       observacoes: 'Alteração via modal do lead',
     });
     
@@ -3698,7 +3687,7 @@ const Prospeccao = ({ defaultTab }: ProspeccaoProps) => {
               .eq('id', motivoId)
               .single();
             await atualizarStatusContato(descarteModal.contatoId, 'Descartado', {
-              prospeccaoId: resolveProspeccaoIdForLead(descarteModal.contatoId),
+          prospeccaoId: resolveProspeccaoIdForLead(descarteModal.contatoId),
               observacoes: `Motivo: ${motivoDescricao.data?.descricao || 'N/A'} | Justificativa: ${justificativa}`,
             });
             
