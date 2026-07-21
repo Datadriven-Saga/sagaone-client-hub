@@ -1,102 +1,92 @@
+## Diagnóstico de Eventos — nova tela gerencial
 
-## Reanálise validada com o log + banco
+Rota: `/administracao/diagnostico-eventos` (dentro de Administração). Acesso: `canAccessAdminConfig` (Admin/TI/Master).
 
-### O que o log prova (Lays'la, evento SUPER AÇÃO 971be09c)
-- `pendentesRpc = 30`, `vagasCalculadas = 0`, `auto_atribuir → 0`.
-- No evento em tela ela tem **0 Atribuído** (7 Convidado, 4 Descartado, 226 Em Espera).
-- 866 novos / 806 elegíveis / 160 bloqueados por `ja_tem_responsavel_email` (leads de outro SDR — correto).
-
-### De onde vêm os 30 pendentes (query no banco)
-| Evento | Atribuídos | `ativo` | `encerrado_at` | `data_fim` | Status na UI |
-|---|---|---|---|---|---|
-| CRM - TOYOTA AUTOSHOW | **29** | true | `NULL` | 2026-06-20 | **Encerrado** (screenshot) |
-| SUPER AÇÃO JULHO [TRAFEGO] | 1 | true | `NULL` | — | ativo |
-| _(2 encerrados via `encerrado_at`)_ | não contam | — | preenchido | — | Encerrado |
-
-**Dois problemas confirmados:**
-
-1. **Encerramento fantasma:** o AUTOSHOW aparece "Encerrado" na UI (via `data_fim < hoje`), mas no banco `encerrado_at IS NULL` e `ativo = true`. Por isso a RPC continua contando os 29 Atribuídos dele.
-2. **Escopo global do limite:** mesmo se o AUTOSHOW estivesse corretamente encerrado, o desenho atual soma Atribuídos de **todos os eventos** da empresa. A regra desejada é contar **apenas o evento atual** que o SDR está trabalhando.
-
----
-
-## Estrutura proposta (limite por evento)
-
-### Contrato
+### Estrutura
 
 ```text
-LIMITE_POR_EVENTO = 30
-pendentes(evento E, usuário U) = COUNT DISTINCT c
-    WHERE c.responsável = U
-      AND status_por_evento(c, E) = 'Atribuído'
-vagas(E, U) = max(0, 30 - pendentes(E, U))
-podeSolicitar(E, U) = vagas(E, U) > 0  AND  E está ativo e não-encerrado
+Breadcrumb: Administração / Diagnóstico de Eventos
+Header: título + subtítulo + botão "Exportar" (CSV)
+
+Barra de filtros (independentes, combináveis):
+- Usuário terceiro (multi)
+- Loja / Empresa (multi)
+- Evento / Prospecção (multi)
+- Cadeira / external_access_seat (multi)
+- Range de datas (data_inicio..data_fim do evento) — padrão: últimos 60 dias
+- Botões: Filtrar / Limpar
+
+KPIs (cards):
+- Total de Leads (contatos vinculados no escopo)
+- Eventos Ativos (com sub-linha: encerrados · pausados)
+- Leads Atribuídos (com sub-linha: não atribuídos)
+- Leads por Loja (média)
+- Eventos Expirados (data_fim < hoje e não encerrados) com leads pendentes
+
+Barra "Status dos Leads": chips com contagem por status derivado por evento
+(Novo, Atribuído, Em Espera, Convidado, Descartado, Confirmado, Check-in, Vendas, Opt-out) + barra proporcional.
+
+Tabela "Leads dos Eventos":
+Colunas: checkbox · Lead (nome/telefone) · Evento · Loja · Atribuído a · Cadeira · Status · Data Final · Ações (kebab)
+Busca por lead (nome/telefone), paginação server-side (25/50/100).
+
+Barra de ações em lote (aparece com seleção):
+- Reatribuir (modal 1b)
+- Alterar Data (modal 1c — altera data_fim do evento pai)
+- Alterar Lead (modal edição rápida)
+- Encerrar Evento (modal 1d — marca leads não atribuídos como Descartado)
+- Cancelar seleção
 ```
 
-Escopo "ativo e não-encerrado":
-- `pr.ativo = true`
-- `pr.encerrado_at IS NULL`
-- **E** `pr.data_fim IS NULL OR pr.data_fim >= CURRENT_DATE`  ← fecha o gap do AUTOSHOW
+### Modais
 
-### Diagrama do fluxo (novo)
+- **Reatribuir**: lista de leads selecionados + busca de novo responsável (mostra cadeira e leads ativos). Confirma via RPC que grava logs em `logs_movimentacao_contatos` e `eventos_prospeccao` (status Atribuído).
+- **Alterar Data Final**: campo data atual (read-only) + nova data + aviso "afetará N leads". Atualiza `prospeccoes.data_fim`.
+- **Encerrar Evento**: mostra totais (leads, atribuídos, pendentes). Ao confirmar: `prospeccoes.encerrado_at = now()` e leads sem responsável viram Descartado (log por evento).
+- **Alterar Lead**: edição inline de dados básicos do contato.
 
-```text
-Botão Solicitar (Kanban filtrado por 1 evento E)
-   │
-   ▼
-count_vendedor_leads_pendentes(user, E)
-   │   conta APENAS Atribuído em E
-   ▼
-vendedor_precisa_leads(user, E) = pendentes(E) < 30
-   │
-   ▼
-auto_atribuir_leads_vendedor(user, E)
-   │   puxa até (30 - pendentes(E)) leads Novos DO EVENTO E
-   ▼
-UPDATE contatos + INSERT logs_movimentacao_contatos (prospeccao_id = E)
-```
+### Backend (migração)
 
-### Mudanças no banco (migration)
+Novas RPCs `SECURITY DEFINER` com guarda de `canAccessAdminConfig` via `has_role`/checagem de perfil:
 
-1. **`count_vendedor_leads_pendentes(user_id_param uuid, prospeccao_id_param uuid DEFAULT NULL)`**
-   - Se `prospeccao_id_param` informado → conta Atribuído **apenas naquele evento**.
-   - Se `NULL` → mantém comportamento global (compatibilidade com chamadas antigas), mas já aplicando o filtro `data_fim >= CURRENT_DATE` para não vazar eventos encerrados por data.
-2. **`vendedor_precisa_leads(user_id_param, prospeccao_id_param uuid DEFAULT NULL)`** — repassa o evento.
-3. **`auto_atribuir_leads_vendedor(user_id_param, prospeccao_id_param uuid DEFAULT NULL)`**
-   - Se `prospeccao_id_param` informado: valida evento ativo/não-encerrado/`data_fim` futuro, calcula `vagas` só nesse evento, e restringe o `INSERT INTO _tmp_leads_pick` a `ep.prospeccao_id = prospeccao_id_param`.
-   - Se `NULL`: fallback ao comportamento global atual (usado por integrações que não têm contexto).
-4. **`debug_auto_atribuicao_leads`** — passar a expor também `pendentes_no_evento` e `pendentes_global` lado a lado, para não confundir análises futuras.
+- `get_diagnostico_eventos_kpis(filtros jsonb)` → retorna KPIs + breakdown de status por evento (usa `get_contato_status_por_evento`).
+- `get_diagnostico_eventos_leads(filtros jsonb, page, page_size)` → lista paginada.
+- `bulk_reatribuir_leads(lead_ids uuid[], prospeccao_id uuid, novo_user_id uuid)` → grava logs por evento.
+- `bulk_alterar_data_fim(prospeccao_ids uuid[], nova_data date)`.
+- `encerrar_evento_diagnostico(prospeccao_id uuid)` → seta `encerrado_at`, marca pendentes como Descartado via `logs_movimentacao_contatos`.
 
-Nenhuma quebra de contrato: todos os parâmetros novos têm `DEFAULT NULL`.
+Todas com log de auditoria em `logs_prospeccoes` (actor = admin real, motivo = "diagnostico-eventos").
 
-### Mudanças no frontend
+### Frontend
 
-- `src/hooks/useAutoAtribuirLeads.ts`
-  - `contarLeadsPendentes(prospeccaoId?)`, `verificarPrecisaLeads(prospeccaoId?)`, `atribuirLeadsAutomaticamente(showToast, debugContext)` passa `prospeccaoId` (quando `debugContext.prospeccaoIds.length === 1`) para as três RPCs.
-  - Se o usuário estiver com múltiplos eventos selecionados no filtro: manter o comportamento antigo (global) e avisar no toast que a solicitação só é possível com **1 evento selecionado**.
-- `src/pages/Prospeccao.tsx`
-  - `solicitarClientes` já monta `debugContext.prospeccaoIds`; apenas garantir que o botão fica desabilitado com tooltip "Selecione um evento" quando `prospeccaoIds.length !== 1`.
-- Toast de erro atual "Você já possui 30 leads pendentes" muda para: *"Limite de 30 atingido neste evento. Finalize atendimentos deste evento antes de puxar novos."*
+Arquivos novos:
+- `src/pages/admin/DiagnosticoEventos.tsx` — página principal.
+- `src/components/admin/diagnostico/DiagnosticoFilters.tsx`
+- `src/components/admin/diagnostico/DiagnosticoKpis.tsx`
+- `src/components/admin/diagnostico/DiagnosticoStatusBar.tsx`
+- `src/components/admin/diagnostico/DiagnosticoLeadsTable.tsx`
+- `src/components/admin/diagnostico/ReatribuirModal.tsx`
+- `src/components/admin/diagnostico/AlterarDataModal.tsx`
+- `src/components/admin/diagnostico/EncerrarEventoModal.tsx`
+- `src/components/admin/diagnostico/AlterarLeadModal.tsx`
+- `src/hooks/useDiagnosticoEventos.ts` — filtros/queries via React Query.
 
-### Efeito no caso da Lays'la (validação esperada)
+Alterações:
+- `src/App.tsx`: rota `/administracao/diagnostico-eventos`.
+- `src/pages/Administracao.tsx`: novo card "Diagnóstico de Eventos" (ícone `Activity`), permissão `canAccessAdminConfig`.
 
-Rodando a nova regra com `prospeccao_id = 971be09c` (SUPER AÇÃO em tela):
-- `pendentes(E) = 0` (ela tem 0 Atribuído neste evento).
-- `vagas = 30`.
-- `auto_atribuir` puxa até 30 dos 806 elegíveis. ✅ Destrava sem tocar no AUTOSHOW.
+### Regras / observações
 
-### Fora de escopo (fica para outro plano se você quiser)
+- Status na tabela usa `get_contato_status_por_evento(contato_id, prospeccao_id)` — sem `contatos.status` global.
+- "Cadeira" = registro em `external_access_seats` do responsável quando aplicável.
+- "Eventos expirados" = `data_fim < CURRENT_DATE AND encerrado_at IS NULL`.
+- Empresa sandbox `b32ae8c9-...` excluída por padrão.
+- Exportar CSV usa mesma consulta filtrada, servidor-side.
+- Segue tokens semânticos (nada de cores hardcoded).
+- Não altera `bulk_upsert_contatos`, quarentena, ou lógica de auto-atribuição.
 
-- Corrigir os 29 Atribuídos "presos" no AUTOSHOW (evento encerrado por data mas com `encerrado_at IS NULL`). Podemos fazer um job que preenche `encerrado_at = data_fim` quando `data_fim < hoje`. Recomendo separar porque afeta relatórios históricos.
-- Bloquear atribuição automática em qualquer evento onde `data_fim < hoje` mesmo com `ativo=true` (já contemplado no filtro proposto acima).
+### Perguntas em aberto (posso assumir defaults se preferir)
 
-### Testes obrigatórios antes de aprovar
-
-- SDR com 0 Atribuído no evento atual e 29 em outro evento → **consegue** solicitar (antes: bloqueado).
-- SDR com 30 Atribuído no evento atual → **bloqueado** apenas nesse evento; pode trabalhar em outro.
-- Solicitação sem `prospeccao_id` (integração antiga) → mantém comportamento global.
-- Solicitação em evento com `data_fim` passado → **bloqueada** com mensagem clara.
-- Múltiplos eventos filtrados no Kanban → botão desabilitado, toast pedindo 1 evento.
-- Log `logs_movimentacao_contatos` sempre com o `prospeccao_id` correto (já garantido pela função atual).
-
-Aguardo sua aprovação para implementar como migration + ajustes no hook e na tela.
+1. "Alterar Lead" em lote deve editar apenas campos comuns (nome/telefone/observação) ou abrir modal por lead? Assumindo edição individual via kebab.
+2. Ao encerrar evento com leads Atribuídos ainda ativos, apenas os "não atribuídos" viram Descartado (como no print 1d) — Atribuídos permanecem no status atual. OK?
+3. "Cadeira" exibida vem de `external_access_seats` do responsável — se o responsável for interno (não terceiro), mostrar "—". OK?
