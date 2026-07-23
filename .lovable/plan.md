@@ -1,40 +1,86 @@
 
-## Diagnóstico
+## Objetivo
 
-Duas causas confirmadas nos toasts da tela:
+Ao excluir um usuário, apagar a conta em `auth.users` mas **preservar o histórico com a identificação daquele usuário** (nome/email visíveis, não "N/A").
 
-1. **"CREATE TABLE AS is not allowed in a non-volatile function"** — em `public.get_diagnostico_eventos_leads` (migração `20260721202247_...`) a função está declarada `STABLE`, mas o corpo executa:
-   ```sql
-   CREATE TEMP TABLE IF NOT EXISTS _tmp_diag ON COMMIT DROP AS SELECT 1 WHERE false;
-   ```
-   Postgres proíbe DDL em funções não-voláteis. Essa linha é resíduo/desnecessária.
+## Problema com a abordagem anterior
 
-2. **"canceling statement due to statement timeout"** em `get_diagnostico_eventos_kpis` — sem filtros, o CTE `leads_scope` faz `JOIN eventos_prospeccao × contatos × prospeccoes` para toda a base (exceto EMPRESA ADMIN) e chama `get_contato_status_por_evento(...)` linha a linha. Isso extrapola o `statement_timeout` do role `authenticated`.
+`ON DELETE SET NULL` destrava a exclusão, mas **zera o autor** nos logs — perdemos "quem fez". Não atende o pedido.
 
-## Correções
+## Nova abordagem: arquivo de usuários deletados
 
-### 1. Migração SQL
+### 1. Nova tabela `public.deleted_users_archive`
 
-- Remover o `CREATE TEMP TABLE ...` de `get_diagnostico_eventos_leads`.
-- Recriar `get_diagnostico_eventos_kpis` e `get_diagnostico_eventos_leads` com:
-  - Guarda de escopo: exigir **pelo menos um filtro** entre `empresa_ids`, `prospeccao_ids`, `terceiro_ids`, `seat_ids` ou intervalo de datas. Sem filtro, retornar KPIs zerados / `rows: []` — evita full scan.
-  - Aplicar `data_de/data_ate` como **janela default de 60 dias** quando nenhum filtro estruturado for informado mas o usuário abrir a tela (garantia extra).
-  - Trocar chamada por linha de `get_contato_status_por_evento` por **subquery lateral única** que lê o último log em `logs_movimentacao_contatos` por `(contato_id, prospeccao_id)`, caindo em `contatos.status` só quando não há log — mesma regra da função, sem overhead de N chamadas PLPGSQL.
+Snapshot do perfil no momento da exclusão. Vira a fonte de identidade quando o `auth.users` não existir mais.
 
-### 2. Frontend (`src/hooks/useDiagnosticoEventos.ts` + `DiagnosticoEventos.tsx`)
+```sql
+CREATE TABLE public.deleted_users_archive (
+  id uuid PRIMARY KEY,          -- mesmo UUID que estava em auth.users
+  email text,
+  nome_completo text,
+  tipo_acesso text,
+  deleted_at timestamptz DEFAULT now(),
+  deleted_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
+);
+GRANT SELECT ON public.deleted_users_archive TO authenticated;
+GRANT ALL ON public.deleted_users_archive TO service_role;
+ALTER TABLE ... ENABLE ROW LEVEL SECURITY;
+-- Policy: admins/master leem; escrita só service_role (via edge function).
+```
 
-- Não chamar `fetchKpis`/`fetchLeads` no mount sem filtros.
-- Mostrar estado inicial "Selecione um filtro para carregar o diagnóstico".
-- Exibir a mensagem de erro real vinda da RPC (quando `filtros_obrigatorios`) em vez do toast genérico.
+### 2. Remover FKs de auditoria para `auth.users`
 
-## O que NÃO alterar
+Nas colunas de auditoria (`created_by`, `updated_by`, `criado_por`, `granted_by`, `mfa_audit_logs.user_id`, etc.) **remover a FK**, mantendo apenas a coluna `uuid`.
 
-- Assinaturas públicas das RPCs (mesmos nomes/args) — só corpo/comportamento.
-- `get_contato_status_por_evento` continua sendo a fonte canônica de status por evento (usada em outros lugares).
-- Guarda `is_admin_diagnostico` e GRANTs.
+- O UUID **permanece** na linha de auditoria — o histórico continua registrado com o usuário original.
+- Sem FK, o Postgres não bloqueia mais a exclusão.
+- Tabelas alteradas (mesma lista do diagnóstico anterior):
+  `agente_empresas`, `agentes_nextip`, `bases_importadas`, `controle_agentes`, `feature_flag_empresas`, `global_opt_outs`, `mfa_account_access.granted_by`, `mfa_accounts.created_by`, `mfa_audit_logs`, `mfa_feature_flags`, `mfa_master_users.created_by`, `opt_outs` (created_by e updated_by), `system_feature_flags`.
+
+**NÃO** removo FKs de posse com `CASCADE` já existentes (`profiles.id`, `user_empresas.user_id`, `academy_*.user_id`, `mfa_password_vault.created_by`, `mfa_recovery_codes.user_id`, `mfa_master_users.user_id`, `mfa_account_access.user_id`, `mfa_accounts.user_id`) — essas devem continuar deletando junto porque são dados pessoais do usuário, não histórico de ação.
+
+### 3. Ajustar a edge function `manage-users` (case `delete_user`)
+
+Ordem nova:
+1. Carrega o perfil do alvo (`profiles` + `auth.admin.getUserById`).
+2. `INSERT INTO deleted_users_archive` com `id`, `email`, `nome_completo`, `tipo_acesso`, `deleted_by = caller.id`.
+3. `supabase.auth.admin.deleteUser(user_id)` — agora funciona (sem FK bloqueando; `profiles` cascateia normalmente).
+4. Retorna sucesso.
+
+### 4. Função helper para resolver identidade em telas
+
+```sql
+CREATE OR REPLACE FUNCTION public.resolve_user_identity(_user_id uuid)
+RETURNS TABLE (id uuid, nome_completo text, email text, deleted boolean)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.id, p.nome_completo, u.email, false
+    FROM profiles p JOIN auth.users u ON u.id = p.id
+    WHERE p.id = _user_id
+  UNION ALL
+  SELECT d.id, d.nome_completo, d.email, true
+    FROM deleted_users_archive d
+    WHERE d.id = _user_id
+      AND NOT EXISTS (SELECT 1 FROM profiles WHERE id = _user_id)
+  LIMIT 1;
+$$;
+```
+
+As telas que hoje fazem join `logs → profiles` passam a chamar essa função (ou fazem `LEFT JOIN deleted_users_archive`) para exibir "Fulano (removido)".
+
+## O que muda para o usuário final
+
+- Botão "Excluir usuário" volta a funcionar.
+- Logs, auditoria, quarentena, MFA audit: continuam mostrando o **nome e email do autor** mesmo depois da exclusão, com um marcador visual "(removido)".
+- Dados pessoais/posse do usuário (perfil, vínculos, MFA vault dele) são apagados junto — como já era.
+
+## Ordem de execução
+
+1. Migração: cria `deleted_users_archive` + policies + `resolve_user_identity` + `DROP CONSTRAINT` das FKs de auditoria listadas.
+2. Edge function `manage-users`: adiciona snapshot antes do `deleteUser`.
+3. (Opcional, próximo passo) atualizar telas de log para exibir "(removido)" — me diga se quer nesse mesmo turno ou depois.
 
 ## Teste
 
-- Abrir a tela sem filtro → estado vazio, sem toast de erro.
-- Filtrar por 1 empresa → KPIs e tabela carregam < 3 s.
-- Filtrar por 1 evento → mesma coisa; ações em lote continuam funcionando.
+1. Criar usuário de teste, dar acesso a alguma coisa que grave em `mfa_audit_logs` ou `logs_cadeiras`.
+2. Excluir pelo Controle de Acessos.
+3. Esperado: exclusão OK; consulta `SELECT * FROM deleted_users_archive` mostra o snapshot; logs antigos continuam com o UUID dele e o join via `resolve_user_identity` traz nome+email marcados como removido.
