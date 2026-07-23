@@ -7016,6 +7016,7 @@ export type Database = {
         Returns: Json
       }
       get_diagnostico_filtros_opcoes: { Args: never; Returns: Json }
+      get_diagnostico_status_filtros: { Args: never; Returns: Json }
       get_dispatcher_backlog: {
         Args: never
         Returns: {
@@ -7364,6 +7365,10 @@ export type Database = {
           status_novo: string
           updated_at: string
         }[]
+      }
+      normalize_lead_status_label: {
+        Args: { p_status: string }
+        Returns: string
       }
       normalize_phone_br: { Args: { phone: string }; Returns: string }
       normalize_phone_canonical: { Args: { p_raw: string }; Returns: string }
