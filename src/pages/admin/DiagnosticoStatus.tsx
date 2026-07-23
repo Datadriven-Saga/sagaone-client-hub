@@ -287,7 +287,9 @@ export default function DiagnosticoStatus() {
                   className="h-8 pl-8"
                 />
               </div>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-2" /> Limpar filtros
+              </Button>
             </div>
           </CardContent>
         </Card>
