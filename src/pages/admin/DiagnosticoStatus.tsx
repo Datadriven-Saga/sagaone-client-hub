@@ -12,7 +12,7 @@ import { Activity, Search, X, RefreshCcw, ChevronLeft, ChevronRight, Download } 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { statusBadgeClass, STATUS_ORDER, useDiagnosticoEventos } from "@/hooks/useDiagnosticoEventos";
+import { statusBadgeClass, STATUS_ORDER } from "@/hooks/useDiagnosticoEventos";
 
 const PAGE_SIZE = 50;
 
@@ -30,9 +30,29 @@ interface LeadDivergente {
   status_esperado: string | null;
   status_anterior: string | null;
   responsavel_atual: string | null;
+  responsavel_atual_email: string | null;
+  responsavel_atual_nome: string | null;
   responsavel_no_log: string | null;
+  responsavel_email_no_log: string | null;
+  tem_responsavel: boolean;
   ultima_observacao: string | null;
   ultima_alteracao: string | null;
+}
+
+interface DiagnosticoStatusOpcoes {
+  empresas: { id: string; nome: string; marca?: string | null; uf?: string | null }[];
+  prospeccoes: {
+    id: string;
+    titulo: string;
+    empresa_id: string;
+    loja_nome?: string | null;
+    data_inicio?: string | null;
+    data_fim: string | null;
+    encerrado_at: string | null;
+    ativo?: boolean | null;
+    event_id_pri?: string | null;
+  }[];
+  statuses?: string[];
 }
 
 function MultiSelectFilter({
@@ -93,7 +113,8 @@ function MultiSelectFilter({
 }
 
 export default function DiagnosticoStatus() {
-  const { opcoes } = useDiagnosticoEventos();
+  const [opcoes, setOpcoes] = useState<DiagnosticoStatusOpcoes | null>(null);
+  const [loadingOpcoes, setLoadingOpcoes] = useState(false);
   const [empresaIds, setEmpresaIds] = useState<string[]>([]);
   const [prospeccaoIds, setProspeccaoIds] = useState<string[]>([]);
   const [statusAtual, setStatusAtual] = useState<string[]>([]);
@@ -107,6 +128,19 @@ export default function DiagnosticoStatus() {
   const [total, setTotal] = useState(0);
   const [porLoja, setPorLoja] = useState<{ empresa_id: string; loja_nome: string; total: number }[]>([]);
 
+  const loadOpcoes = useCallback(async () => {
+    setLoadingOpcoes(true);
+    const { data, error } = await (supabase as any).rpc("get_diagnostico_status_filtros");
+    setLoadingOpcoes(false);
+
+    if (error) {
+      toast.error("Falha ao carregar filtros: " + error.message);
+      return;
+    }
+
+    setOpcoes(data as DiagnosticoStatusOpcoes);
+  }, []);
+
   const empresasOptions = useMemo(
     () => (opcoes?.empresas ?? []).map((e) => ({ id: e.id, label: e.nome })),
     [opcoes],
@@ -114,12 +148,15 @@ export default function DiagnosticoStatus() {
   const prospeccoesOptions = useMemo(
     () => (opcoes?.prospeccoes ?? [])
       .filter((p) => empresaIds.length === 0 || empresaIds.includes(p.empresa_id))
-      .map((p) => ({ id: p.id, label: p.titulo })),
+      .map((p) => ({
+        id: p.id,
+        label: [p.titulo, p.loja_nome].filter(Boolean).join(" · "),
+      })),
     [opcoes, empresaIds],
   );
   const statusOptions = useMemo(
-    () => STATUS_ORDER.map((s) => ({ id: s, label: s })),
-    [],
+    () => (opcoes?.statuses?.length ? opcoes.statuses : [...STATUS_ORDER]).map((s) => ({ id: s, label: s })),
+    [opcoes],
   );
 
   const fetchData = useCallback(async () => {
@@ -145,6 +182,7 @@ export default function DiagnosticoStatus() {
     setPorLoja((data?.por_loja ?? []) as any);
   }, [empresaIds, prospeccaoIds, statusAtual, statusEsperado, search, dataDe, dataAte, page]);
 
+  useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -153,8 +191,9 @@ export default function DiagnosticoStatus() {
     const map = new Map<string, LeadDivergente[]>();
     for (const r of rows) {
       const key = r.loja_nome ?? "—";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(r);
+      const current = map.get(key) ?? [];
+      current.push(r);
+      map.set(key, current);
     }
     return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
   }, [rows]);
@@ -169,7 +208,7 @@ export default function DiagnosticoStatus() {
       r.status_atual ?? "",
       r.status_esperado ?? "",
       r.responsavel_atual ?? "",
-      r.responsavel_no_log ?? "",
+      [r.responsavel_no_log, r.responsavel_email_no_log].filter(Boolean).join(" · "),
       r.ultima_alteracao ? format(new Date(r.ultima_alteracao), "dd/MM/yyyy HH:mm") : "",
       (r.ultima_observacao ?? "").replace(/\s+/g, " "),
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
@@ -213,7 +252,7 @@ export default function DiagnosticoStatus() {
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="flex flex-wrap gap-2 items-center">
-              <MultiSelectFilter label="Lojas" options={empresasOptions} selected={empresaIds} onChange={(v) => { setEmpresaIds(v); setPage(1); }} />
+              <MultiSelectFilter label={loadingOpcoes ? "Carregando lojas..." : "Lojas"} options={empresasOptions} selected={empresaIds} onChange={(v) => { setEmpresaIds(v); setProspeccaoIds((ids) => ids.filter((id) => (opcoes?.prospeccoes ?? []).some((p) => p.id === id && (v.length === 0 || v.includes(p.empresa_id))))); setPage(1); }} />
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
@@ -226,7 +265,7 @@ export default function DiagnosticoStatus() {
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar nome ou telefone..."
+                  placeholder="Buscar nome, telefone, evento ou responsável..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchData(); } }}
@@ -299,15 +338,36 @@ export default function DiagnosticoStatus() {
                           <div className="font-medium">{r.contato_nome || "Lead sem nome"}</div>
                           <div className="text-xs text-muted-foreground">{r.telefone}</div>
                         </TableCell>
-                        <TableCell className="text-xs">{r.evento_titulo}</TableCell>
+                        <TableCell className="text-xs">
+                          <div>{r.evento_titulo}</div>
+                          {r.evento_data_fim && <div className="text-muted-foreground">Fim: {format(new Date(`${r.evento_data_fim}T00:00:00`), "dd/MM/yyyy")}</div>}
+                        </TableCell>
                         <TableCell>
                           <Badge className={statusBadgeClass(r.status_atual ?? "")}>{r.status_atual ?? "—"}</Badge>
                         </TableCell>
                         <TableCell>
                           <Badge className={statusBadgeClass(r.status_esperado ?? "")}>{r.status_esperado ?? "—"}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs">{r.responsavel_atual || <span className="text-muted-foreground">—</span>}</TableCell>
-                        <TableCell className="text-xs">{r.responsavel_no_log || <span className="text-muted-foreground">—</span>}</TableCell>
+                        <TableCell className="text-xs">
+                          {r.tem_responsavel ? (
+                            <div>
+                              <div>{r.responsavel_atual_nome || r.responsavel_atual || "—"}</div>
+                              {r.responsavel_atual_email && <div className="text-muted-foreground">{r.responsavel_atual_email}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Sem responsável</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {r.responsavel_no_log || r.responsavel_email_no_log ? (
+                            <div>
+                              <div>{r.responsavel_no_log || "—"}</div>
+                              {r.responsavel_email_no_log && <div className="text-muted-foreground">{r.responsavel_email_no_log}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           {r.ultima_alteracao ? format(new Date(r.ultima_alteracao), "dd/MM/yyyy HH:mm") : "—"}
                         </TableCell>
