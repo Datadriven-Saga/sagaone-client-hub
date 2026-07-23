@@ -92,6 +92,21 @@ function MultiSelectFilter({
           <CommandList>
             <CommandEmpty>Nenhum resultado.</CommandEmpty>
             <CommandGroup>
+              <CommandItem
+                onSelect={() => onChange(options.map((o) => o.id))}
+                className="text-xs font-medium"
+              >
+                <Checkbox checked={selected.length === options.length && options.length > 0} className="mr-2" />
+                Selecionar todos
+              </CommandItem>
+              <CommandItem
+                onSelect={() => onChange([])}
+                className="text-xs text-muted-foreground"
+              >
+                <Checkbox checked={false} className="mr-2" />
+                Limpar seleção
+              </CommandItem>
+              <div className="h-px bg-border my-1" />
               {options.map((o) => {
                 const checked = selected.includes(o.id);
                 return (
