@@ -132,7 +132,9 @@ export const STATUS_COLORS: Record<string, string> = {
   "Confirmado": "bg-violet-500",
   "Check-in": "bg-emerald-500",
   "Venda": "bg-teal-500",
+  "Vendas": "bg-teal-500",
   "Opt Out": "bg-zinc-500",
+  "Opt-out": "bg-zinc-500",
 };
 
 export function statusBadgeClass(status: string): string {
@@ -145,7 +147,9 @@ export function statusBadgeClass(status: string): string {
     "Confirmado": "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
     "Check-in": "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
     "Venda": "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300",
+    "Vendas": "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300",
     "Opt Out": "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
+    "Opt-out": "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
   };
   return map[status] ?? "bg-muted text-muted-foreground";
 }
