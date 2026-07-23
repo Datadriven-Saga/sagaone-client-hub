@@ -16,6 +16,13 @@ import { statusBadgeClass, STATUS_ORDER } from "@/hooks/useDiagnosticoEventos";
 
 const PAGE_SIZE = 50;
 
+function idsOrNull(selected: string[], options: { id: string }[]) {
+  if (selected.length === 0 || (options.length > 0 && selected.length === options.length)) {
+    return null;
+  }
+  return selected;
+}
+
 interface LeadDivergente {
   contato_id: string;
   contato_nome: string | null;
@@ -176,11 +183,16 @@ export default function DiagnosticoStatus() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    const selectedEmpresaIds = idsOrNull(empresaIds, empresasOptions);
+    const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
+    const selectedStatusAtual = idsOrNull(statusAtual, statusOptions);
+    const selectedStatusEsperado = idsOrNull(statusEsperado, statusOptions);
+
     const { data, error } = await (supabase as any).rpc("get_leads_status_divergente", {
-      p_empresa_ids: empresaIds.length ? empresaIds : null,
-      p_prospeccao_ids: prospeccaoIds.length ? prospeccaoIds : null,
-      p_status_atual: statusAtual.length ? statusAtual : null,
-      p_status_esperado: statusEsperado.length ? statusEsperado : null,
+      p_empresa_ids: selectedEmpresaIds,
+      p_prospeccao_ids: selectedProspeccaoIds,
+      p_status_atual: selectedStatusAtual,
+      p_status_esperado: selectedStatusEsperado,
       p_search: search || null,
       p_data_de: dataDe ? new Date(dataDe).toISOString() : null,
       p_data_ate: dataAte ? new Date(dataAte + "T23:59:59").toISOString() : null,
@@ -195,7 +207,7 @@ export default function DiagnosticoStatus() {
     setRows((data?.rows ?? []) as LeadDivergente[]);
     setTotal(data?.total ?? 0);
     setPorLoja((data?.por_loja ?? []) as any);
-  }, [empresaIds, prospeccaoIds, statusAtual, statusEsperado, search, dataDe, dataAte, page]);
+  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, dataDe, dataAte, page]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
   useEffect(() => { fetchData(); }, [fetchData]);
