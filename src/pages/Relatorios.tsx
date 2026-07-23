@@ -160,7 +160,7 @@ const Relatorios = () => {
       data_inicio: item.data_inicio ? format(new Date(item.data_inicio), "dd/MM/yyyy") : "-",
       data_fim: item.data_fim ? format(new Date(item.data_fim), "dd/MM/yyyy") : "-",
       canal: item.canal || "-",
-      responsavel: item.responsavel?.nome_completo || "-",
+      responsavel: (item.responsavel as any)?.nome_completo || (Array.isArray(item.responsavel) ? (item.responsavel as any)[0]?.nome_completo : null) || "-",
       leads_gerados: leadsCountMap.get(item.id)?.size || 0,
       status: item.data_fim && new Date(item.data_fim) < new Date() ? "Encerrado" : "Ativo"
     }));
@@ -252,7 +252,7 @@ const Relatorios = () => {
       produto: item.produto?.nome || "-",
       valor: item.valor_venda ? `R$ ${item.valor_venda.toLocaleString("pt-BR")}` : "-",
       data_venda: item.data_venda ? format(new Date(item.data_venda), "dd/MM/yyyy") : "-",
-      vendedor: item.responsavel?.nome_completo || "-",
+      vendedor: (item.responsavel as any)?.nome_completo || "-",
       departamento: item.departamento?.nome || "-"
     })) || [];
   };
