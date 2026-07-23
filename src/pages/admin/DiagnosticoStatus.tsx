@@ -23,6 +23,10 @@ function idsOrNull(selected: string[], options: { id: string }[]) {
   return selected;
 }
 
+function hasSpecificSelection(selected: string[], options: { id: string }[]) {
+  return selected.length > 0 && selected.length < options.length;
+}
+
 interface LeadDivergente {
   contato_id: string;
   contato_nome: string | null;
@@ -187,6 +191,23 @@ export default function DiagnosticoStatus() {
     const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
     const selectedStatusAtual = idsOrNull(statusAtual, statusOptions);
     const selectedStatusEsperado = idsOrNull(statusEsperado, statusOptions);
+
+    const hasScopedFilter =
+      hasSpecificSelection(empresaIds, empresasOptions) ||
+      hasSpecificSelection(prospeccaoIds, prospeccoesOptions) ||
+      Boolean(search.trim()) ||
+      Boolean(dataDe) ||
+      Boolean(dataAte) ||
+      hasSpecificSelection(statusAtual, statusOptions) ||
+      hasSpecificSelection(statusEsperado, statusOptions);
+
+    if (!hasScopedFilter) {
+      setRows([]);
+      setTotal(0);
+      setPorLoja([]);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await (supabase as any).rpc("get_leads_status_divergente", {
       p_empresa_ids: selectedEmpresaIds,
