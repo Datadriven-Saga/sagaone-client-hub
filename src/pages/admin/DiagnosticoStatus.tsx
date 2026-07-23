@@ -234,6 +234,14 @@ export default function DiagnosticoStatus() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const isGlobalQuery =
+    !hasSpecificSelection(empresaIds, empresasOptions) &&
+    !hasSpecificSelection(prospeccaoIds, prospeccoesOptions) &&
+    !hasSpecificSelection(statusAtual, statusOptions) &&
+    !hasSpecificSelection(statusEsperado, statusOptions) &&
+    !search.trim() &&
+    !dataDe &&
+    !dataAte;
 
   const rowsByLoja = useMemo(() => {
     const map = new Map<string, LeadDivergente[]>();
@@ -333,7 +341,11 @@ export default function DiagnosticoStatus() {
           </CardHeader>
           <CardContent className="pt-0">
             {porLoja.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma divergência com os filtros atuais.</p>
+              <p className="text-sm text-muted-foreground">
+                {isGlobalQuery
+                  ? "Selecione uma loja, evento, status, período ou busca para carregar os totais."
+                  : "Nenhuma divergência com os filtros atuais."}
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {porLoja.map((l) => (
@@ -428,7 +440,11 @@ export default function DiagnosticoStatus() {
               </div>
             ))}
             {!loading && rows.length === 0 && (
-              <div className="p-8 text-center text-sm text-muted-foreground">Nenhum lead divergente encontrado.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                {isGlobalQuery
+                  ? "A consulta sem recorte foi bloqueada para evitar timeout. Use pelo menos um filtro específico."
+                  : "Nenhum lead divergente encontrado."}
+              </div>
             )}
           </CardContent>
         </Card>
