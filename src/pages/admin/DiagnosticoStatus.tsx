@@ -92,6 +92,21 @@ function MultiSelectFilter({
           <CommandList>
             <CommandEmpty>Nenhum resultado.</CommandEmpty>
             <CommandGroup>
+              <CommandItem
+                onSelect={() => onChange(options.map((o) => o.id))}
+                className="text-xs font-medium"
+              >
+                <Checkbox checked={selected.length === options.length && options.length > 0} className="mr-2" />
+                Selecionar todos
+              </CommandItem>
+              <CommandItem
+                onSelect={() => onChange([])}
+                className="text-xs text-muted-foreground"
+              >
+                <Checkbox checked={false} className="mr-2" />
+                Limpar seleção
+              </CommandItem>
+              <div className="h-px bg-border my-1" />
               {options.map((o) => {
                 const checked = selected.includes(o.id);
                 return (
@@ -272,7 +287,9 @@ export default function DiagnosticoStatus() {
                   className="h-8 pl-8"
                 />
               </div>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-2" /> Limpar filtros
+              </Button>
             </div>
           </CardContent>
         </Card>
