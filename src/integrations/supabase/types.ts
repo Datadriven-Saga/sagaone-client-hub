@@ -1834,6 +1834,33 @@ export type Database = {
           },
         ]
       }
+      deleted_users_archive: {
+        Row: {
+          deleted_at: string
+          deleted_by: string | null
+          email: string | null
+          id: string
+          nome_completo: string | null
+          tipo_acesso: string | null
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          id: string
+          nome_completo?: string | null
+          tipo_acesso?: string | null
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          id?: string
+          nome_completo?: string | null
+          tipo_acesso?: string | null
+        }
+        Relationships: []
+      }
       departamento_permissoes: {
         Row: {
           ativo: boolean
@@ -3550,7 +3577,7 @@ export type Database = {
           target_user_email: string | null
           target_user_id: string | null
           user_email: string | null
-          user_id: string
+          user_id: string | null
           user_name: string | null
         }
         Insert: {
@@ -3564,7 +3591,7 @@ export type Database = {
           target_user_email?: string | null
           target_user_id?: string | null
           user_email?: string | null
-          user_id: string
+          user_id?: string | null
           user_name?: string | null
         }
         Update: {
@@ -3578,7 +3605,7 @@ export type Database = {
           target_user_email?: string | null
           target_user_id?: string | null
           user_email?: string | null
-          user_id?: string
+          user_id?: string | null
           user_name?: string | null
         }
         Relationships: []
@@ -7623,6 +7650,15 @@ export type Database = {
         Returns: {
           allowed: boolean
           user_id: string
+        }[]
+      }
+      resolve_user_identity: {
+        Args: { _user_id: string }
+        Returns: {
+          deleted: boolean
+          email: string
+          id: string
+          nome_completo: string
         }[]
       }
       set_seat_limit: {

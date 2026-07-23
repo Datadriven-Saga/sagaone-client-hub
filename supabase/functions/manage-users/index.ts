@@ -403,7 +403,32 @@ Deno.serve(async (req: Request) => {
           throw new Error('Gerentes não podem excluir usuários');
         }
 
-        // Delete user from auth (this will cascade to profiles table)
+        // 1) Snapshot do usuário no arquivo, para preservar identidade em logs históricos
+        try {
+          const [{ data: targetProfileSnap }, { data: targetAuth }] = await Promise.all([
+            supabaseAdmin
+              .from('profiles')
+              .select('nome_completo, tipo_acesso')
+              .eq('id', user_id)
+              .maybeSingle(),
+            supabaseAdmin.auth.admin.getUserById(user_id),
+          ]);
+
+          await supabaseAdmin
+            .from('deleted_users_archive')
+            .upsert({
+              id: user_id,
+              email: targetAuth?.user?.email ?? null,
+              nome_completo: targetProfileSnap?.nome_completo ?? null,
+              tipo_acesso: targetProfileSnap?.tipo_acesso ?? null,
+              deleted_by: user.id,
+              deleted_at: new Date().toISOString(),
+            }, { onConflict: 'id' });
+        } catch (snapErr) {
+          console.warn('Falha ao arquivar snapshot do usuário (prosseguindo com delete):', snapErr);
+        }
+
+        // 2) Delete user from auth (cascateia em profiles; FKs de auditoria removidas na migração)
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
 
         if (deleteError) throw deleteError;
