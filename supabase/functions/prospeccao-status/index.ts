@@ -261,12 +261,24 @@ serve(async (req) => {
     // Buscar prospeccoes associadas ao contato (fallback só é seguro quando há vínculo único).
     const { data: eventosProspeccao } = await supabaseClient
       .from('eventos_prospeccao')
-      .select('prospeccao_id')
+      .select('prospeccao_id, created_at, prospeccoes:prospeccao_id(id, titulo, canal, event_id_pri, data_inicio, data_fim, ativo)')
       .eq('contato_id', contato.id)
       .order('created_at', { ascending: false });
-    
+
     const prospeccoesDoContato = Array.isArray(eventosProspeccao) ? eventosProspeccao : [];
     const prospeccaoId = prospeccoesDoContato.length === 1 ? prospeccoesDoContato[0]?.prospeccao_id || null : null;
+
+    // Lista detalhada para consumidores externos (n8n/Pri) escolherem o evento correto.
+    const prospeccoesDetalhadas = prospeccoesDoContato.map((v: any) => ({
+      prospeccao_id: v.prospeccao_id,
+      titulo: v.prospeccoes?.titulo ?? null,
+      canal: v.prospeccoes?.canal ?? null,
+      event_id_pri: v.prospeccoes?.event_id_pri ?? null,
+      data_inicio: v.prospeccoes?.data_inicio ?? null,
+      data_fim: v.prospeccoes?.data_fim ?? null,
+      ativo: v.prospeccoes?.ativo ?? null,
+      vinculado_em: v.created_at,
+    }));
 
     if (req.method === 'GET') {
       // Consultar status do contato
@@ -278,6 +290,8 @@ serve(async (req) => {
           lead_id: contato.lead_id,
           contato_id: contato.id,
           prospeccao_id: prospeccaoId,
+          prospeccoes: prospeccoesDetalhadas,
+          vinculos_evento: prospeccoesDetalhadas.length,
           status: contato.status,
           nome: contato.nome,
           telefone: contato.telefone,
