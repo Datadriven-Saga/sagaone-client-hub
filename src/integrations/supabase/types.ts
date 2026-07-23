@@ -7076,6 +7076,20 @@ export type Database = {
           vendedor_nome: string
         }[]
       }
+      get_leads_status_divergente: {
+        Args: {
+          p_data_ate?: string
+          p_data_de?: string
+          p_empresa_ids?: string[]
+          p_page?: number
+          p_page_size?: number
+          p_prospeccao_ids?: string[]
+          p_search?: string
+          p_status_atual?: string[]
+          p_status_esperado?: string[]
+        }
+        Returns: Json
+      }
       get_logs_disparos_filtros: {
         Args: never
         Returns: {
