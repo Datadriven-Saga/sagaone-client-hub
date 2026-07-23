@@ -66,7 +66,7 @@ export function useVendasProspeccao() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setVendas(data || []);
+      setVendas((data as any) || []);
     } catch (error) {
       console.error('Erro ao buscar vendas:', error);
     } finally {
