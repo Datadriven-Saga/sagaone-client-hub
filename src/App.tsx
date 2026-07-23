@@ -67,6 +67,7 @@ const MFAGeral = lazy(() => import("./pages/admin/MFAGeral"));
 const LogsCadeiras = lazy(() => import("./pages/admin/LogsCadeiras"));
 const Webhooks = lazy(() => import("./pages/admin/Webhooks"));
 const DiagnosticoEventos = lazy(() => import("./pages/admin/DiagnosticoEventos"));
+const DiagnosticoStatus = lazy(() => import("./pages/admin/DiagnosticoStatus"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 const ConfirmarPresenca = lazy(() => import("./pages/ConfirmarPresenca"));
 
@@ -183,6 +184,7 @@ const AppRoutes = () => {
         <Route path="/administracao/logs-cadeiras" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><LogsCadeiras /></PermissionProtectedRoute>} />
         <Route path="/administracao/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="/administracao/diagnostico-eventos" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><DiagnosticoEventos /></PermissionProtectedRoute>} />
+        <Route path="/administracao/diagnostico-status" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><DiagnosticoStatus /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

@@ -201,6 +201,13 @@ const Administracao = () => {
       route: "/administracao/diagnostico-eventos",
       permissionKey: "canAccessAdminConfig",
     },
+    {
+      title: "Diagnóstico de Status",
+      description: "Leads cujo status atual diverge do último status registrado no histórico, agrupado por loja",
+      icon: Activity,
+      route: "/administracao/diagnostico-status",
+      permissionKey: "canAccessAdminConfig",
+    },
   ];
 
   // MFA Master module
