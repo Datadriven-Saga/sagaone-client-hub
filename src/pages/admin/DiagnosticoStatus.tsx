@@ -185,6 +185,11 @@ export default function DiagnosticoStatus() {
   const [auditoria, setAuditoria] = useState<any[]>([]);
   const [auditoriaLoading, setAuditoriaLoading] = useState(false);
   const [detalhesEventosOpen, setDetalhesEventosOpen] = useState(false);
+  const [dataDe, setDataDe] = useState<string>("");
+  const [dataAte, setDataAte] = useState<string>("");
+
+  const dataDeIso = useMemo(() => (dataDe ? new Date(dataDe + "T00:00:00").toISOString() : null), [dataDe]);
+  const dataAteIso = useMemo(() => (dataAte ? new Date(dataAte + "T23:59:59").toISOString() : null), [dataAte]);
 
   const totalDivergenciasGeral = useMemo(
     () => porLoja.reduce((acc, l) => acc + Number(l.total || 0), 0),
