@@ -7390,6 +7390,10 @@ export type Database = {
           telefone: string
         }[]
       }
+      preview_restauracao_vendedor: {
+        Args: { p_empresa_id: string }
+        Returns: Json
+      }
       reset_leads_evento_sem_log: {
         Args: { p_prospeccao_id: string }
         Returns: {
@@ -7412,6 +7416,10 @@ export type Database = {
           id: string
           nome_completo: string
         }[]
+      }
+      restore_leads_vendedor_por_loja: {
+        Args: { p_dry_run?: boolean; p_empresa_id: string; p_limit?: number }
+        Returns: Json
       }
       set_seat_limit: {
         Args: { p_empresa_id: string; p_max_seats: number }
