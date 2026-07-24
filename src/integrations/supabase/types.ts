@@ -5593,6 +5593,60 @@ export type Database = {
           },
         ]
       }
+      restauracao_status_auditoria: {
+        Row: {
+          amostra: Json | null
+          atualizados: number
+          batch_index: number
+          created_at: string
+          duracao_ms: number | null
+          empresa_id: string | null
+          erro_codigo: string | null
+          erro_mensagem: string | null
+          executado_por: string | null
+          executado_por_email: string | null
+          id: string
+          loja_nome: string | null
+          processados: number
+          status: string
+          tipo_acesso_alvo: string[]
+        }
+        Insert: {
+          amostra?: Json | null
+          atualizados?: number
+          batch_index?: number
+          created_at?: string
+          duracao_ms?: number | null
+          empresa_id?: string | null
+          erro_codigo?: string | null
+          erro_mensagem?: string | null
+          executado_por?: string | null
+          executado_por_email?: string | null
+          id?: string
+          loja_nome?: string | null
+          processados?: number
+          status: string
+          tipo_acesso_alvo: string[]
+        }
+        Update: {
+          amostra?: Json | null
+          atualizados?: number
+          batch_index?: number
+          created_at?: string
+          duracao_ms?: number | null
+          empresa_id?: string | null
+          erro_codigo?: string | null
+          erro_mensagem?: string | null
+          executado_por?: string | null
+          executado_por_email?: string | null
+          id?: string
+          loja_nome?: string | null
+          processados?: number
+          status?: string
+          tipo_acesso_alvo?: string[]
+        }
+        Relationships: []
+      }
       sso_secret_rotations: {
         Row: {
           alert_at: string
@@ -7390,6 +7444,10 @@ export type Database = {
           telefone: string
         }[]
       }
+      preview_restauracao_por_perfil: {
+        Args: { p_empresa_id: string; p_tipo_acesso?: string[] }
+        Returns: Json
+      }
       preview_restauracao_vendedor: {
         Args: { p_empresa_id: string }
         Returns: Json
@@ -7416,6 +7474,15 @@ export type Database = {
           id: string
           nome_completo: string
         }[]
+      }
+      restore_leads_por_perfil: {
+        Args: {
+          p_dry_run?: boolean
+          p_empresa_id: string
+          p_limit?: number
+          p_tipo_acesso?: string[]
+        }
+        Returns: Json
       }
       restore_leads_vendedor_por_loja: {
         Args: { p_dry_run?: boolean; p_empresa_id: string; p_limit?: number }
