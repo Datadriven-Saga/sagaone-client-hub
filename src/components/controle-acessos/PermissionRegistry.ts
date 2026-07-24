@@ -420,6 +420,7 @@ export function getDefaultPermissions(tipo: TipoAcesso): Record<string, boolean>
   defaults.canEditUsers = isAdminOrTI || isGerente;
   defaults.canDeleteUsers = isAdminOrTI;
   defaults.canAccessAdminConfig = isAdminOrTI;
+  defaults.canAccessDiagnosticoStatus = isAdmin; // Apenas Administrador e Master
   defaults.canAccessAdministracao = isAdmin || isGerente || isCRM; // CRM acessa Administração
   defaults.canAccessControleAcessos = isAdmin;
 
