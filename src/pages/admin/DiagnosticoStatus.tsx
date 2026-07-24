@@ -150,13 +150,15 @@ export default function DiagnosticoStatus() {
   const [statusAtual, setStatusAtual] = useState<string[]>([]);
   const [statusEsperado, setStatusEsperado] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [dataDe, setDataDe] = useState("");
-  const [dataAte, setDataAte] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LeadDivergente[]>([]);
   const [total, setTotal] = useState(0);
   const [porLoja, setPorLoja] = useState<{ empresa_id: string; loja_nome: string; total: number }[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [restoring, setRestoring] = useState(false);
 
   const loadOpcoes = useCallback(async () => {
     setLoadingOpcoes(true);
