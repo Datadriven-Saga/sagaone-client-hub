@@ -484,7 +484,7 @@ export default function DiagnosticoStatus() {
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="flex flex-wrap gap-2 items-center">
-              <MultiSelectFilter label={loadingOpcoes ? "Carregando lojas..." : "Lojas"} options={empresasOptions} selected={empresaIds} onChange={(v) => { setEmpresaIds(v); setProspeccaoIds((ids) => ids.filter((id) => (opcoes?.prospeccoes ?? []).some((p) => p.id === id && (v.length === 0 || v.includes(p.empresa_id))))); setPage(1); }} />
+              <MultiSelectFilter label={loadingOpcoes ? "Carregando lojas..." : "Lojas"} options={empresasOptions} selected={empresaIds} onChange={(v) => { setEmpresaIds(v); setProspeccaoIds((ids) => ids.filter((id) => (opcoes?.prospeccoes ?? []).some((p) => p.id === id && (v.length === 0 || v.includes(p.empresa_id))))); setPage(1); }} toggleSelectAll width={240} />
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} toggleSelectAll wrapLabels width={260} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
