@@ -212,6 +212,7 @@ export const PERMISSION_REGISTRY: PermissionEntry[] = [
   { key: "canEditUsers", label: "Editar usuários", moduleId: "usuarios", action: "editar" },
   { key: "canDeleteUsers", label: "Excluir usuários", moduleId: "usuarios", action: "excluir" },
   { key: "canAccessAdminConfig", label: "Acessar config. administrativas", moduleId: "usuarios", action: "visualizar" },
+  { key: "canAccessDiagnosticoStatus", label: "Acessar Diagnóstico de Status", moduleId: "usuarios", action: "visualizar" },
   { key: "canAccessAdministracao", label: "Acessar menu Administração", moduleId: "usuarios", action: "visualizar" },
   { key: "canAccessControleAcessos", label: "Acessar Controle de Acessos", moduleId: "usuarios", action: "administrar" },
 
