@@ -229,31 +229,84 @@ export default function DiagnosticoStatus() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const selectedEmpresaIds = idsOrNull(empresaIds, empresasOptions);
+    const selectedEmpresaIdsRaw = idsOrNull(empresaIds, empresasOptions);
     const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
     const selectedStatusAtual = idsOrNull(statusAtual, statusOptions);
     const selectedStatusEsperado = idsOrNull(statusEsperado, statusOptions);
 
-    const { data, error } = await (supabase as any).rpc("get_leads_status_divergente", {
-      p_empresa_ids: selectedEmpresaIds,
-      p_prospeccao_ids: selectedProspeccaoIds,
-      p_status_atual: selectedStatusAtual,
-      p_status_esperado: selectedStatusEsperado,
-      p_search: search || null,
-      p_data_de: null,
-      p_data_ate: null,
-      p_page: page,
-      p_page_size: PAGE_SIZE,
-    });
-    setLoading(false);
-    if (error) {
-      toast.error("Falha ao carregar divergências: " + error.message);
-      return;
+    // Effective empresa list — se null (todas), usa todas para permitir chunking.
+    const effectiveEmpresaIds =
+      selectedEmpresaIdsRaw ?? empresasOptions.map((e) => e.id);
+
+    const CHUNK = 5; // consultas por lote para evitar statement_timeout
+    const needsChunking = effectiveEmpresaIds.length > CHUNK;
+
+    const callRpc = (empresaChunk: string[] | null) =>
+      (supabase as any).rpc("get_leads_status_divergente", {
+        p_empresa_ids: empresaChunk,
+        p_prospeccao_ids: selectedProspeccaoIds,
+        p_status_atual: selectedStatusAtual,
+        p_status_esperado: selectedStatusEsperado,
+        p_search: search || null,
+        p_data_de: null,
+        p_data_ate: null,
+        p_page: page,
+        p_page_size: PAGE_SIZE,
+      });
+
+    try {
+      if (!needsChunking) {
+        const { data, error } = await callRpc(selectedEmpresaIdsRaw);
+        if (error) throw error;
+        setRows((data?.rows ?? []) as LeadDivergente[]);
+        setTotal(data?.total ?? 0);
+        setPorLoja((data?.por_loja ?? []) as any);
+        setPorEvento((data?.por_evento ?? []) as any);
+      } else {
+        // Consulta em lotes por empresa e agrega no cliente.
+        const chunks: string[][] = [];
+        for (let i = 0; i < effectiveEmpresaIds.length; i += CHUNK) {
+          chunks.push(effectiveEmpresaIds.slice(i, i + CHUNK));
+        }
+        const aggRows: LeadDivergente[] = [];
+        const aggPorLoja: { empresa_id: string; loja_nome: string; total: number }[] = [];
+        const aggPorEvento: { prospeccao_id: string; evento_titulo: string; empresa_id: string; total_leads: number; divergentes: number }[] = [];
+        let aggTotal = 0;
+        let failedChunks = 0;
+
+        for (let idx = 0; idx < chunks.length; idx++) {
+          const chunk = chunks[idx];
+          setRestoreProgress({ loja: "Carregando lotes", atual: idx + 1, total: chunks.length });
+          try {
+            const { data, error } = await callRpc(chunk);
+            if (error) throw error;
+            aggTotal += Number(data?.total ?? 0);
+            aggPorLoja.push(...((data?.por_loja ?? []) as any[]));
+            aggPorEvento.push(...((data?.por_evento ?? []) as any[]));
+            if (aggRows.length < PAGE_SIZE) {
+              const remaining = PAGE_SIZE - aggRows.length;
+              aggRows.push(...((data?.rows ?? []) as LeadDivergente[]).slice(0, remaining));
+            }
+          } catch (e: any) {
+            failedChunks++;
+            console.warn("[diagnostico-status] chunk falhou", chunk, e?.message);
+          }
+        }
+        setRestoreProgress(null);
+        setRows(aggRows);
+        setTotal(aggTotal);
+        setPorLoja(aggPorLoja);
+        setPorEvento(aggPorEvento);
+        if (failedChunks > 0) {
+          toast.warning(`${failedChunks} de ${chunks.length} lote(s) falharam por timeout. Refine os filtros para obter valores exatos.`);
+        }
+      }
+    } catch (e: any) {
+      toast.error("Falha ao carregar divergências: " + (e?.message ?? String(e)));
+    } finally {
+      setRestoreProgress(null);
+      setLoading(false);
     }
-    setRows((data?.rows ?? []) as LeadDivergente[]);
-    setTotal(data?.total ?? 0);
-    setPorLoja((data?.por_loja ?? []) as any);
-    setPorEvento((data?.por_evento ?? []) as any);
   }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
