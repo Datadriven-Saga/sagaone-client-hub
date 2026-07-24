@@ -1,122 +1,77 @@
-# Objetivo
+# Plano — Erro 500 ao mover lead no Kanban (usuário CRM)
 
-Introduzir o conceito de **lead** como entidade própria (única por `contato + evento`) com **status próprio**, para uso exclusivo do Kanban v2 (`/prospeccao/atendimento-v2`). Nada em produção muda de comportamento.
+## Contexto do incidente
 
----
+- Usuária: `thais.bsouza@gruposaga.com.br` (tipo de acesso **CRM**, `user_id = a2f11ac8-f920-44fb-a8a6-b4ef14bb48e0`).
+- Evento: `* SUPERAÇÃO DE VENDAS - SAGA TOYOTA COLORADO` (`prospeccao_id = 74ef55cf-c595-42ac-9ad3-2555e17170b2`, empresa `424f681c-f1b3-4b16-b311-a57f699d915a`).
+- Lead usado no log: contato `119ad40d-eb95-48f5-8e33-759be331b0b2` (PANTANAL VEICULOS LTDA), `status = Em Espera`, `responsavel_email = NULL`, vinculado a 4 eventos (multi-evento).
+- Requisição: `PUT /functions/v1/prospeccao-status?lead_id=119ad40d-...` → `500 Internal Server Error`.
 
-# 1. Como funciona hoje (verificado)
+## Diagnóstico (confirmado via leitura)
 
-| Conceito | Onde vive hoje | Problema |
-|---|---|---|
-| Pessoa (telefone) | `contatos` (unicidade por telefone dentro da `empresa_id`) | OK |
-| Vínculo pessoa↔evento | `eventos_prospeccao(contato_id, prospeccao_id, ...)` | Tabela faz dois papéis: vínculo **e** histórico de interações. Permite múltiplas linhas para o mesmo par. |
-| Status | `contatos.status` (**global**, único por pessoa) | Se a pessoa aparece em 2 eventos, o status é o mesmo para ambos → métricas infladas, race conditions, UX confusa. Documentado como débito estrutural. |
-| Status por evento (derivado) | `logs_movimentacao_contatos` — última linha por `(contato_id, prospeccao_id)` | Correto conceitualmente, mas **caro em leitura** (window function em toda consulta do Kanban). |
-| Responsável | `contatos.responsavel_email` (**global**) | Mesmo problema do status. |
+Confirmado pela definição atual de `public.mutate_contato_status_atomic` (SECURITY DEFINER):
 
-Distância do modelo desejado: o "lead por evento" **não existe como entidade**; ele é reconstruído em runtime a partir dos logs a cada render do Kanban.
+1. Se a sessão **não** é `service_role`, exige `auth.uid()`.
+2. Bypass total só para `Administrador`, `Master`, `TI`.
+3. Caso contrário: valida `user_can_access_empresa(empresa_do_contato)` e depois exige **uma** das condições:
+   - ser membro de `prospeccao_equipes` / `prospeccao_equipe_membros` do evento; **ou**
+   - `responsavel_email` do contato = e-mail do caller.
+4. Se nenhuma bater: `RAISE EXCEPTION 'sem permissão para movimentar este lead' (42501)`.
 
----
+Para a Thais:
+- Tipo de acesso **CRM** → não entra no bypass admin.
+- Tem `user_empresas` para a empresa do contato → passa em `user_can_access_empresa`.
+- Não pertence à equipe do evento e o contato tem `responsavel_email = NULL` → cai no `RAISE EXCEPTION`.
+- O edge function captura o erro da RPC e devolve HTTP 500 com `{ error: "Erro ao atualizar status", detalhes: "sem permissão para movimentar este lead" }` (ver `supabase/functions/prospeccao-status/index.ts:424-437`).
 
-# 2. Modelo alvo (somente v2)
+Confirmado:
+- CRM (e outros papéis de gestão) hoje só conseguem mover leads se caírem por acaso em uma equipe do evento ou forem o responsável do lead — que é o oposto do papel esperado de CRM/Gerência.
+- É uma **regressão de permissão** na RPC, não um bug de RLS de tabela.
 
-Nova tabela `public.leads` — **fonte de verdade do lead por evento**, alimentada pelos mesmos gatilhos que já geram log hoje.
+## Correção proposta
 
-```text
-contatos (pessoa, único por telefone)
-   └── leads (N por contato, 1 por evento)
-         ├─ contato_id  ──► contatos.id
-         ├─ prospeccao_id ──► prospeccoes.id     UNIQUE(contato_id, prospeccao_id)
-         ├─ status           (status atual DO LEAD, não do contato)
-         ├─ responsavel_email
-         ├─ temperatura_id
-         ├─ ultima_movimentacao_at
-         └─ created_at / updated_at
-   └── logs_movimentacao_contatos (histórico — permanece igual)
-```
+Ampliar o bypass da RPC `mutate_contato_status_atomic` para incluir papéis de gestão que hoje já enxergam todos os leads da empresa (ref: memórias `lead-ownership-access-control`, `access-hierarchy-levels`), mantendo a barreira de empresa via `user_can_access_empresa`.
 
-Regras:
-- Filtrar por contato → todos os leads (todos os eventos daquela pessoa).
-- Filtrar por lead → 1 contato + 1 evento.
-- `contatos.status` continua existindo e sendo escrito pelos fluxos atuais — **produção intocada**.
+Papéis a adicionar ao bypass (após validar acesso à empresa do contato):
+- `CRM`
+- `Gerente de Leads`
+- `Gerente de Loja`
+- `Coordenadora de Leads`
+- `Diretor`
+- `Proprietário`
 
----
+Comportamento resultante:
+- Admin/Master/TI: bypass total (inalterado).
+- Papéis de gestão acima: precisam ter acesso à empresa do contato; não precisam ser responsáveis nem membros de equipe.
+- SDR / Vendedor / Recepcionista / Outros: regra atual mantida (equipe do evento OU responsável do lead).
+- Chamadas com service role (edge functions internas / admin token via Pri IA): bypass total mantido.
 
-# 3. Estratégia de convivência (sem quebrar prod)
+## Entregas
 
-1. **Backfill idempotente** de `leads` a partir de:
-   - `eventos_prospeccao` (todo par `contato_id + prospeccao_id` distinto vira 1 lead)
-   - último `logs_movimentacao_contatos` daquele par define o `status` inicial
-   - fallback: `contatos.status` se não houver log (mesma regra da RPC atual)
-2. **Sincronização contínua** via trigger em `logs_movimentacao_contatos`:
-   - após cada insert, `UPSERT` em `leads` atualizando `status`, `responsavel_email`, `ultima_movimentacao_at`.
-   - assim, todo fluxo legado (importação, `mutate_contato_status_atomic`, webhooks Mobi, atribuição SDR) continua chamando o que já chama e **automaticamente** popula `leads`.
-3. **Nenhum código de produção lê `leads`** nesta fase. Só o Kanban v2.
-4. Feature flag `kanban_v2_leads_table` para poder desligar leitura da nova tabela e cair de volta na RPC baseada em logs, sem redeploy.
+1. Documento `docs/diagnostico-500-prospeccao-status-crm.md` com:
+   - Sintoma, requisição, usuário e lead envolvidos.
+   - Trecho da RPC responsável e caminho exato do `RAISE`.
+   - Evidências consultadas no banco (perfis, `user_empresas`, `eventos_prospeccao`, `contatos`).
+   - Correção proposta e o que **não** muda (SDR/Vendedor, RLS de tabela, edge function).
+   - Riscos + testes obrigatórios.
 
----
+2. Migração alterando `public.mutate_contato_status_atomic` para incluir o novo bypass de gestão. Sem tocar em RLS, grants, edge functions ou outras RPCs.
 
-# 4. Ganho de performance
+## O que NÃO alterar
 
-- Kanban v2 hoje: `get_kanban_columns` faz `DISTINCT ON` sobre `logs_movimentacao_contatos` filtrando por `prospeccao_id`. Custo cresce com histórico.
-- Kanban v2 depois: `SELECT ... FROM leads WHERE prospeccao_id = ANY($1)` — 1 índice `(prospeccao_id, status)` resolve.
+- RLS de `contatos`, `logs_movimentacao_contatos`, `prospeccao_equipes`, `prospeccao_equipe_membros`.
+- Edge function `prospeccao-status` (o mapeamento de erro já é adequado).
+- Regras de visibilidade de SDR/Vendedor no Kanban.
+- Fluxo de admin token / Pri IA.
 
----
+## Testes obrigatórios após a correção
 
-# 5. Plano de execução
+- Thais (CRM) move o lead `119ad40d-...` no evento `74ef55cf-...` → deve retornar 200 e gerar log em `logs_movimentacao_contatos` com o `prospeccao_id` correto.
+- Usuário Gerente de Loja move lead da sua loja → 200.
+- Usuário SDR sem equipe e sem ser responsável → continua bloqueado (comportamento atual).
+- Usuário de outra empresa → continua bloqueado por `user_can_access_empresa`.
+- Chamada via admin token (Pri IA) → continua funcionando.
 
-## Fase A — Estrutura (migração)
-1. `CREATE TABLE public.leads (...)` + GRANTs + RLS espelhando `contatos` (acesso via `user_can_access_empresa(empresa_id)` derivado do contato).
-2. Índices: `UNIQUE(contato_id, prospeccao_id)`, `(prospeccao_id, status)`, `(responsavel_email, prospeccao_id)`.
-3. Trigger `AFTER INSERT ON logs_movimentacao_contatos` → `UPSERT` em `leads`.
-4. Backfill em batch (função `backfill_leads_from_eventos(_empresa_id)`), roda por empresa, idempotente.
+## Passo imediato após aprovação
 
-## Fase B — RPC de leitura v2
-5. `get_kanban_v2(p_prospeccao_ids uuid[], filtros...)` lendo apenas `leads` + join leve em `contatos` (nome/telefone). Mantém contrato semelhante a `get_kanban_columns`.
-
-## Fase C — Kanban v2 usa a nova fonte
-6. `useKanbanBasico.ts` passa a chamar `get_kanban_v2` atrás da feature flag; escrita continua em `mutate_contato_status_atomic` (que grava log → trigger popula `leads`).
-7. Ajuste do README do feature para refletir a nova origem.
-
-## Fase D — Validação
-8. Job de consistência: comparar `leads.status` vs. último log por par. Alerta se divergir. Roda 1x/dia até estabilizar.
-9. Tela `/administracao/diagnostico-status` ganha aba "Leads v2" reutilizando a checagem.
-
----
-
-# 6. Fora de escopo (explicitamente)
-
-- Não migrar `contatos.status` → produção segue usando o campo global.
-- Não mexer em `eventos_prospeccao` (dívida arquitetural fica para depois).
-- Não alterar telas antigas, webhooks Mobi, importação, SDR, quarentena, disparos WhatsApp/Voz.
-- Não expor `leads` em nenhuma rota de prod.
-
----
-
-# 7. Riscos & mitigação
-
-| Risco | Mitigação |
-|---|---|
-| Backfill pesado em empresas grandes | Rodar por `empresa_id`, em transações pequenas, com `ON CONFLICT DO UPDATE` |
-| Trigger em `logs_movimentacao_contatos` afetar caminho crítico | Trigger `AFTER INSERT`, sem `RAISE`, `SECURITY DEFINER`, testado com carga antes de habilitar |
-| Divergência silenciosa `leads` vs. logs | Job de consistência da Fase D + feature flag para rollback instantâneo |
-| RLS incorreta expondo leads de outra empresa | Espelhar exatamente a policy de `contatos` via `user_can_access_empresa` |
-
----
-
-# 8. Detalhes técnicos (para revisão do time)
-
-- `leads.empresa_id` denormalizado (copiado do contato no upsert) para RLS barata e índice curto.
-- `status` como `text` no início (não `USER-DEFINED`) para não acoplar ao enum `status_lead` — evita migração de enum caso o Kanban v2 introduza colunas novas.
-- Trigger também trata `UPDATE` em `contatos.responsavel_email` para manter espelho enquanto produção ainda escreve lá (fase de transição).
-- Nenhum GRANT para `anon`; apenas `authenticated` e `service_role`.
-
----
-
-# Entregáveis desta etapa
-
-- 1 migração (tabela + índices + RLS + trigger + função de backfill).
-- 1 RPC `get_kanban_v2`.
-- Ajuste no hook `useKanbanBasico` + feature flag.
-- Atualização do `README.md` do feature.
-- Nota em `mem://architecture/prospeccao/` sobre a nova entidade e seu escopo restrito ao v2.
+Criar o `.md` de diagnóstico e enviar a migração da RPC para aprovação.
