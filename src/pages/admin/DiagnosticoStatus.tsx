@@ -314,12 +314,6 @@ export default function DiagnosticoStatus() {
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">De</span>
-                <Input type="date" value={dataDe} onChange={(e) => { setDataDe(e.target.value); setPage(1); }} className="h-8 w-[140px]" />
-                <span className="text-xs text-muted-foreground">Até</span>
-                <Input type="date" value={dataAte} onChange={(e) => { setDataAte(e.target.value); setPage(1); }} className="h-8 w-[140px]" />
-              </div>
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
