@@ -285,6 +285,56 @@ export default function DiagnosticoStatus() {
     setSearch(""); setPage(1);
   };
 
+  const selectedLojaId = empresaIds.length === 1 ? empresaIds[0] : null;
+  const selectedLojaNome = selectedLojaId
+    ? empresasOptions.find((e) => e.id === selectedLojaId)?.label ?? ""
+    : "";
+
+  const openPreview = async () => {
+    if (!selectedLojaId) return;
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewData(null);
+    const { data, error } = await (supabase as any).rpc("preview_restauracao_vendedor", {
+      p_empresa_id: selectedLojaId,
+    });
+    setPreviewLoading(false);
+    if (error) {
+      toast.error("Falha no preview: " + error.message);
+      setPreviewOpen(false);
+      return;
+    }
+    setPreviewData(data);
+  };
+
+  const runRestore = async () => {
+    if (!selectedLojaId) return;
+    setRestoring(true);
+    let totalRestaurados = 0;
+    try {
+      // Loop batches of 500 until zero
+      for (let i = 0; i < 200; i++) {
+        const { data, error } = await (supabase as any).rpc("restore_leads_vendedor_por_loja", {
+          p_empresa_id: selectedLojaId,
+          p_dry_run: false,
+          p_limit: 500,
+        });
+        if (error) throw error;
+        const upd = Number(data?.atualizados ?? 0);
+        totalRestaurados += upd;
+        if (upd < 500) break;
+      }
+      toast.success(`Restauração concluída: ${totalRestaurados} lead(s) atualizado(s).`);
+      setPreviewOpen(false);
+      setPage(1);
+      fetchData();
+    } catch (err: any) {
+      toast.error("Falha na restauração: " + (err?.message ?? String(err)));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-4 p-4">
