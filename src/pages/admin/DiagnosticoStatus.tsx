@@ -77,14 +77,19 @@ function MultiSelectFilter({
   selected,
   onChange,
   width = 220,
+  toggleSelectAll = false,
+  wrapLabels = false,
 }: {
   label: string;
   options: { id: string; label: string }[];
   selected: string[];
   onChange: (ids: string[]) => void;
   width?: number;
+  toggleSelectAll?: boolean;
+  wrapLabels?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const allSelected = selected.length === options.length && options.length > 0;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -108,20 +113,32 @@ function MultiSelectFilter({
           <CommandList>
             <CommandEmpty>Nenhum resultado.</CommandEmpty>
             <CommandGroup>
-              <CommandItem
-                onSelect={() => onChange(options.map((o) => o.id))}
-                className="text-xs font-medium"
-              >
-                <Checkbox checked={selected.length === options.length && options.length > 0} className="mr-2" />
-                Selecionar todos
-              </CommandItem>
-              <CommandItem
-                onSelect={() => onChange([])}
-                className="text-xs text-muted-foreground"
-              >
-                <Checkbox checked={false} className="mr-2" />
-                Limpar seleção
-              </CommandItem>
+              {toggleSelectAll ? (
+                <CommandItem
+                  onSelect={() => onChange(allSelected ? [] : options.map((o) => o.id))}
+                  className="text-xs font-medium"
+                >
+                  <Checkbox checked={allSelected} className="mr-2" />
+                  {allSelected ? "Limpar seleção" : "Selecionar todos"}
+                </CommandItem>
+              ) : (
+                <>
+                  <CommandItem
+                    onSelect={() => onChange(options.map((o) => o.id))}
+                    className="text-xs font-medium"
+                  >
+                    <Checkbox checked={allSelected} className="mr-2" />
+                    Selecionar todos
+                  </CommandItem>
+                  <CommandItem
+                    onSelect={() => onChange([])}
+                    className="text-xs text-muted-foreground"
+                  >
+                    <Checkbox checked={false} className="mr-2" />
+                    Limpar seleção
+                  </CommandItem>
+                </>
+              )}
               <div className="h-px bg-border my-1" />
               {options.map((o) => {
                 const checked = selected.includes(o.id);
@@ -131,7 +148,7 @@ function MultiSelectFilter({
                     onSelect={() => onChange(checked ? selected.filter((s) => s !== o.id) : [...selected, o.id])}
                   >
                     <Checkbox checked={checked} className="mr-2" />
-                    <span className="truncate">{o.label}</span>
+                    <span className={wrapLabels ? "whitespace-normal break-words leading-snug" : "truncate"}>{o.label}</span>
                   </CommandItem>
                 );
               })}
