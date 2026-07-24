@@ -232,6 +232,27 @@ export default function DiagnosticoStatus() {
     [opcoes],
   );
 
+  // Opções de status derivadas dos leads carregados no recorte atual (empresa/evento/datas),
+  // para que os filtros de status só mostrem valores que existem no resultado filtrado.
+  const statusAtualOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => { if (r.status_atual) set.add(r.status_atual); });
+    // preserva também os já selecionados para não sumirem enquanto o usuário troca filtros
+    statusAtual.forEach((s) => set.add(s));
+    const arr = Array.from(set);
+    arr.sort((a, b) => STATUS_ORDER.indexOf(a as any) - STATUS_ORDER.indexOf(b as any));
+    return arr.map((s) => ({ id: s, label: s }));
+  }, [rows, statusAtual]);
+
+  const statusEsperadoOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => { if (r.status_esperado) set.add(r.status_esperado); });
+    statusEsperado.forEach((s) => set.add(s));
+    const arr = Array.from(set);
+    arr.sort((a, b) => STATUS_ORDER.indexOf(a as any) - STATUS_ORDER.indexOf(b as any));
+    return arr.map((s) => ({ id: s, label: s }));
+  }, [rows, statusEsperado]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     const selectedEmpresaIdsRaw = idsOrNull(empresaIds, empresasOptions);
@@ -553,8 +574,8 @@ export default function DiagnosticoStatus() {
             <div className="flex flex-wrap gap-2 items-center">
               <MultiSelectFilter label={loadingOpcoes ? "Carregando lojas..." : "Lojas"} options={empresasOptions} selected={empresaIds} onChange={(v) => { setEmpresaIds(v); setProspeccaoIds((ids) => ids.filter((id) => (opcoes?.prospeccoes ?? []).some((p) => p.id === id && (v.length === 0 || v.includes(p.empresa_id))))); setPage(1); }} toggleSelectAll width={240} />
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} toggleSelectAll wrapLabels width={260} />
-              <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
-              <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
+              <MultiSelectFilter label="Status atual" options={statusAtualOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
+              <MultiSelectFilter label="Status esperado" options={statusEsperadoOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
               <div className="flex items-center gap-1">
                 <Input
                   type="date"
