@@ -578,6 +578,16 @@ export default function DiagnosticoStatus() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Total de leads por evento vs. divergentes</DialogTitle>
+              <div className="flex items-center gap-4 pt-1">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Total geral: </span>
+                  <span className="font-semibold">{totalLeadsGeral.toLocaleString("pt-BR")}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Divergentes: </span>
+                  <span className="font-semibold text-primary">{totalDivergenciasGeral.toLocaleString("pt-BR")}</span>
+                </div>
+              </div>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-auto">
               {porEvento.length === 0 ? (
