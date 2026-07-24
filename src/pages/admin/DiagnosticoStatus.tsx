@@ -526,7 +526,25 @@ export default function DiagnosticoStatus() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Divergências por loja</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
+              <span>
+                Divergências{" "}
+                <span className="text-muted-foreground font-normal">
+                  · total geral:{" "}
+                  <span className="text-primary font-semibold">
+                    {totalDivergenciasGeral.toLocaleString("pt-BR")}
+                  </span>
+                </span>
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={porEvento.length === 0}
+                onClick={() => setDetalhesEventosOpen(true)}
+              >
+                Detalhes por evento
+              </Button>
+            </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             {porLoja.length === 0 ? (
@@ -547,31 +565,49 @@ export default function DiagnosticoStatus() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total de leads no evento vs. divergentes</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {porEvento.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {isGlobalQuery
-                  ? "Selecione uma loja, evento, status, período ou busca para carregar os totais."
-                  : "Nenhuma divergência com os filtros atuais."}
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {porEvento.map((e) => (
-                  <Badge key={e.prospeccao_id} variant="outline" className="cursor-pointer" onClick={() => { setProspeccaoIds([e.prospeccao_id]); setPage(1); }}>
-                    <span className="truncate max-w-[220px]">{e.evento_titulo}</span>
-                    <span className="ml-2 text-muted-foreground">{e.total_leads} total</span>
-                    <span className="mx-1">·</span>
-                    <span className="text-primary">{e.divergentes} divergentes</span>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Dialog open={detalhesEventosOpen} onOpenChange={setDetalhesEventosOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Total de leads por evento vs. divergentes</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-auto">
+              {porEvento.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-4">Nenhum evento no recorte atual.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Evento</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Divergentes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {porEvento.map((e) => (
+                      <TableRow
+                        key={e.prospeccao_id}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setProspeccaoIds([e.prospeccao_id]);
+                          setPage(1);
+                          setDetalhesEventosOpen(false);
+                        }}
+                      >
+                        <TableCell className="text-sm">{e.evento_titulo}</TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          {Number(e.total_leads).toLocaleString("pt-BR")}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-primary font-medium">
+                          {Number(e.divergentes).toLocaleString("pt-BR")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
