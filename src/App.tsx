@@ -70,6 +70,7 @@ const DiagnosticoEventos = lazy(() => import("./pages/admin/DiagnosticoEventos")
 const DiagnosticoStatus = lazy(() => import("./pages/admin/DiagnosticoStatus"));
 const Instancias = lazy(() => import("./pages/agentes-ia/Instancias"));
 const ConfirmarPresenca = lazy(() => import("./pages/ConfirmarPresenca"));
+const KanbanBasicoPage = lazy(() => import("./features/kanban-basico/KanbanBasicoPage"));
 
 // QueryClient with optimized defaults
 const queryClient = new QueryClient({
@@ -107,6 +108,7 @@ const AppRoutes = () => {
         <Route path="/prospeccao" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><Prospeccao /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/eventos" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><Prospeccao defaultTab="eventos" /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/atendimento" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><Prospeccao defaultTab="atendimento" /></PermissionProtectedRoute>} />
+        <Route path="/prospeccao/atendimento-v2" element={<PermissionProtectedRoute permissionKey="canViewProspeccao"><KanbanBasicoPage /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/recepcao" element={<PermissionProtectedRoute permissionKey="canAccessRecepcao"><Prospeccao defaultTab="recepcao" /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/vendas" element={<PermissionProtectedRoute permissionKey="canViewVendas"><Prospeccao defaultTab="vendas" /></PermissionProtectedRoute>} />
         <Route path="/prospeccao/templates" element={<PermissionProtectedRoute permissionKey="canViewTemplates"><Templates /></PermissionProtectedRoute>} />
