@@ -348,6 +348,15 @@ export default function DiagnosticoStatus() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              disabled={!selectedLojaId}
+              onClick={openPreview}
+              title={selectedLojaId ? undefined : "Selecione exatamente 1 loja para restaurar"}
+            >
+              <Wrench className="h-4 w-4 mr-2" /> Restaurar loja (Vendedor)
+            </Button>
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
