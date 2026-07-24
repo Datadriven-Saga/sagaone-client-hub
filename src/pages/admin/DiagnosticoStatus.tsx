@@ -173,6 +173,7 @@ export default function DiagnosticoStatus() {
   const [rows, setRows] = useState<LeadDivergente[]>([]);
   const [total, setTotal] = useState(0);
   const [porLoja, setPorLoja] = useState<{ empresa_id: string; loja_nome: string; total: number }[]>([]);
+  const [porEvento, setPorEvento] = useState<{ prospeccao_id: string; evento_titulo: string; empresa_id: string; total_leads: number; divergentes: number }[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
@@ -255,6 +256,7 @@ export default function DiagnosticoStatus() {
     setRows((data?.rows ?? []) as LeadDivergente[]);
     setTotal(data?.total ?? 0);
     setPorLoja((data?.por_loja ?? []) as any);
+    setPorEvento((data?.por_evento ?? []) as any);
   }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
@@ -531,6 +533,32 @@ export default function DiagnosticoStatus() {
                 {porLoja.map((l) => (
                   <Badge key={l.empresa_id} variant="outline" className="cursor-pointer" onClick={() => { setEmpresaIds([l.empresa_id]); setPage(1); }}>
                     {l.loja_nome} — {l.total}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de leads no evento vs. divergentes</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {porEvento.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {isGlobalQuery
+                  ? "Selecione uma loja, evento, status, período ou busca para carregar os totais."
+                  : "Nenhuma divergência com os filtros atuais."}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {porEvento.map((e) => (
+                  <Badge key={e.prospeccao_id} variant="outline" className="cursor-pointer" onClick={() => { setProspeccaoIds([e.prospeccao_id]); setPage(1); }}>
+                    <span className="truncate max-w-[220px]">{e.evento_titulo}</span>
+                    <span className="ml-2 text-muted-foreground">{e.total_leads} total</span>
+                    <span className="mx-1">·</span>
+                    <span className="text-primary">{e.divergentes} divergentes</span>
                   </Badge>
                 ))}
               </div>
