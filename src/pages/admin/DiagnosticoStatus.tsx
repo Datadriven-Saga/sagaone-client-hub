@@ -14,6 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -183,6 +184,12 @@ export default function DiagnosticoStatus() {
   const [auditoriaOpen, setAuditoriaOpen] = useState(false);
   const [auditoria, setAuditoria] = useState<any[]>([]);
   const [auditoriaLoading, setAuditoriaLoading] = useState(false);
+  const [detalhesEventosOpen, setDetalhesEventosOpen] = useState(false);
+
+  const totalDivergenciasGeral = useMemo(
+    () => porLoja.reduce((acc, l) => acc + Number(l.total || 0), 0),
+    [porLoja],
+  );
 
   const loadOpcoes = useCallback(async () => {
     setLoadingOpcoes(true);
