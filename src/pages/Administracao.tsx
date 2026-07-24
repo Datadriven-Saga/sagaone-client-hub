@@ -206,7 +206,7 @@ const Administracao = () => {
       description: "Leads cujo status atual diverge do último status registrado no histórico, agrupado por loja",
       icon: Activity,
       route: "/administracao/diagnostico-status",
-      permissionKey: "canAccessAdminConfig",
+      permissionKey: "canAccessDiagnosticoStatus",
     },
   ];
 
