@@ -191,6 +191,11 @@ export default function DiagnosticoStatus() {
     [porLoja],
   );
 
+  const totalLeadsGeral = useMemo(
+    () => porEvento.reduce((acc, e) => acc + Number(e.total_leads || 0), 0),
+    [porEvento],
+  );
+
   const loadOpcoes = useCallback(async () => {
     setLoadingOpcoes(true);
     const { data, error } = await (supabase as any).rpc("get_diagnostico_status_filtros");
@@ -530,7 +535,11 @@ export default function DiagnosticoStatus() {
               <span>
                 Divergências{" "}
                 <span className="text-muted-foreground font-normal">
-                  · total geral:{" "}
+                  · total de leads:{" "}
+                  <span className="text-foreground font-semibold">
+                    {totalLeadsGeral.toLocaleString("pt-BR")}
+                  </span>
+                  {" · "}divergentes:{" "}
                   <span className="text-primary font-semibold">
                     {totalDivergenciasGeral.toLocaleString("pt-BR")}
                   </span>
