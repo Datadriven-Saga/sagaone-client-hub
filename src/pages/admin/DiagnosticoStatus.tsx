@@ -8,7 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Activity, Search, X, RefreshCcw, ChevronLeft, ChevronRight, Download, Wrench } from "lucide-react";
+import { Activity, Search, X, RefreshCcw, ChevronLeft, ChevronRight, Download, Wrench, History } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -159,6 +160,11 @@ export default function DiagnosticoStatus() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [restoring, setRestoring] = useState(false);
+  const [tipoAcessoAlvo, setTipoAcessoAlvo] = useState<"Vendedor" | "SDR" | "Ambos">("Vendedor");
+  const [restoreProgress, setRestoreProgress] = useState<{ loja: string; atual: number; total: number } | null>(null);
+  const [auditoriaOpen, setAuditoriaOpen] = useState(false);
+  const [auditoria, setAuditoria] = useState<any[]>([]);
+  const [auditoriaLoading, setAuditoriaLoading] = useState(false);
 
   const loadOpcoes = useCallback(async () => {
     setLoadingOpcoes(true);
@@ -290,41 +296,114 @@ export default function DiagnosticoStatus() {
     ? empresasOptions.find((e) => e.id === selectedLojaId)?.label ?? ""
     : "";
 
+  const tiposArray = useMemo<string[]>(
+    () => (tipoAcessoAlvo === "Ambos" ? ["Vendedor", "SDR"] : [tipoAcessoAlvo]),
+    [tipoAcessoAlvo],
+  );
+
+  // Lojas alvo: se 1 selecionada usa ela; se nada ou tudo selecionado usa todas;
+  // caso contrário usa a seleção específica.
+  const lojasAlvoRestauracao = useMemo(() => {
+    const all = opcoes?.empresas ?? [];
+    if (empresaIds.length === 0 || empresaIds.length === all.length) {
+      return all.map((e) => ({ id: e.id, nome: e.nome }));
+    }
+    return all.filter((e) => empresaIds.includes(e.id)).map((e) => ({ id: e.id, nome: e.nome }));
+  }, [opcoes, empresaIds]);
+
+  const podeRestaurar = lojasAlvoRestauracao.length > 0;
+
   const openPreview = async () => {
-    if (!selectedLojaId) return;
+    if (!podeRestaurar) return;
     setPreviewOpen(true);
     setPreviewLoading(true);
     setPreviewData(null);
-    const { data, error } = await (supabase as any).rpc("preview_restauracao_vendedor", {
-      p_empresa_id: selectedLojaId,
-    });
-    setPreviewLoading(false);
-    if (error) {
-      toast.error("Falha no preview: " + error.message);
-      setPreviewOpen(false);
-      return;
+    // Preview: se 1 loja, chama; se várias, agrega
+    let agg = { total_divergentes: 0, elegiveis: 0, descartados_outros_perfis: 0, descartados_sem_perfil: 0 } as any;
+    let amostra: any[] = [];
+    for (const loja of lojasAlvoRestauracao.slice(0, 50)) {
+      const { data, error } = await (supabase as any).rpc("preview_restauracao_por_perfil", {
+        p_empresa_id: loja.id,
+        p_tipo_acesso: tiposArray,
+      });
+      if (error) continue;
+      agg.total_divergentes += Number(data?.total_divergentes ?? 0);
+      agg.elegiveis += Number(data?.elegiveis ?? 0);
+      agg.descartados_outros_perfis += Number(data?.descartados_outros_perfis ?? 0);
+      agg.descartados_sem_perfil += Number(data?.descartados_sem_perfil ?? 0);
+      if (amostra.length < 20 && Array.isArray(data?.amostra)) {
+        amostra = amostra.concat(data.amostra).slice(0, 20);
+      }
     }
-    setPreviewData(data);
+    agg.amostra = amostra;
+    agg.total_lojas = lojasAlvoRestauracao.length;
+    setPreviewLoading(false);
+    setPreviewData(agg);
   };
 
   const runRestore = async () => {
-    if (!selectedLojaId) return;
+    if (!podeRestaurar) return;
     setRestoring(true);
     let totalRestaurados = 0;
+    let totalLojasOk = 0;
+    let totalLojasErro = 0;
     try {
-      // Loop batches of 500 until zero
-      for (let i = 0; i < 200; i++) {
-        const { data, error } = await (supabase as any).rpc("restore_leads_vendedor_por_loja", {
-          p_empresa_id: selectedLojaId,
-          p_dry_run: false,
-          p_limit: 500,
-        });
-        if (error) throw error;
-        const upd = Number(data?.atualizados ?? 0);
-        totalRestaurados += upd;
-        if (upd < 500) break;
+      for (let idx = 0; idx < lojasAlvoRestauracao.length; idx++) {
+        const loja = lojasAlvoRestauracao[idx];
+        setRestoreProgress({ loja: loja.nome, atual: idx + 1, total: lojasAlvoRestauracao.length });
+        let restauradosLoja = 0;
+        let batchIdx = 0;
+        let deuErro = false;
+        // Batches por loja
+        for (let i = 0; i < 200; i++) {
+          const t0 = Date.now();
+          const { data, error } = await (supabase as any).rpc("restore_leads_por_perfil", {
+            p_empresa_id: loja.id,
+            p_tipo_acesso: tiposArray,
+            p_dry_run: false,
+            p_limit: 500,
+          });
+          const dur = Date.now() - t0;
+          if (error) {
+            deuErro = true;
+            await (supabase as any).from("restauracao_status_auditoria").insert({
+              empresa_id: loja.id,
+              loja_nome: loja.nome,
+              tipo_acesso_alvo: tiposArray,
+              batch_index: batchIdx,
+              processados: 0,
+              atualizados: 0,
+              status: "erro",
+              erro_mensagem: error.message ?? String(error),
+              erro_codigo: (error as any).code ?? null,
+              duracao_ms: dur,
+            });
+            break;
+          }
+          const upd = Number(data?.atualizados ?? 0);
+          const proc = Number(data?.processados ?? upd);
+          restauradosLoja += upd;
+          await (supabase as any).from("restauracao_status_auditoria").insert({
+            empresa_id: loja.id,
+            loja_nome: loja.nome,
+            tipo_acesso_alvo: tiposArray,
+            batch_index: batchIdx,
+            processados: proc,
+            atualizados: upd,
+            status: "sucesso",
+            amostra: data?.amostra ?? null,
+            duracao_ms: dur,
+          });
+          batchIdx++;
+          if (proc < 500) break;
+        }
+        if (deuErro) totalLojasErro++; else totalLojasOk++;
+        totalRestaurados += restauradosLoja;
       }
-      toast.success(`Restauração concluída: ${totalRestaurados} lead(s) atualizado(s).`);
+      toast.success(
+        `Restauração concluída: ${totalRestaurados} lead(s) em ${totalLojasOk} loja(s).` +
+          (totalLojasErro ? ` ${totalLojasErro} loja(s) com erro — verifique a auditoria.` : ""),
+      );
       setPreviewOpen(false);
       setPage(1);
       fetchData();
@@ -332,7 +411,21 @@ export default function DiagnosticoStatus() {
       toast.error("Falha na restauração: " + (err?.message ?? String(err)));
     } finally {
       setRestoring(false);
+      setRestoreProgress(null);
     }
+  };
+
+  const loadAuditoria = async () => {
+    setAuditoriaOpen(true);
+    setAuditoriaLoading(true);
+    const { data, error } = await (supabase as any)
+      .from("restauracao_status_auditoria")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setAuditoriaLoading(false);
+    if (error) { toast.error("Falha ao carregar auditoria: " + error.message); return; }
+    setAuditoria(data ?? []);
   };
 
   return (
@@ -351,11 +444,16 @@ export default function DiagnosticoStatus() {
             <Button
               variant="default"
               size="sm"
-              disabled={!selectedLojaId}
+              disabled={!podeRestaurar}
               onClick={openPreview}
-              title={selectedLojaId ? undefined : "Selecione exatamente 1 loja para restaurar"}
+              title={podeRestaurar
+                ? `Restaurar ${lojasAlvoRestauracao.length} loja(s) · ${tipoAcessoAlvo}`
+                : "Selecione ao menos 1 loja (ou deixe todas)"}
             >
-              <Wrench className="h-4 w-4 mr-2" /> Restaurar loja (Vendedor)
+              <Wrench className="h-4 w-4 mr-2" /> Restaurar ({tipoAcessoAlvo})
+            </Button>
+            <Button variant="outline" size="sm" onClick={loadAuditoria}>
+              <History className="h-4 w-4 mr-2" /> Auditoria
             </Button>
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
@@ -373,6 +471,16 @@ export default function DiagnosticoStatus() {
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
+              <Select value={tipoAcessoAlvo} onValueChange={(v: any) => setTipoAcessoAlvo(v)}>
+                <SelectTrigger className="h-8 w-[180px]">
+                  <SelectValue placeholder="Tipo de acesso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Vendedor">Tipo: Vendedor</SelectItem>
+                  <SelectItem value="SDR">Tipo: SDR</SelectItem>
+                  <SelectItem value="Ambos">Tipo: Vendedor + SDR</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -507,25 +615,35 @@ export default function DiagnosticoStatus() {
         <AlertDialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <AlertDialogContent className="max-w-lg">
             <AlertDialogHeader>
-              <AlertDialogTitle>Restaurar leads — {selectedLojaNome}</AlertDialogTitle>
+              <AlertDialogTitle>
+                Restaurar leads — {lojasAlvoRestauracao.length === 1
+                  ? lojasAlvoRestauracao[0].nome
+                  : `${lojasAlvoRestauracao.length} loja(s)`} · {tipoAcessoAlvo}
+              </AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-2 text-sm">
                   {previewLoading && <p>Calculando…</p>}
                   {!previewLoading && previewData && (
                     <>
                       <p>
-                        Serão restaurados apenas leads cujo último log válido aponta para um usuário com acesso <strong>Vendedor</strong>.
-                        Isso ajusta o status do lead e o responsável para o último estado registrado.
+                        Serão restaurados apenas leads cujo último log válido aponta para um usuário com acesso{" "}
+                        <strong>{tiposArray.join(" ou ")}</strong>. A execução é feita <strong>loja a loja</strong>,
+                        em lotes de 500, até finalizar cada uma antes de passar para a próxima.
                       </p>
                       <ul className="list-disc pl-5 space-y-1">
-                        <li>Total divergentes na loja: <strong>{previewData.total_divergentes ?? 0}</strong></li>
-                        <li>Elegíveis (Vendedor com e-mail): <strong className="text-primary">{previewData.elegiveis_vendedor ?? 0}</strong></li>
-                        <li>Descartados — SDR: {previewData.descartados_sdr ?? 0}</li>
+                        <li>Lojas alvo: <strong>{previewData.total_lojas ?? lojasAlvoRestauracao.length}</strong></li>
+                        <li>Total divergentes: <strong>{previewData.total_divergentes ?? 0}</strong></li>
+                        <li>Elegíveis ({tiposArray.join("+")}): <strong className="text-primary">{previewData.elegiveis ?? 0}</strong></li>
                         <li>Descartados — outros perfis: {previewData.descartados_outros_perfis ?? 0}</li>
                         <li>Descartados — sem perfil vinculado: {previewData.descartados_sem_perfil ?? 0}</li>
                       </ul>
+                      {restoreProgress && (
+                        <p className="text-xs">
+                          Em execução: <strong>{restoreProgress.loja}</strong> ({restoreProgress.atual}/{restoreProgress.total})
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
-                        A operação é feita em lotes de 500 e registra logs de auditoria com motivo <code>restauracao_vendedor_v1</code>.
+                        Cada lote registra auditoria em <code>restauracao_status_auditoria</code> (sucesso/erro).
                       </p>
                     </>
                   )}
@@ -535,11 +653,67 @@ export default function DiagnosticoStatus() {
             <AlertDialogFooter>
               <AlertDialogCancel disabled={restoring}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                disabled={restoring || previewLoading || !previewData || (previewData?.elegiveis_vendedor ?? 0) === 0}
+                disabled={restoring || previewLoading || !previewData || (previewData?.elegiveis ?? 0) === 0}
                 onClick={(e) => { e.preventDefault(); runRestore(); }}
               >
-                {restoring ? "Restaurando…" : `Restaurar ${previewData?.elegiveis_vendedor ?? 0} lead(s)`}
+                {restoring ? "Restaurando…" : `Restaurar ${previewData?.elegiveis ?? 0} lead(s)`}
               </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={auditoriaOpen} onOpenChange={setAuditoriaOpen}>
+          <AlertDialogContent className="max-w-4xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Auditoria de restaurações</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="text-xs text-muted-foreground">
+                  Últimos 200 lotes executados. Erros exibem o motivo.
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="max-h-[60vh] overflow-auto">
+              {auditoriaLoading ? (
+                <p className="p-4 text-sm">Carregando…</p>
+              ) : auditoria.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">Sem registros.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Loja</TableHead>
+                      <TableHead>Perfil</TableHead>
+                      <TableHead>Lote</TableHead>
+                      <TableHead>Proc.</TableHead>
+                      <TableHead>Atual.</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Erro</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditoria.map((a: any) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs whitespace-nowrap">{format(new Date(a.created_at), "dd/MM HH:mm:ss")}</TableCell>
+                        <TableCell className="text-xs">{a.loja_nome ?? a.empresa_id?.slice(0, 8)}</TableCell>
+                        <TableCell className="text-xs">{Array.isArray(a.tipo_acesso_alvo) ? a.tipo_acesso_alvo.join("+") : "—"}</TableCell>
+                        <TableCell className="text-xs">{a.batch_index}</TableCell>
+                        <TableCell className="text-xs">{a.processados}</TableCell>
+                        <TableCell className="text-xs font-medium">{a.atualizados}</TableCell>
+                        <TableCell>
+                          <Badge variant={a.status === "sucesso" ? "outline" : "destructive"}>{a.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[300px] truncate" title={a.erro_mensagem ?? ""}>
+                          {a.erro_mensagem ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Fechar</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
