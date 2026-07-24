@@ -256,6 +256,7 @@ export default function DiagnosticoStatus() {
     setRows((data?.rows ?? []) as LeadDivergente[]);
     setTotal(data?.total ?? 0);
     setPorLoja((data?.por_loja ?? []) as any);
+    setPorEvento((data?.por_evento ?? []) as any);
   }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
