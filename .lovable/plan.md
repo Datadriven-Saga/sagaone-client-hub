@@ -1,109 +1,130 @@
-# Plano — Restauração loja a loja (somente Vendedor)
 
-Objetivo: restaurar `status` e `responsavel_email` de leads cujo último log válido em `logs_movimentacao_contatos` aponta para um usuário com **acesso de Vendedor** (não SDR), executando **uma loja por vez** a partir de um botão na tela `/administracao/diagnostico-status`.
+# Kanban de Atendimento — entendimento, explicação e proposta base
 
-SDRs entram em plano separado (descrito no fim) e não são tocados nesta rodada.
-
----
-
-## 1. Regras de elegibilidade (por lead)
-
-Um lead entra na restauração desta rodada quando **todas** as condições valem:
-
-1. `contatos.empresa_id = <loja selecionada>`.
-2. Existe `logs_movimentacao_contatos` para `(contato_id, prospeccao_id)` cujo **último registro** tem `status_novo` em: `Atribuído`, `Em Espera`, `Em Atendimento`, `Convidado`, `Confirmado`, `Compareceu`, `Não Compareceu`, `Venda`, `Sem Interesse`, `Sem Contato`, `Insucesso`.
-3. O `responsavel_email` gravado no último log resolve para um `profiles.id` cujo `tipo_acesso` (via `useUserAccessType`/`cargo_tipo_acesso_mapping`) é **Vendedor** — nunca SDR, Gerente, Admin, etc.
-4. Estado atual diverge: `contatos.status = 'Novo'` **ou** `contatos.responsavel_email` está vazio/diferente do log.
-5. Evento (`prospeccoes`) da loja alvo — não propaga para outras lojas.
-
-Leads sem log, com log apontando para SDR, ou cujo último status legítimo já é `Novo` **não são tocados**.
+Antes de qualquer código, precisamos concordar em três coisas: **onde o lead vive**, **onde o "contato" (interação) vive**, e **quais colunas mínimas** o Kanban precisa. Esta é a versão "básico do básico" — nada de agregações, dispatch, IA, temperatura. Só o esqueleto.
 
 ---
 
-## 2. Fluxo por loja
+## 1. Onde o lead vive (modelo de dados atual)
 
 ```text
-[Tela Diagnóstico de Status]
-   ↓ usuário seleciona 1 loja no filtro
-   ↓ clica "Restaurar loja (Vendedor)"
-[Modal de confirmação]
-   • Total divergente na loja
-   • Elegíveis Vendedor (a restaurar)
-   • Descartados (SDR / sem log / sem match)
-   ↓ confirma
-[RPC restore_leads_vendedor_por_loja]
-   • dry_run=true → devolve preview
-   • dry_run=false → aplica em lote de 500, transacional
-[Toast + refetch da tabela]
+empresas
+  └── eventos_prospeccao (prospecções / eventos de venda)
+         └── eventos_prospeccao (tabela vínculo lead ↔ evento)   ⚠ nome sobrecarregado
+                    │
+                    └── contatos (a "pessoa" — 1 por telefone/empresa)
+                              ├── contato_anotacoes    (histórico textual do lead)
+                              ├── logs_movimentacao_contatos  (mudanças de status)
+                              └── contato_timeline     (view agregada)
 ```
 
----
+Pontos importantes (e débitos já mapeados na memória do projeto):
 
-## 3. Backend
+- **`contatos`** é a entidade "pessoa" — única por telefone dentro da empresa. Tem um campo `status` **global**, que hoje é o que o Kanban lê/escreve na maior parte dos fluxos.
+- **`eventos_prospeccao`** faz dois papéis no mesmo nome de tabela: cadastro do evento **e** vínculo lead↔evento. É débito arquitetural conhecido.
+- **`logs_movimentacao_contatos`** é a única fonte confiável de "qual era o status desse lead **neste evento** naquele momento". É o que já usamos para derivar status por evento em algumas telas (`get_contato_status_por_evento`).
+- **`contato_anotacoes`** pertence ao **lead**, não ao evento. `prospeccao_id` é só metadado. Ou seja: histórico é compartilhado entre eventos do mesmo lead.
 
-### 3.1 RPC de preview
-
-`public.preview_restauracao_vendedor(p_empresa_id uuid)` retorna:
-
-- `total_divergentes`
-- `elegiveis_vendedor`
-- `descartados_sdr`
-- `descartados_sem_log`
-- `descartados_sem_perfil`
-- amostra de até 20 leads (contato_id, nome, status_atual, status_esperado, responsavel_email)
-
-### 3.2 RPC de execução
-
-`public.restore_leads_vendedor_por_loja(p_empresa_id uuid, p_dry_run boolean default true, p_limit int default 500)`:
-
-- `SECURITY DEFINER`, `search_path = public`, restrita a Admin/Master/TI (checa via `has_role`).
-- Monta CTE com o último log por `(contato_id, prospeccao_id)` da loja.
-- Junta com `profiles` + mapping `cargo_tipo_acesso_mapping` para filtrar `tipo_acesso = 'vendedor'`.
-- Atualiza `contatos.status` e `contatos.responsavel_email` **sem** disparar reatribuição/round-robin (flag interna `p_skip_auto = true` no caminho de update).
-- Grava `logs_movimentacao_contatos` com `motivo = 'restauracao_vendedor_v1'` e `usuario_id = auth.uid()` para auditoria.
-- Não emite webhook externo (evita 24k eventos).
-- Retorna `{ processados, atualizados, ignorados, amostra }`.
-
-### 3.3 Guard rails
-
-- `statement_timeout = 60s` local via `SET LOCAL`.
-- Lote máximo 500; a UI chama em loop até `processados < p_limit`.
-- Bloqueia execução se `p_empresa_id IS NULL` (nunca "todas as lojas de uma vez").
+**Consequência prática que precisa ficar clara antes de desenhar o Kanban:**
+o mesmo lead pode aparecer em N eventos. Hoje o status é global → em todos os eventos ele aparece com o mesmo status. Isso já é reconhecido como débito e parcialmente mitigado (leitura por evento em algumas telas, escrita ainda global via `mutate_contato_status_atomic`).
 
 ---
 
-## 4. Frontend — `src/pages/admin/DiagnosticoStatus.tsx`
+## 2. Onde o "contato" (interação) vive
 
-1. Novo botão **"Restaurar loja (Vendedor)"** no header, **habilitado apenas quando `empresaIds.length === 1`**. Tooltip explicando o requisito quando desabilitado.
-2. Ao clicar: chama `preview_restauracao_vendedor` e abre `AlertDialog` com os contadores + amostra.
-3. Confirmação executa `restore_leads_vendedor_por_loja` em loop de lotes com barra de progresso (`processados / elegiveis`).
-4. Ao terminar, refetch de `get_leads_status_divergente` e `porLoja`; toast com o resumo.
-5. Log de execução aparece no `logs_prospeccoes` já existente (motivo `restauracao_vendedor_v1`) para consulta posterior.
+"Contato" no sentido do SDR ("realizei contato com o cliente") **não é uma entidade separada**. Hoje ele é registrado como:
 
-Apenas UI e chamadas de RPC — nenhuma alteração em regras de negócio de Kanban/atribuição.
+- **anotação** em `contato_anotacoes` (texto livre, prefixado: `📞 CONTATO REALIZADO`, `📵 TENTATIVA SEM SUCESSO`, etc.);
+- **mudança de status** em `logs_movimentacao_contatos` (ex.: Novo → Em Espera);
+- opcionalmente, incremento de tentativas de ligação (contagem no card).
 
----
+Ou seja: **um "contato realizado" = uma linha em `logs_movimentacao_contatos` + uma linha em `contato_anotacoes`**, correlacionadas por `contato_id` (+ `prospeccao_id` como metadado).
 
-## 5. Rollout
-
-1. Migration cria as duas RPCs.
-2. Deploy da UI com o botão.
-3. Executar `dry_run` em 3 lojas piloto (menor, média, maior) e conferir amostra.
-4. Rodar restauração real loja a loja, validando no `/administracao/diagnostico-status` que `total` cai para o esperado.
-5. Registrar cada execução em `docs/reset-leads-*.md` com contadores antes/depois.
+Não existe hoje uma tabela `contatos_realizados` ou `interacoes` dedicada — e para o "básico do básico" **não precisa existir**. Reaproveitamos anotação + log.
 
 ---
 
-## 6. Rollback
+## 3. Colunas mínimas do Kanban
 
-Como cada update grava log com `motivo = 'restauracao_vendedor_v1'`, uma RPC `rollback_restauracao_vendedor(p_empresa_id, p_desde timestamptz)` reverte usando o `status_anterior`/`responsavel_email` do log imediatamente anterior. Fica pronta mas não é executada na rodada normal.
+Consolidando o que já está em produção (`docs/operacoes/manual-do-usuario/03-prospeccao-kanban.md`), o conjunto reduzido para "básico do básico" é:
+
+| # | Coluna    | Status interno | Quem move  |
+|---|-----------|----------------|------------|
+| 1 | Novos     | `Novo`         | sistema (import) |
+| 2 | Atribuídos| `Atribuído`    | sistema/gestor (auto-atribuição) |
+| 3 | Em Espera | `Em Espera`    | SDR (contato feito, sem decisão) |
+| 4 | Convidados| `Convidado`    | SDR (cliente confirmou interesse) |
+| 5 | Descartados| `Descartado`  | SDR (sem interesse) |
+
+Ficam **fora** do MVP (voltam depois, uma a uma):
+- `Confirmado`, `Check-in`, `Venda`, `Opt Out` — pertencem a fluxos vizinhos (Recepção, Pós-venda, Compliance) e já têm regras/webhooks próprios; entram depois de o esqueleto estar estável.
 
 ---
 
-## 7. Plano separado (SDR) — pendente
+## 4. Proposta de reconstrução (esqueleto mínimo)
 
-Mesma mecânica, mas:
+**Objetivo desta fase:** ter um Kanban que **apenas** liste leads de **um evento** nas 5 colunas acima e permita mover entre elas. Sem filtros avançados, sem popover de "Contato Realizado", sem temperatura, sem dispatch, sem IA. Nada.
 
-- Filtra `tipo_acesso = 'sdr'`.
-- Precisa validar `prospeccao_equipe_membros` no momento do log (SDR pode ter saído da equipe).
-- Decisão pendente: se SDR não pertence mais à equipe do evento, restaurar mesmo assim (auditoria) ou deixar sem responsável para o gestor reatribuir. Fica documentado aqui e será detalhado quando esta rodada de Vendedor terminar.
+### 4.1 Contrato de dados (leitura)
+
+Uma única RPC nova, ex.: `get_kanban_basico(p_prospeccao_id uuid, p_status text[], p_limit int, p_offset int)` que retorna, **por status derivado do evento**:
+
+```text
+{
+  colunas: [
+    { status: 'Novo',       total: N, items: [ {contato_id, nome, telefone, responsavel} ... ] },
+    { status: 'Atribuído',  ... },
+    ...
+  ]
+}
+```
+
+Regras:
+- Status derivado por `logs_movimentacao_contatos` **para aquele `prospeccao_id`**, com fallback documentado (última entrada do lead ou `Novo` se nunca movimentado nesse evento).
+- Sempre exige `prospeccao_id` — nunca roda "todos os eventos" (respeita a memory `kanban-default-filter-and-timeout-prevention` que bloqueia timeout 57014).
+
+### 4.2 Contrato de escrita (mover card)
+
+Reaproveitar o que já existe e é seguro:
+- **`mutate_contato_status_atomic(contato_id, prospeccao_id, novo_status, autor)`** — única porta de escrita.
+- Grava log em `logs_movimentacao_contatos` + atualiza `contatos.status`.
+- Trigger PG cuida do webhook Mobi (memory `movimentacao-lead-single-source`). FE **não** chama `trigger-webhook`.
+
+### 4.3 Componentes de UI (do zero, isolados)
+
+Novos arquivos, sem tocar em `Prospeccao.tsx` (3925 linhas — refactor pendente):
+
+```text
+src/features/kanban-basico/
+  KanbanBasicoPage.tsx         ← rota nova (ex.: /prospeccao/atendimento-v2)
+  KanbanBasicoBoard.tsx        ← board com as 5 colunas
+  KanbanBasicoColumn.tsx       ← coluna, conta total + lista items
+  KanbanBasicoCard.tsx         ← só nome, telefone, responsável
+  useKanbanBasico.ts           ← chama a RPC, expõe move()
+```
+
+Nada mais. Sem drag-and-drop na v0 se quisermos simplificar ainda mais — botão "mover para →" no card já resolve a premissa.
+
+### 4.4 O que **não** entra nesta fase
+
+- Filtros (responsável, temperatura, marca, origem, busca).
+- Multi-evento no mesmo board.
+- Popover "Contato Realizado" com incremento de tentativas.
+- Solicitar leads / auto-atribuição.
+- Anotações inline.
+- Regras de bloqueio 24h, limite 30 leads SDR, opt-out.
+- Realtime / otimista.
+- Substituir a tela antiga (`/prospeccao/atendimento` continua rodando em paralelo).
+
+Cada um desses volta como um passo separado, encaixando no esqueleto.
+
+---
+
+## 5. Perguntas antes de eu prosseguir para um plano executável
+
+1. **Escopo de colunas do MVP:** as 5 acima (`Novo`, `Atribuído`, `Em Espera`, `Convidado`, `Descartado`) estão OK, ou você quer incluir/excluir alguma já no esqueleto?
+2. **Único evento por vez:** confirma que o MVP mostra **um** `prospeccao_id` obrigatoriamente selecionado (sem multi-evento)?
+3. **Substituir ou coexistir:** construímos em rota nova (ex.: `/prospeccao/atendimento-v2`) enquanto o Kanban atual continua vivo, ou você quer que já **substitua** a tela atual desde a v0?
+4. **Fonte do status:** vamos oficializar leitura por `logs_movimentacao_contatos` (por evento) já na v0, ou começamos lendo `contatos.status` global só para não misturar refactor de leitura com refactor de UI?
+
+Assim que você responder essas 4, eu volto com o plano de implementação em passos concretos (RPC + rota + componentes), sem tocar em nada até você aprovar.
