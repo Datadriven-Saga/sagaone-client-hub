@@ -253,8 +253,8 @@ export default function DiagnosticoStatus() {
         p_status_atual: selectedStatusAtual,
         p_status_esperado: selectedStatusEsperado,
         p_search: search || null,
-        p_data_de: null,
-        p_data_ate: null,
+        p_data_de: dataDeIso,
+        p_data_ate: dataAteIso,
         p_page: page,
         p_page_size: PAGE_SIZE,
       });
@@ -312,7 +312,7 @@ export default function DiagnosticoStatus() {
       setRestoreProgress(null);
       setLoading(false);
     }
-  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
+  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page, dataDeIso, dataAteIso]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
   useEffect(() => { fetchData(); }, [fetchData]);
