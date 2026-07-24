@@ -202,8 +202,6 @@ export default function DiagnosticoStatus() {
       hasSpecificSelection(empresaIds, empresasOptions) ||
       hasSpecificSelection(prospeccaoIds, prospeccoesOptions) ||
       Boolean(search.trim()) ||
-      Boolean(dataDe) ||
-      Boolean(dataAte) ||
       hasSpecificSelection(statusAtual, statusOptions) ||
       hasSpecificSelection(statusEsperado, statusOptions);
 
@@ -221,8 +219,8 @@ export default function DiagnosticoStatus() {
       p_status_atual: selectedStatusAtual,
       p_status_esperado: selectedStatusEsperado,
       p_search: search || null,
-      p_data_de: dataDe ? new Date(dataDe).toISOString() : null,
-      p_data_ate: dataAte ? new Date(dataAte + "T23:59:59").toISOString() : null,
+      p_data_de: null,
+      p_data_ate: null,
       p_page: page,
       p_page_size: PAGE_SIZE,
     });
@@ -234,7 +232,7 @@ export default function DiagnosticoStatus() {
     setRows((data?.rows ?? []) as LeadDivergente[]);
     setTotal(data?.total ?? 0);
     setPorLoja((data?.por_loja ?? []) as any);
-  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, dataDe, dataAte, page]);
+  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -245,9 +243,7 @@ export default function DiagnosticoStatus() {
     !hasSpecificSelection(prospeccaoIds, prospeccoesOptions) &&
     !hasSpecificSelection(statusAtual, statusOptions) &&
     !hasSpecificSelection(statusEsperado, statusOptions) &&
-    !search.trim() &&
-    !dataDe &&
-    !dataAte;
+    !search.trim();
 
   const rowsByLoja = useMemo(() => {
     const map = new Map<string, LeadDivergente[]>();
@@ -286,7 +282,7 @@ export default function DiagnosticoStatus() {
 
   const clearFilters = () => {
     setEmpresaIds([]); setProspeccaoIds([]); setStatusAtual([]); setStatusEsperado([]);
-    setSearch(""); setDataDe(""); setDataAte(""); setPage(1);
+    setSearch(""); setPage(1);
   };
 
   return (
