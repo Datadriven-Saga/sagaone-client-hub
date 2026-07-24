@@ -541,6 +541,32 @@ export default function DiagnosticoStatus() {
         </Card>
 
         <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de leads no evento vs. divergentes</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {porEvento.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {isGlobalQuery
+                  ? "Selecione uma loja, evento, status, período ou busca para carregar os totais."
+                  : "Nenhuma divergência com os filtros atuais."}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {porEvento.map((e) => (
+                  <Badge key={e.prospeccao_id} variant="outline" className="cursor-pointer" onClick={() => { setProspeccaoIds([e.prospeccao_id]); setPage(1); }}>
+                    <span className="truncate max-w-[220px]">{e.evento_titulo}</span>
+                    <span className="ml-2 text-muted-foreground">{e.total_leads} total</span>
+                    <span className="mx-1">·</span>
+                    <span className="text-primary">{e.divergentes} divergentes</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium">
               {loading ? "Carregando..." : `${total.toLocaleString("pt-BR")} leads divergentes`}
