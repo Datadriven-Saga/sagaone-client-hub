@@ -8,7 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Activity, Search, X, RefreshCcw, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Activity, Search, X, RefreshCcw, ChevronLeft, ChevronRight, Download, Wrench } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -146,13 +150,15 @@ export default function DiagnosticoStatus() {
   const [statusAtual, setStatusAtual] = useState<string[]>([]);
   const [statusEsperado, setStatusEsperado] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [dataDe, setDataDe] = useState("");
-  const [dataAte, setDataAte] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<LeadDivergente[]>([]);
   const [total, setTotal] = useState(0);
   const [porLoja, setPorLoja] = useState<{ empresa_id: string; loja_nome: string; total: number }[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
+  const [restoring, setRestoring] = useState(false);
 
   const loadOpcoes = useCallback(async () => {
     setLoadingOpcoes(true);
@@ -196,8 +202,6 @@ export default function DiagnosticoStatus() {
       hasSpecificSelection(empresaIds, empresasOptions) ||
       hasSpecificSelection(prospeccaoIds, prospeccoesOptions) ||
       Boolean(search.trim()) ||
-      Boolean(dataDe) ||
-      Boolean(dataAte) ||
       hasSpecificSelection(statusAtual, statusOptions) ||
       hasSpecificSelection(statusEsperado, statusOptions);
 
@@ -215,8 +219,8 @@ export default function DiagnosticoStatus() {
       p_status_atual: selectedStatusAtual,
       p_status_esperado: selectedStatusEsperado,
       p_search: search || null,
-      p_data_de: dataDe ? new Date(dataDe).toISOString() : null,
-      p_data_ate: dataAte ? new Date(dataAte + "T23:59:59").toISOString() : null,
+      p_data_de: null,
+      p_data_ate: null,
       p_page: page,
       p_page_size: PAGE_SIZE,
     });
@@ -228,7 +232,7 @@ export default function DiagnosticoStatus() {
     setRows((data?.rows ?? []) as LeadDivergente[]);
     setTotal(data?.total ?? 0);
     setPorLoja((data?.por_loja ?? []) as any);
-  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, dataDe, dataAte, page]);
+  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -239,9 +243,7 @@ export default function DiagnosticoStatus() {
     !hasSpecificSelection(prospeccaoIds, prospeccoesOptions) &&
     !hasSpecificSelection(statusAtual, statusOptions) &&
     !hasSpecificSelection(statusEsperado, statusOptions) &&
-    !search.trim() &&
-    !dataDe &&
-    !dataAte;
+    !search.trim();
 
   const rowsByLoja = useMemo(() => {
     const map = new Map<string, LeadDivergente[]>();
@@ -280,7 +282,57 @@ export default function DiagnosticoStatus() {
 
   const clearFilters = () => {
     setEmpresaIds([]); setProspeccaoIds([]); setStatusAtual([]); setStatusEsperado([]);
-    setSearch(""); setDataDe(""); setDataAte(""); setPage(1);
+    setSearch(""); setPage(1);
+  };
+
+  const selectedLojaId = empresaIds.length === 1 ? empresaIds[0] : null;
+  const selectedLojaNome = selectedLojaId
+    ? empresasOptions.find((e) => e.id === selectedLojaId)?.label ?? ""
+    : "";
+
+  const openPreview = async () => {
+    if (!selectedLojaId) return;
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewData(null);
+    const { data, error } = await (supabase as any).rpc("preview_restauracao_vendedor", {
+      p_empresa_id: selectedLojaId,
+    });
+    setPreviewLoading(false);
+    if (error) {
+      toast.error("Falha no preview: " + error.message);
+      setPreviewOpen(false);
+      return;
+    }
+    setPreviewData(data);
+  };
+
+  const runRestore = async () => {
+    if (!selectedLojaId) return;
+    setRestoring(true);
+    let totalRestaurados = 0;
+    try {
+      // Loop batches of 500 until zero
+      for (let i = 0; i < 200; i++) {
+        const { data, error } = await (supabase as any).rpc("restore_leads_vendedor_por_loja", {
+          p_empresa_id: selectedLojaId,
+          p_dry_run: false,
+          p_limit: 500,
+        });
+        if (error) throw error;
+        const upd = Number(data?.atualizados ?? 0);
+        totalRestaurados += upd;
+        if (upd < 500) break;
+      }
+      toast.success(`Restauração concluída: ${totalRestaurados} lead(s) atualizado(s).`);
+      setPreviewOpen(false);
+      setPage(1);
+      fetchData();
+    } catch (err: any) {
+      toast.error("Falha na restauração: " + (err?.message ?? String(err)));
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
@@ -296,6 +348,15 @@ export default function DiagnosticoStatus() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              disabled={!selectedLojaId}
+              onClick={openPreview}
+              title={selectedLojaId ? undefined : "Selecione exatamente 1 loja para restaurar"}
+            >
+              <Wrench className="h-4 w-4 mr-2" /> Restaurar loja (Vendedor)
+            </Button>
             <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
@@ -312,12 +373,6 @@ export default function DiagnosticoStatus() {
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">De</span>
-                <Input type="date" value={dataDe} onChange={(e) => { setDataDe(e.target.value); setPage(1); }} className="h-8 w-[140px]" />
-                <span className="text-xs text-muted-foreground">Até</span>
-                <Input type="date" value={dataAte} onChange={(e) => { setDataAte(e.target.value); setPage(1); }} className="h-8 w-[140px]" />
-              </div>
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -448,6 +503,46 @@ export default function DiagnosticoStatus() {
             )}
           </CardContent>
         </Card>
+
+        <AlertDialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <AlertDialogContent className="max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Restaurar leads — {selectedLojaNome}</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  {previewLoading && <p>Calculando…</p>}
+                  {!previewLoading && previewData && (
+                    <>
+                      <p>
+                        Serão restaurados apenas leads cujo último log válido aponta para um usuário com acesso <strong>Vendedor</strong>.
+                        Isso ajusta o status do lead e o responsável para o último estado registrado.
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Total divergentes na loja: <strong>{previewData.total_divergentes ?? 0}</strong></li>
+                        <li>Elegíveis (Vendedor com e-mail): <strong className="text-primary">{previewData.elegiveis_vendedor ?? 0}</strong></li>
+                        <li>Descartados — SDR: {previewData.descartados_sdr ?? 0}</li>
+                        <li>Descartados — outros perfis: {previewData.descartados_outros_perfis ?? 0}</li>
+                        <li>Descartados — sem perfil vinculado: {previewData.descartados_sem_perfil ?? 0}</li>
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        A operação é feita em lotes de 500 e registra logs de auditoria com motivo <code>restauracao_vendedor_v1</code>.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={restoring}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={restoring || previewLoading || !previewData || (previewData?.elegiveis_vendedor ?? 0) === 0}
+                onClick={(e) => { e.preventDefault(); runRestore(); }}
+              >
+                {restoring ? "Restaurando…" : `Restaurar ${previewData?.elegiveis_vendedor ?? 0} lead(s)`}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
