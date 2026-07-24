@@ -362,7 +362,7 @@ export default function DiagnosticoStatus() {
 
   const clearFilters = () => {
     setEmpresaIds([]); setProspeccaoIds([]); setStatusAtual([]); setStatusEsperado([]);
-    setSearch(""); setPage(1);
+    setSearch(""); setPage(1); setDataDe(""); setDataAte("");
   };
 
   const selectedLojaId = empresaIds.length === 1 ? empresaIds[0] : null;
@@ -395,10 +395,14 @@ export default function DiagnosticoStatus() {
     // Preview: se 1 loja, chama; se várias, agrega
     let agg = { total_divergentes: 0, elegiveis: 0, descartados_outros_perfis: 0, descartados_sem_perfil: 0 } as any;
     let amostra: any[] = [];
+    const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
     for (const loja of lojasAlvoRestauracao.slice(0, 50)) {
       const { data, error } = await (supabase as any).rpc("preview_restauracao_por_perfil", {
         p_empresa_id: loja.id,
         p_tipo_acesso: tiposArray,
+        p_data_de: dataDeIso,
+        p_data_ate: dataAteIso,
+        p_prospeccao_ids: selectedProspeccaoIds,
       });
       if (error) continue;
       agg.total_divergentes += Number(data?.total_divergentes ?? 0);
@@ -411,6 +415,8 @@ export default function DiagnosticoStatus() {
     }
     agg.amostra = amostra;
     agg.total_lojas = lojasAlvoRestauracao.length;
+    agg.data_de = dataDeIso;
+    agg.data_ate = dataAteIso;
     setPreviewLoading(false);
     setPreviewData(agg);
   };
@@ -421,6 +427,7 @@ export default function DiagnosticoStatus() {
     let totalRestaurados = 0;
     let totalLojasOk = 0;
     let totalLojasErro = 0;
+    const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
     try {
       for (let idx = 0; idx < lojasAlvoRestauracao.length; idx++) {
         const loja = lojasAlvoRestauracao[idx];
@@ -436,6 +443,9 @@ export default function DiagnosticoStatus() {
             p_tipo_acesso: tiposArray,
             p_dry_run: false,
             p_limit: 500,
+            p_data_de: dataDeIso,
+            p_data_ate: dataAteIso,
+            p_prospeccao_ids: selectedProspeccaoIds,
           });
           const dur = Date.now() - t0;
           if (error) {
