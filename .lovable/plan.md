@@ -1,45 +1,109 @@
+# Plano — Restauração loja a loja (somente Vendedor)
 
-# Restaurar acesso da Iris com `iris.vcamargo@gruposaga.com.br`
+Objetivo: restaurar `status` e `responsavel_email` de leads cujo último log válido em `logs_movimentacao_contatos` aponta para um usuário com **acesso de Vendedor** (não SDR), executando **uma loja por vez** a partir de um botão na tela `/administracao/diagnostico-status`.
 
-## Diagnóstico verificado (via banco)
+SDRs entram em plano separado (descrito no fim) e não são tocados nesta rodada.
 
-- Hoje `2026-07-23 14:04:19` o admin `240d8c4e-f7d2-4201-87b5-7e7873dbd218` deletou o profile `d896d921-…` cujo email era **`iris.vcamargo@gruposaga.com.br`** (nome `Iris Camargo`, `tipo_acesso = CRM`). Está preservado em `public.deleted_users_archive`.
-- Em `14:07:12` uma segunda conta `_ris.vcamargo@saganet.onmicrosoft.com` (id `b874bc97-…`) também foi arquivada.
-- Em `14:08:43` o SSO Azure entrou novamente e o auto-provisioning criou **um novo** `auth.users` `948a55ae-b9c2-4c34-9e63-54cbdfd3dddc` com email `_ris.vcamargo@saganet.onmicrosoft.com`, profile `iris virginia flausino de camargo`, e já veio com 90+ empresas (`is_ativa = BMW GYN`).
-- **Em `auth.users` não existe nenhuma linha com `iris.vcamargo@gruposaga.com.br`** hoje — só o registro `948a55ae` com o email errado do Azure.
+---
 
-## Causa do email estranho
+## 1. Regras de elegibilidade (por lead)
 
-O Azure AD dela está com `userPrincipalName = _ris.vcamargo@saganet.onmicrosoft.com` (underscore no lugar do "i" e domínio `.onmicrosoft.com`). Isso é config do Azure AD, não do SagaOne — mas afeta o auto-provisioning aqui todo login que ela fizer.
+Um lead entra na restauração desta rodada quando **todas** as condições valem:
 
-## O que vou fazer (só depois da sua aprovação)
+1. `contatos.empresa_id = <loja selecionada>`.
+2. Existe `logs_movimentacao_contatos` para `(contato_id, prospeccao_id)` cujo **último registro** tem `status_novo` em: `Atribuído`, `Em Espera`, `Em Atendimento`, `Convidado`, `Confirmado`, `Compareceu`, `Não Compareceu`, `Venda`, `Sem Interesse`, `Sem Contato`, `Insucesso`.
+3. O `responsavel_email` gravado no último log resolve para um `profiles.id` cujo `tipo_acesso` (via `useUserAccessType`/`cargo_tipo_acesso_mapping`) é **Vendedor** — nunca SDR, Gerente, Admin, etc.
+4. Estado atual diverge: `contatos.status = 'Novo'` **ou** `contatos.responsavel_email` está vazio/diferente do log.
+5. Evento (`prospeccoes`) da loja alvo — não propaga para outras lojas.
 
-### Etapa 1 — Restaurar o usuário canônico
-1. Atualizar o auth user existente `948a55ae-…` trocando o email para `iris.vcamargo@gruposaga.com.br` (via `auth.admin.updateUserById` na edge `manage-users`, ou UPDATE direto em `auth.users` se preferir SQL — recomendo o primeiro).
-2. Atualizar o `public.profiles` do mesmo id para:
-   - `nome_completo = 'Iris Camargo'` (do archive)
-   - `tipo_acesso = 'CRM'` (do archive)
-   - `status = 'ativo'`
-3. Manter as `user_empresas` que o SSO já criou (BMW GYN ativa + 90 outras). **Confirmar com você** se ela deve ficar em todas essas empresas ou apenas nas originais dela (o archive não guarda a lista de empresas anteriores — só o profile).
+Leads sem log, com log apontando para SDR, ou cujo último status legítimo já é `Novo` **não são tocados**.
 
-### Etapa 2 — Prevenir o loop de auto-provisioning
-Enquanto o Azure AD dela continuar com UPN `_ris...saganet`, o próximo login SSO vai:
-- Ou reaproveitar o user `948a55ae` (se o auto-provisioning casar pelo `oid`/`sub` do Azure) — **desejado**;
-- Ou criar OUTRO auth user com o email `_ris...saganet` — **problema, cai no mesmo ciclo**.
+---
 
-Preciso verificar em `supabase/functions/azure-auto-provision` (ou nome equivalente) qual campo é usado para match — se for `email`, mudar para `sub`/`provider_id` para evitar recriação.
+## 2. Fluxo por loja
 
-### Etapa 3 (opcional, recomendo pedir ao TI)
-Corrigir o UPN da Iris no Azure AD para `iris.vcamargo@gruposaga.com.br`. Sem isso, todo login SSO dela vai vir com email errado.
+```text
+[Tela Diagnóstico de Status]
+   ↓ usuário seleciona 1 loja no filtro
+   ↓ clica "Restaurar loja (Vendedor)"
+[Modal de confirmação]
+   • Total divergente na loja
+   • Elegíveis Vendedor (a restaurar)
+   • Descartados (SDR / sem log / sem match)
+   ↓ confirma
+[RPC restore_leads_vendedor_por_loja]
+   • dry_run=true → devolve preview
+   • dry_run=false → aplica em lote de 500, transacional
+[Toast + refetch da tabela]
+```
 
-## Perguntas antes de executar
+---
 
-1. Restauro as empresas dela conforme o `948a55ae` está hoje (BMW GYN + 90 outras vinculadas pelo SSO), ou você quer que eu deixe apenas as empresas que ela tinha antes? *(o archive não tem essa lista — precisaria você informar ou eu remover todas menos BMW GYN)*
-2. Você já pediu ao TI para corrigir o UPN no Azure AD, ou quer que eu deixe uma trava no código para o auto-provisioning aceitar o UPN errado apenas se casar com email conhecido?
+## 3. Backend
 
-## Arquivos que serão tocados
+### 3.1 RPC de preview
 
-- `supabase/functions/manage-users/index.ts` — adicionar action `restore_user` (ou usar `update_user` existente) para trocar email do auth user e atualizar profile do archive.
-- Investigar `supabase/functions/*` que fazem o auto-provisioning SSO (a determinar após leitura) — ajustar match por `sub`/`provider_id` em vez de email, caso ainda seja por email.
+`public.preview_restauracao_vendedor(p_empresa_id uuid)` retorna:
 
-Nenhuma migração de schema é necessária.
+- `total_divergentes`
+- `elegiveis_vendedor`
+- `descartados_sdr`
+- `descartados_sem_log`
+- `descartados_sem_perfil`
+- amostra de até 20 leads (contato_id, nome, status_atual, status_esperado, responsavel_email)
+
+### 3.2 RPC de execução
+
+`public.restore_leads_vendedor_por_loja(p_empresa_id uuid, p_dry_run boolean default true, p_limit int default 500)`:
+
+- `SECURITY DEFINER`, `search_path = public`, restrita a Admin/Master/TI (checa via `has_role`).
+- Monta CTE com o último log por `(contato_id, prospeccao_id)` da loja.
+- Junta com `profiles` + mapping `cargo_tipo_acesso_mapping` para filtrar `tipo_acesso = 'vendedor'`.
+- Atualiza `contatos.status` e `contatos.responsavel_email` **sem** disparar reatribuição/round-robin (flag interna `p_skip_auto = true` no caminho de update).
+- Grava `logs_movimentacao_contatos` com `motivo = 'restauracao_vendedor_v1'` e `usuario_id = auth.uid()` para auditoria.
+- Não emite webhook externo (evita 24k eventos).
+- Retorna `{ processados, atualizados, ignorados, amostra }`.
+
+### 3.3 Guard rails
+
+- `statement_timeout = 60s` local via `SET LOCAL`.
+- Lote máximo 500; a UI chama em loop até `processados < p_limit`.
+- Bloqueia execução se `p_empresa_id IS NULL` (nunca "todas as lojas de uma vez").
+
+---
+
+## 4. Frontend — `src/pages/admin/DiagnosticoStatus.tsx`
+
+1. Novo botão **"Restaurar loja (Vendedor)"** no header, **habilitado apenas quando `empresaIds.length === 1`**. Tooltip explicando o requisito quando desabilitado.
+2. Ao clicar: chama `preview_restauracao_vendedor` e abre `AlertDialog` com os contadores + amostra.
+3. Confirmação executa `restore_leads_vendedor_por_loja` em loop de lotes com barra de progresso (`processados / elegiveis`).
+4. Ao terminar, refetch de `get_leads_status_divergente` e `porLoja`; toast com o resumo.
+5. Log de execução aparece no `logs_prospeccoes` já existente (motivo `restauracao_vendedor_v1`) para consulta posterior.
+
+Apenas UI e chamadas de RPC — nenhuma alteração em regras de negócio de Kanban/atribuição.
+
+---
+
+## 5. Rollout
+
+1. Migration cria as duas RPCs.
+2. Deploy da UI com o botão.
+3. Executar `dry_run` em 3 lojas piloto (menor, média, maior) e conferir amostra.
+4. Rodar restauração real loja a loja, validando no `/administracao/diagnostico-status` que `total` cai para o esperado.
+5. Registrar cada execução em `docs/reset-leads-*.md` com contadores antes/depois.
+
+---
+
+## 6. Rollback
+
+Como cada update grava log com `motivo = 'restauracao_vendedor_v1'`, uma RPC `rollback_restauracao_vendedor(p_empresa_id, p_desde timestamptz)` reverte usando o `status_anterior`/`responsavel_email` do log imediatamente anterior. Fica pronta mas não é executada na rodada normal.
+
+---
+
+## 7. Plano separado (SDR) — pendente
+
+Mesma mecânica, mas:
+
+- Filtra `tipo_acesso = 'sdr'`.
+- Precisa validar `prospeccao_equipe_membros` no momento do log (SDR pode ter saído da equipe).
+- Decisão pendente: se SDR não pertence mais à equipe do evento, restaurar mesmo assim (auditoria) ou deixar sem responsável para o gestor reatribuir. Fica documentado aqui e será detalhado quando esta rodada de Vendedor terminar.
