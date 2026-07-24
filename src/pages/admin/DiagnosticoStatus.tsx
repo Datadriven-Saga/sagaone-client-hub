@@ -185,6 +185,11 @@ export default function DiagnosticoStatus() {
   const [auditoria, setAuditoria] = useState<any[]>([]);
   const [auditoriaLoading, setAuditoriaLoading] = useState(false);
   const [detalhesEventosOpen, setDetalhesEventosOpen] = useState(false);
+  const [dataDe, setDataDe] = useState<string>("");
+  const [dataAte, setDataAte] = useState<string>("");
+
+  const dataDeIso = useMemo(() => (dataDe ? new Date(dataDe + "T00:00:00").toISOString() : null), [dataDe]);
+  const dataAteIso = useMemo(() => (dataAte ? new Date(dataAte + "T23:59:59").toISOString() : null), [dataAte]);
 
   const totalDivergenciasGeral = useMemo(
     () => porLoja.reduce((acc, l) => acc + Number(l.total || 0), 0),
@@ -248,8 +253,8 @@ export default function DiagnosticoStatus() {
         p_status_atual: selectedStatusAtual,
         p_status_esperado: selectedStatusEsperado,
         p_search: search || null,
-        p_data_de: null,
-        p_data_ate: null,
+        p_data_de: dataDeIso,
+        p_data_ate: dataAteIso,
         p_page: page,
         p_page_size: PAGE_SIZE,
       });
@@ -307,7 +312,7 @@ export default function DiagnosticoStatus() {
       setRestoreProgress(null);
       setLoading(false);
     }
-  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page]);
+  }, [empresaIds, empresasOptions, prospeccaoIds, prospeccoesOptions, statusAtual, statusEsperado, statusOptions, search, page, dataDeIso, dataAteIso]);
 
   useEffect(() => { loadOpcoes(); }, [loadOpcoes]);
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -357,7 +362,7 @@ export default function DiagnosticoStatus() {
 
   const clearFilters = () => {
     setEmpresaIds([]); setProspeccaoIds([]); setStatusAtual([]); setStatusEsperado([]);
-    setSearch(""); setPage(1);
+    setSearch(""); setPage(1); setDataDe(""); setDataAte("");
   };
 
   const selectedLojaId = empresaIds.length === 1 ? empresaIds[0] : null;
@@ -390,10 +395,14 @@ export default function DiagnosticoStatus() {
     // Preview: se 1 loja, chama; se várias, agrega
     let agg = { total_divergentes: 0, elegiveis: 0, descartados_outros_perfis: 0, descartados_sem_perfil: 0 } as any;
     let amostra: any[] = [];
+    const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
     for (const loja of lojasAlvoRestauracao.slice(0, 50)) {
       const { data, error } = await (supabase as any).rpc("preview_restauracao_por_perfil", {
         p_empresa_id: loja.id,
         p_tipo_acesso: tiposArray,
+        p_data_de: dataDeIso,
+        p_data_ate: dataAteIso,
+        p_prospeccao_ids: selectedProspeccaoIds,
       });
       if (error) continue;
       agg.total_divergentes += Number(data?.total_divergentes ?? 0);
@@ -406,6 +415,8 @@ export default function DiagnosticoStatus() {
     }
     agg.amostra = amostra;
     agg.total_lojas = lojasAlvoRestauracao.length;
+    agg.data_de = dataDeIso;
+    agg.data_ate = dataAteIso;
     setPreviewLoading(false);
     setPreviewData(agg);
   };
@@ -416,6 +427,7 @@ export default function DiagnosticoStatus() {
     let totalRestaurados = 0;
     let totalLojasOk = 0;
     let totalLojasErro = 0;
+    const selectedProspeccaoIds = idsOrNull(prospeccaoIds, prospeccoesOptions);
     try {
       for (let idx = 0; idx < lojasAlvoRestauracao.length; idx++) {
         const loja = lojasAlvoRestauracao[idx];
@@ -431,6 +443,9 @@ export default function DiagnosticoStatus() {
             p_tipo_acesso: tiposArray,
             p_dry_run: false,
             p_limit: 500,
+            p_data_de: dataDeIso,
+            p_data_ate: dataAteIso,
+            p_prospeccao_ids: selectedProspeccaoIds,
           });
           const dur = Date.now() - t0;
           if (error) {
@@ -540,6 +555,23 @@ export default function DiagnosticoStatus() {
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} toggleSelectAll wrapLabels width={260} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
+              <div className="flex items-center gap-1">
+                <Input
+                  type="date"
+                  value={dataDe}
+                  onChange={(e) => { setDataDe(e.target.value); setPage(1); }}
+                  className="h-8 w-[150px] [color-scheme:light] dark:[color-scheme:dark]"
+                  title="Data do último log — de"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={dataAte}
+                  onChange={(e) => { setDataAte(e.target.value); setPage(1); }}
+                  className="h-8 w-[150px] [color-scheme:light] dark:[color-scheme:dark]"
+                  title="Data do último log — até"
+                />
+              </div>
               <Select value={tipoAcessoAlvo} onValueChange={(v: any) => setTipoAcessoAlvo(v)}>
                 <SelectTrigger className="h-8 w-[180px]">
                   <SelectValue placeholder="Tipo de acesso" />

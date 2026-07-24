@@ -7444,10 +7444,21 @@ export type Database = {
           telefone: string
         }[]
       }
-      preview_restauracao_por_perfil: {
-        Args: { p_empresa_id: string; p_tipo_acesso?: string[] }
-        Returns: Json
-      }
+      preview_restauracao_por_perfil:
+        | {
+            Args: { p_empresa_id: string; p_tipo_acesso?: string[] }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_data_ate?: string
+              p_data_de?: string
+              p_empresa_id: string
+              p_prospeccao_ids?: string[]
+              p_tipo_acesso?: string[]
+            }
+            Returns: Json
+          }
       preview_restauracao_vendedor: {
         Args: { p_empresa_id: string }
         Returns: Json
@@ -7475,15 +7486,28 @@ export type Database = {
           nome_completo: string
         }[]
       }
-      restore_leads_por_perfil: {
-        Args: {
-          p_dry_run?: boolean
-          p_empresa_id: string
-          p_limit?: number
-          p_tipo_acesso?: string[]
-        }
-        Returns: Json
-      }
+      restore_leads_por_perfil:
+        | {
+            Args: {
+              p_dry_run?: boolean
+              p_empresa_id: string
+              p_limit?: number
+              p_tipo_acesso?: string[]
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_data_ate?: string
+              p_data_de?: string
+              p_dry_run?: boolean
+              p_empresa_id: string
+              p_limit?: number
+              p_prospeccao_ids?: string[]
+              p_tipo_acesso?: string[]
+            }
+            Returns: Json
+          }
       restore_leads_vendedor_por_loja: {
         Args: { p_dry_run?: boolean; p_empresa_id: string; p_limit?: number }
         Returns: Json
