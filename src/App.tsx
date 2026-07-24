@@ -184,7 +184,7 @@ const AppRoutes = () => {
         <Route path="/administracao/logs-cadeiras" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><LogsCadeiras /></PermissionProtectedRoute>} />
         <Route path="/administracao/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
         <Route path="/administracao/diagnostico-eventos" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><DiagnosticoEventos /></PermissionProtectedRoute>} />
-        <Route path="/administracao/diagnostico-status" element={<PermissionProtectedRoute permissionKey="canAccessAdminConfig"><DiagnosticoStatus /></PermissionProtectedRoute>} />
+        <Route path="/administracao/diagnostico-status" element={<PermissionProtectedRoute permissionKey="canAccessDiagnosticoStatus"><DiagnosticoStatus /></PermissionProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
