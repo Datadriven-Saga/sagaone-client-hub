@@ -173,6 +173,7 @@ export default function DiagnosticoStatus() {
   const [rows, setRows] = useState<LeadDivergente[]>([]);
   const [total, setTotal] = useState(0);
   const [porLoja, setPorLoja] = useState<{ empresa_id: string; loja_nome: string; total: number }[]>([]);
+  const [porEvento, setPorEvento] = useState<{ prospeccao_id: string; evento_titulo: string; empresa_id: string; total_leads: number; divergentes: number }[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
