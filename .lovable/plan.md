@@ -1,130 +1,122 @@
+# Objetivo
 
-# Kanban de Atendimento — entendimento, explicação e proposta base
-
-Antes de qualquer código, precisamos concordar em três coisas: **onde o lead vive**, **onde o "contato" (interação) vive**, e **quais colunas mínimas** o Kanban precisa. Esta é a versão "básico do básico" — nada de agregações, dispatch, IA, temperatura. Só o esqueleto.
+Introduzir o conceito de **lead** como entidade própria (única por `contato + evento`) com **status próprio**, para uso exclusivo do Kanban v2 (`/prospeccao/atendimento-v2`). Nada em produção muda de comportamento.
 
 ---
 
-## 1. Onde o lead vive (modelo de dados atual)
+# 1. Como funciona hoje (verificado)
+
+| Conceito | Onde vive hoje | Problema |
+|---|---|---|
+| Pessoa (telefone) | `contatos` (unicidade por telefone dentro da `empresa_id`) | OK |
+| Vínculo pessoa↔evento | `eventos_prospeccao(contato_id, prospeccao_id, ...)` | Tabela faz dois papéis: vínculo **e** histórico de interações. Permite múltiplas linhas para o mesmo par. |
+| Status | `contatos.status` (**global**, único por pessoa) | Se a pessoa aparece em 2 eventos, o status é o mesmo para ambos → métricas infladas, race conditions, UX confusa. Documentado como débito estrutural. |
+| Status por evento (derivado) | `logs_movimentacao_contatos` — última linha por `(contato_id, prospeccao_id)` | Correto conceitualmente, mas **caro em leitura** (window function em toda consulta do Kanban). |
+| Responsável | `contatos.responsavel_email` (**global**) | Mesmo problema do status. |
+
+Distância do modelo desejado: o "lead por evento" **não existe como entidade**; ele é reconstruído em runtime a partir dos logs a cada render do Kanban.
+
+---
+
+# 2. Modelo alvo (somente v2)
+
+Nova tabela `public.leads` — **fonte de verdade do lead por evento**, alimentada pelos mesmos gatilhos que já geram log hoje.
 
 ```text
-empresas
-  └── eventos_prospeccao (prospecções / eventos de venda)
-         └── eventos_prospeccao (tabela vínculo lead ↔ evento)   ⚠ nome sobrecarregado
-                    │
-                    └── contatos (a "pessoa" — 1 por telefone/empresa)
-                              ├── contato_anotacoes    (histórico textual do lead)
-                              ├── logs_movimentacao_contatos  (mudanças de status)
-                              └── contato_timeline     (view agregada)
-```
-
-Pontos importantes (e débitos já mapeados na memória do projeto):
-
-- **`contatos`** é a entidade "pessoa" — única por telefone dentro da empresa. Tem um campo `status` **global**, que hoje é o que o Kanban lê/escreve na maior parte dos fluxos.
-- **`eventos_prospeccao`** faz dois papéis no mesmo nome de tabela: cadastro do evento **e** vínculo lead↔evento. É débito arquitetural conhecido.
-- **`logs_movimentacao_contatos`** é a única fonte confiável de "qual era o status desse lead **neste evento** naquele momento". É o que já usamos para derivar status por evento em algumas telas (`get_contato_status_por_evento`).
-- **`contato_anotacoes`** pertence ao **lead**, não ao evento. `prospeccao_id` é só metadado. Ou seja: histórico é compartilhado entre eventos do mesmo lead.
-
-**Consequência prática que precisa ficar clara antes de desenhar o Kanban:**
-o mesmo lead pode aparecer em N eventos. Hoje o status é global → em todos os eventos ele aparece com o mesmo status. Isso já é reconhecido como débito e parcialmente mitigado (leitura por evento em algumas telas, escrita ainda global via `mutate_contato_status_atomic`).
-
----
-
-## 2. Onde o "contato" (interação) vive
-
-"Contato" no sentido do SDR ("realizei contato com o cliente") **não é uma entidade separada**. Hoje ele é registrado como:
-
-- **anotação** em `contato_anotacoes` (texto livre, prefixado: `📞 CONTATO REALIZADO`, `📵 TENTATIVA SEM SUCESSO`, etc.);
-- **mudança de status** em `logs_movimentacao_contatos` (ex.: Novo → Em Espera);
-- opcionalmente, incremento de tentativas de ligação (contagem no card).
-
-Ou seja: **um "contato realizado" = uma linha em `logs_movimentacao_contatos` + uma linha em `contato_anotacoes`**, correlacionadas por `contato_id` (+ `prospeccao_id` como metadado).
-
-Não existe hoje uma tabela `contatos_realizados` ou `interacoes` dedicada — e para o "básico do básico" **não precisa existir**. Reaproveitamos anotação + log.
-
----
-
-## 3. Colunas mínimas do Kanban
-
-Consolidando o que já está em produção (`docs/operacoes/manual-do-usuario/03-prospeccao-kanban.md`), o conjunto reduzido para "básico do básico" é:
-
-| # | Coluna    | Status interno | Quem move  |
-|---|-----------|----------------|------------|
-| 1 | Novos     | `Novo`         | sistema (import) |
-| 2 | Atribuídos| `Atribuído`    | sistema/gestor (auto-atribuição) |
-| 3 | Em Espera | `Em Espera`    | SDR (contato feito, sem decisão) |
-| 4 | Convidados| `Convidado`    | SDR (cliente confirmou interesse) |
-| 5 | Descartados| `Descartado`  | SDR (sem interesse) |
-
-Ficam **fora** do MVP (voltam depois, uma a uma):
-- `Confirmado`, `Check-in`, `Venda`, `Opt Out` — pertencem a fluxos vizinhos (Recepção, Pós-venda, Compliance) e já têm regras/webhooks próprios; entram depois de o esqueleto estar estável.
-
----
-
-## 4. Proposta de reconstrução (esqueleto mínimo)
-
-**Objetivo desta fase:** ter um Kanban que **apenas** liste leads de **um evento** nas 5 colunas acima e permita mover entre elas. Sem filtros avançados, sem popover de "Contato Realizado", sem temperatura, sem dispatch, sem IA. Nada.
-
-### 4.1 Contrato de dados (leitura)
-
-Uma única RPC nova, ex.: `get_kanban_basico(p_prospeccao_id uuid, p_status text[], p_limit int, p_offset int)` que retorna, **por status derivado do evento**:
-
-```text
-{
-  colunas: [
-    { status: 'Novo',       total: N, items: [ {contato_id, nome, telefone, responsavel} ... ] },
-    { status: 'Atribuído',  ... },
-    ...
-  ]
-}
+contatos (pessoa, único por telefone)
+   └── leads (N por contato, 1 por evento)
+         ├─ contato_id  ──► contatos.id
+         ├─ prospeccao_id ──► prospeccoes.id     UNIQUE(contato_id, prospeccao_id)
+         ├─ status           (status atual DO LEAD, não do contato)
+         ├─ responsavel_email
+         ├─ temperatura_id
+         ├─ ultima_movimentacao_at
+         └─ created_at / updated_at
+   └── logs_movimentacao_contatos (histórico — permanece igual)
 ```
 
 Regras:
-- Status derivado por `logs_movimentacao_contatos` **para aquele `prospeccao_id`**, com fallback documentado (última entrada do lead ou `Novo` se nunca movimentado nesse evento).
-- Sempre exige `prospeccao_id` — nunca roda "todos os eventos" (respeita a memory `kanban-default-filter-and-timeout-prevention` que bloqueia timeout 57014).
-
-### 4.2 Contrato de escrita (mover card)
-
-Reaproveitar o que já existe e é seguro:
-- **`mutate_contato_status_atomic(contato_id, prospeccao_id, novo_status, autor)`** — única porta de escrita.
-- Grava log em `logs_movimentacao_contatos` + atualiza `contatos.status`.
-- Trigger PG cuida do webhook Mobi (memory `movimentacao-lead-single-source`). FE **não** chama `trigger-webhook`.
-
-### 4.3 Componentes de UI (do zero, isolados)
-
-Novos arquivos, sem tocar em `Prospeccao.tsx` (3925 linhas — refactor pendente):
-
-```text
-src/features/kanban-basico/
-  KanbanBasicoPage.tsx         ← rota nova (ex.: /prospeccao/atendimento-v2)
-  KanbanBasicoBoard.tsx        ← board com as 5 colunas
-  KanbanBasicoColumn.tsx       ← coluna, conta total + lista items
-  KanbanBasicoCard.tsx         ← só nome, telefone, responsável
-  useKanbanBasico.ts           ← chama a RPC, expõe move()
-```
-
-Nada mais. Sem drag-and-drop na v0 se quisermos simplificar ainda mais — botão "mover para →" no card já resolve a premissa.
-
-### 4.4 O que **não** entra nesta fase
-
-- Filtros (responsável, temperatura, marca, origem, busca).
-- Multi-evento no mesmo board.
-- Popover "Contato Realizado" com incremento de tentativas.
-- Solicitar leads / auto-atribuição.
-- Anotações inline.
-- Regras de bloqueio 24h, limite 30 leads SDR, opt-out.
-- Realtime / otimista.
-- Substituir a tela antiga (`/prospeccao/atendimento` continua rodando em paralelo).
-
-Cada um desses volta como um passo separado, encaixando no esqueleto.
+- Filtrar por contato → todos os leads (todos os eventos daquela pessoa).
+- Filtrar por lead → 1 contato + 1 evento.
+- `contatos.status` continua existindo e sendo escrito pelos fluxos atuais — **produção intocada**.
 
 ---
 
-## 5. Perguntas antes de eu prosseguir para um plano executável
+# 3. Estratégia de convivência (sem quebrar prod)
 
-1. **Escopo de colunas do MVP:** as 5 acima (`Novo`, `Atribuído`, `Em Espera`, `Convidado`, `Descartado`) estão OK, ou você quer incluir/excluir alguma já no esqueleto?
-2. **Único evento por vez:** confirma que o MVP mostra **um** `prospeccao_id` obrigatoriamente selecionado (sem multi-evento)?
-3. **Substituir ou coexistir:** construímos em rota nova (ex.: `/prospeccao/atendimento-v2`) enquanto o Kanban atual continua vivo, ou você quer que já **substitua** a tela atual desde a v0?
-4. **Fonte do status:** vamos oficializar leitura por `logs_movimentacao_contatos` (por evento) já na v0, ou começamos lendo `contatos.status` global só para não misturar refactor de leitura com refactor de UI?
+1. **Backfill idempotente** de `leads` a partir de:
+   - `eventos_prospeccao` (todo par `contato_id + prospeccao_id` distinto vira 1 lead)
+   - último `logs_movimentacao_contatos` daquele par define o `status` inicial
+   - fallback: `contatos.status` se não houver log (mesma regra da RPC atual)
+2. **Sincronização contínua** via trigger em `logs_movimentacao_contatos`:
+   - após cada insert, `UPSERT` em `leads` atualizando `status`, `responsavel_email`, `ultima_movimentacao_at`.
+   - assim, todo fluxo legado (importação, `mutate_contato_status_atomic`, webhooks Mobi, atribuição SDR) continua chamando o que já chama e **automaticamente** popula `leads`.
+3. **Nenhum código de produção lê `leads`** nesta fase. Só o Kanban v2.
+4. Feature flag `kanban_v2_leads_table` para poder desligar leitura da nova tabela e cair de volta na RPC baseada em logs, sem redeploy.
 
-Assim que você responder essas 4, eu volto com o plano de implementação em passos concretos (RPC + rota + componentes), sem tocar em nada até você aprovar.
+---
+
+# 4. Ganho de performance
+
+- Kanban v2 hoje: `get_kanban_columns` faz `DISTINCT ON` sobre `logs_movimentacao_contatos` filtrando por `prospeccao_id`. Custo cresce com histórico.
+- Kanban v2 depois: `SELECT ... FROM leads WHERE prospeccao_id = ANY($1)` — 1 índice `(prospeccao_id, status)` resolve.
+
+---
+
+# 5. Plano de execução
+
+## Fase A — Estrutura (migração)
+1. `CREATE TABLE public.leads (...)` + GRANTs + RLS espelhando `contatos` (acesso via `user_can_access_empresa(empresa_id)` derivado do contato).
+2. Índices: `UNIQUE(contato_id, prospeccao_id)`, `(prospeccao_id, status)`, `(responsavel_email, prospeccao_id)`.
+3. Trigger `AFTER INSERT ON logs_movimentacao_contatos` → `UPSERT` em `leads`.
+4. Backfill em batch (função `backfill_leads_from_eventos(_empresa_id)`), roda por empresa, idempotente.
+
+## Fase B — RPC de leitura v2
+5. `get_kanban_v2(p_prospeccao_ids uuid[], filtros...)` lendo apenas `leads` + join leve em `contatos` (nome/telefone). Mantém contrato semelhante a `get_kanban_columns`.
+
+## Fase C — Kanban v2 usa a nova fonte
+6. `useKanbanBasico.ts` passa a chamar `get_kanban_v2` atrás da feature flag; escrita continua em `mutate_contato_status_atomic` (que grava log → trigger popula `leads`).
+7. Ajuste do README do feature para refletir a nova origem.
+
+## Fase D — Validação
+8. Job de consistência: comparar `leads.status` vs. último log por par. Alerta se divergir. Roda 1x/dia até estabilizar.
+9. Tela `/administracao/diagnostico-status` ganha aba "Leads v2" reutilizando a checagem.
+
+---
+
+# 6. Fora de escopo (explicitamente)
+
+- Não migrar `contatos.status` → produção segue usando o campo global.
+- Não mexer em `eventos_prospeccao` (dívida arquitetural fica para depois).
+- Não alterar telas antigas, webhooks Mobi, importação, SDR, quarentena, disparos WhatsApp/Voz.
+- Não expor `leads` em nenhuma rota de prod.
+
+---
+
+# 7. Riscos & mitigação
+
+| Risco | Mitigação |
+|---|---|
+| Backfill pesado em empresas grandes | Rodar por `empresa_id`, em transações pequenas, com `ON CONFLICT DO UPDATE` |
+| Trigger em `logs_movimentacao_contatos` afetar caminho crítico | Trigger `AFTER INSERT`, sem `RAISE`, `SECURITY DEFINER`, testado com carga antes de habilitar |
+| Divergência silenciosa `leads` vs. logs | Job de consistência da Fase D + feature flag para rollback instantâneo |
+| RLS incorreta expondo leads de outra empresa | Espelhar exatamente a policy de `contatos` via `user_can_access_empresa` |
+
+---
+
+# 8. Detalhes técnicos (para revisão do time)
+
+- `leads.empresa_id` denormalizado (copiado do contato no upsert) para RLS barata e índice curto.
+- `status` como `text` no início (não `USER-DEFINED`) para não acoplar ao enum `status_lead` — evita migração de enum caso o Kanban v2 introduza colunas novas.
+- Trigger também trata `UPDATE` em `contatos.responsavel_email` para manter espelho enquanto produção ainda escreve lá (fase de transição).
+- Nenhum GRANT para `anon`; apenas `authenticated` e `service_role`.
+
+---
+
+# Entregáveis desta etapa
+
+- 1 migração (tabela + índices + RLS + trigger + função de backfill).
+- 1 RPC `get_kanban_v2`.
+- Ajuste no hook `useKanbanBasico` + feature flag.
+- Atualização do `README.md` do feature.
+- Nota em `mem://architecture/prospeccao/` sobre a nova entidade e seu escopo restrito ao v2.
