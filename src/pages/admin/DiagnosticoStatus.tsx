@@ -234,21 +234,6 @@ export default function DiagnosticoStatus() {
     const selectedStatusAtual = idsOrNull(statusAtual, statusOptions);
     const selectedStatusEsperado = idsOrNull(statusEsperado, statusOptions);
 
-    const hasScopedFilter =
-      hasSpecificSelection(empresaIds, empresasOptions) ||
-      hasSpecificSelection(prospeccaoIds, prospeccoesOptions) ||
-      Boolean(search.trim()) ||
-      hasSpecificSelection(statusAtual, statusOptions) ||
-      hasSpecificSelection(statusEsperado, statusOptions);
-
-    if (!hasScopedFilter) {
-      setRows([]);
-      setTotal(0);
-      setPorLoja([]);
-      setLoading(false);
-      return;
-    }
-
     const { data, error } = await (supabase as any).rpc("get_leads_status_divergente", {
       p_empresa_ids: selectedEmpresaIds,
       p_prospeccao_ids: selectedProspeccaoIds,
@@ -558,9 +543,7 @@ export default function DiagnosticoStatus() {
           <CardContent className="pt-0">
             {porLoja.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {isGlobalQuery
-                  ? "Selecione uma loja, evento, status, período ou busca para carregar os totais."
-                  : "Nenhuma divergência com os filtros atuais."}
+                Nenhuma divergência com os filtros atuais.
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -711,9 +694,7 @@ export default function DiagnosticoStatus() {
             ))}
             {!loading && rows.length === 0 && (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                {isGlobalQuery
-                  ? "A consulta sem recorte foi bloqueada para evitar timeout. Use pelo menos um filtro específico."
-                  : "Nenhum lead divergente encontrado."}
+            Nenhum lead divergente encontrado.
               </div>
             )}
           </CardContent>
