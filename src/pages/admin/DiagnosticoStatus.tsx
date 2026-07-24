@@ -503,6 +503,46 @@ export default function DiagnosticoStatus() {
             )}
           </CardContent>
         </Card>
+
+        <AlertDialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <AlertDialogContent className="max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Restaurar leads — {selectedLojaNome}</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  {previewLoading && <p>Calculando…</p>}
+                  {!previewLoading && previewData && (
+                    <>
+                      <p>
+                        Serão restaurados apenas leads cujo último log válido aponta para um usuário com acesso <strong>Vendedor</strong>.
+                        Isso ajusta o status do lead e o responsável para o último estado registrado.
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Total divergentes na loja: <strong>{previewData.total_divergentes ?? 0}</strong></li>
+                        <li>Elegíveis (Vendedor com e-mail): <strong className="text-primary">{previewData.elegiveis_vendedor ?? 0}</strong></li>
+                        <li>Descartados — SDR: {previewData.descartados_sdr ?? 0}</li>
+                        <li>Descartados — outros perfis: {previewData.descartados_outros_perfis ?? 0}</li>
+                        <li>Descartados — sem perfil vinculado: {previewData.descartados_sem_perfil ?? 0}</li>
+                      </ul>
+                      <p className="text-xs text-muted-foreground">
+                        A operação é feita em lotes de 500 e registra logs de auditoria com motivo <code>restauracao_vendedor_v1</code>.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={restoring}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={restoring || previewLoading || !previewData || (previewData?.elegiveis_vendedor ?? 0) === 0}
+                onClick={(e) => { e.preventDefault(); runRestore(); }}
+              >
+                {restoring ? "Restaurando…" : `Restaurar ${previewData?.elegiveis_vendedor ?? 0} lead(s)`}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
