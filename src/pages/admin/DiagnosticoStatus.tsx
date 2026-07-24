@@ -555,6 +555,23 @@ export default function DiagnosticoStatus() {
               <MultiSelectFilter label="Eventos" options={prospeccoesOptions} selected={prospeccaoIds} onChange={(v) => { setProspeccaoIds(v); setPage(1); }} toggleSelectAll wrapLabels width={260} />
               <MultiSelectFilter label="Status atual" options={statusOptions} selected={statusAtual} onChange={(v) => { setStatusAtual(v); setPage(1); }} />
               <MultiSelectFilter label="Status esperado" options={statusOptions} selected={statusEsperado} onChange={(v) => { setStatusEsperado(v); setPage(1); }} />
+              <div className="flex items-center gap-1">
+                <Input
+                  type="date"
+                  value={dataDe}
+                  onChange={(e) => { setDataDe(e.target.value); setPage(1); }}
+                  className="h-8 w-[150px] [color-scheme:light] dark:[color-scheme:dark]"
+                  title="Data do último log — de"
+                />
+                <span className="text-xs text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={dataAte}
+                  onChange={(e) => { setDataAte(e.target.value); setPage(1); }}
+                  className="h-8 w-[150px] [color-scheme:light] dark:[color-scheme:dark]"
+                  title="Data do último log — até"
+                />
+              </div>
               <Select value={tipoAcessoAlvo} onValueChange={(v: any) => setTipoAcessoAlvo(v)}>
                 <SelectTrigger className="h-8 w-[180px]">
                   <SelectValue placeholder="Tipo de acesso" />
